@@ -29,7 +29,9 @@ vm.runInContext(`
   globalThis.CONSTANTS = {
     BAY_WEIGHTS, CATCH_WEIGHTS, GROUP_HUNT_LIMITS, HUNT_ZONES, CAMP_ZONE,
     SEARCH_TICK_MS, MAX_SEARCH_TICKS, TRAVEL_TICKS,
-    MINIGAME_START_METER, MINIGAME_MAX_ROUNDS
+    MINIGAME_START_METER, MINIGAME_MAX_ROUNDS,
+    MINIGAME_HOG_HIT_CHANCE, HOG_HIT_INJURY_CHANCE, HOG_HIT_INJURY_CAP,
+    CALL_OFF_PAYOUT_PCT
   };
 `, sandbox);
 
@@ -145,6 +147,78 @@ test("resolveMiniGameTap forces an outcome at the round cap", () => {
   const mg = { meter: 60, round: sandbox.MINIGAME_MAX_ROUNDS - 1, sweetSpotPct: 10, sweepMs: 1500, sweetSpot: { start: 0, end: 10 } };
   const { outcome } = sandbox.resolveMiniGameTap(mg, 99);
   assert.ok(outcome === "caught" || outcome === "escaped");
+});
+
+test("resolveMiniGameTap carries hogHits forward untouched on a hit", () => {
+  const mg = { meter: 50, round: 1, hogHits: 2, sweetSpotPct: 30, sweepMs: 1500, sweetSpot: { start: 40, end: 70 } };
+  const { hit, hogHit, next } = sandbox.resolveMiniGameTap(mg, 55);
+  assert.equal(hit, true);
+  assert.equal(hogHit, false);        // the hog only hits back on a miss
+  assert.equal(next.hogHits, 2);
+});
+
+test("resolveMiniGameTap accumulates hogHits on a miss and seeds from 0", () => {
+  const missed = { meter: 50, round: 1, hogHits: 2, sweetSpotPct: 10, sweepMs: 1500, sweetSpot: { start: 0, end: 10 } };
+  const { hogHit, next } = sandbox.resolveMiniGameTap(missed, 99);
+  assert.equal(next.hogHits, hogHit ? 3 : 2);
+  // A miniGame that predates the field still starts its tally at 0/1.
+  const legacy = { meter: 50, round: 1, sweetSpotPct: 10, sweepMs: 1500, sweetSpot: { start: 0, end: 10 } };
+  const r2 = sandbox.resolveMiniGameTap(legacy, 99);
+  assert.equal(r2.next.hogHits, r2.hogHit ? 1 : 0);
+});
+
+test("stepTravel seeds the mini-game with a zeroed hog-hit tally", () => {
+  const gh = { phase: "traveling", bayDogIds: ["b1"], catchDogIds: ["c1"], dogsById: { b1: bayDog, c1: catchDog }, dogZones: { b1: "creek", c1: "camp" }, ticksElapsed: 5, travelTicks: sandbox.TRAVEL_TICKS - 1, hog: { weightLbs: 300, tier: "Good", zoneKey: "ridge", found: true }, miniGame: null };
+  assert.equal(sandbox.stepTravel(gh).miniGame.hogHits, 0);
+});
+
+test("hogHitInjuryChance is zero with no hog-hits and scales with them", () => {
+  assert.equal(sandbox.hogHitInjuryChance(0), 0);
+  assert.equal(sandbox.hogHitInjuryChance(undefined), 0);
+  assert.equal(sandbox.hogHitInjuryChance(1), sandbox.HOG_HIT_INJURY_CHANCE);
+  assert.ok(sandbox.hogHitInjuryChance(3) > sandbox.hogHitInjuryChance(2));
+});
+
+test("hogHitInjuryChance is capped so a bad mini-game can't guarantee injury", () => {
+  assert.equal(sandbox.hogHitInjuryChance(sandbox.MINIGAME_MAX_ROUNDS), sandbox.HOG_HIT_INJURY_CAP);
+  assert.equal(sandbox.hogHitInjuryChance(1000), sandbox.HOG_HIT_INJURY_CAP);
+  assert.ok(sandbox.HOG_HIT_INJURY_CAP < 1);
+});
+
+/* markerPctAt is the JS twin of the kg-minigame-sweep CSS keyframe
+   (0% -> left:0, 50% -> left:100%, 100% -> left:0, linear). Hand-verified:
+   at half the sweep the marker is at the far right, at a quarter and at
+   three quarters it's dead centre, and it wraps for elapsed > sweepMs. */
+test("markerPctAt traces the same triangle wave the CSS keyframe animates", () => {
+  assert.equal(sandbox.markerPctAt(0, 2000), 0);
+  assert.equal(sandbox.markerPctAt(500, 2000), 50);
+  assert.equal(sandbox.markerPctAt(1000, 2000), 100);
+  assert.equal(sandbox.markerPctAt(1500, 2000), 50);
+  const nearEnd = sandbox.markerPctAt(1999, 2000);     // 0.1% — all but back at the left edge
+  assert.ok(nearEnd > 0 && nearEnd < 0.5, `expected ~0.1, got ${nearEnd}`);
+});
+
+test("markerPctAt wraps past one full sweep and stays inside 0-100", () => {
+  assert.equal(sandbox.markerPctAt(3000, 2000), sandbox.markerPctAt(1000, 2000));
+  assert.equal(sandbox.markerPctAt(4500, 2000), sandbox.markerPctAt(500, 2000));
+  for (let ms = 0; ms < 6000; ms += 37) {
+    const pct = sandbox.markerPctAt(ms, 1500);
+    assert.ok(pct >= 0 && pct <= 100, `out of range at ${ms}ms: ${pct}`);
+  }
+});
+
+test("huntPerformancePct blends catch meter with search efficiency", () => {
+  assert.equal(sandbox.huntPerformancePct(100, 0), 100);              // perfect meter, instant find
+  assert.equal(sandbox.huntPerformancePct(0, sandbox.MAX_SEARCH_TICKS), 0);  // empty meter, ran to the cap
+  assert.equal(sandbox.huntPerformancePct(50, sandbox.MAX_SEARCH_TICKS / 2), 50);
+  assert.ok(sandbox.huntPerformancePct(90, 4) > sandbox.huntPerformancePct(90, 16));
+});
+
+test("huntPerformancePct stays clamped 0-100 on out-of-range inputs", () => {
+  const over = sandbox.huntPerformancePct(180, 0);
+  const under = sandbox.huntPerformancePct(-40, sandbox.MAX_SEARCH_TICKS * 3);
+  assert.ok(over >= 0 && over <= 100, `got ${over}`);
+  assert.ok(under >= 0 && under <= 100, `got ${under}`);
 });
 
 process.exit(failed ? 1 : 0);

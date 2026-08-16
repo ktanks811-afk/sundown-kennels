@@ -14,12 +14,12 @@ function catchSuitability(dog) { return Math.round(clamp(statScore(dog.stats, CA
    already uses (see FAME_TIERS, simulation.jsx). A plain config array so
    these are easy to rebalance later without touching any logic. */
 const GROUP_HUNT_LIMITS = [
-  { fameMin: 0,   bay: 2, catch: 1, label: "Unknown" },
-  { fameMin: 15,  bay: 2, catch: 1, label: "Locally Known" },
-  { fameMin: 40,  bay: 3, catch: 2, label: "Regional Name" },
-  { fameMin: 80,  bay: 4, catch: 3, label: "County Famous" },
-  { fameMin: 150, bay: 4, catch: 3, label: "State Renowned" },
-  { fameMin: 260, bay: 5, catch: 4, label: "Living Legend" },
+  { fameMin: 0,   bay: 2, catch: 1 },   // Unknown
+  { fameMin: 15,  bay: 2, catch: 1 },   // Locally Known
+  { fameMin: 40,  bay: 3, catch: 2 },   // Regional Name
+  { fameMin: 80,  bay: 4, catch: 3 },   // County Famous
+  { fameMin: 150, bay: 4, catch: 3 },   // State Renowned
+  { fameMin: 260, bay: 5, catch: 4 },   // Living Legend
 ];
 function groupHuntLimit(fame) {
   let limit = GROUP_HUNT_LIMITS[0];
@@ -105,7 +105,7 @@ function stepTravel(groupHunt) {
   if (arrived) {
     const catchDogs = groupHunt.catchDogIds.map((id) => groupHunt.dogsById[id]);
     const { sweetSpotPct, sweepMs } = miniGameDifficulty(groupHunt.hog, catchDogs);
-    const miniGame = { meter: MINIGAME_START_METER, round: 0, sweetSpotPct, sweepMs, sweetSpot: rollSweetSpot(sweetSpotPct) };
+    const miniGame = { meter: MINIGAME_START_METER, round: 0, hogHits: 0, sweetSpotPct, sweepMs, sweetSpot: rollSweetSpot(sweetSpotPct) };
     return { ...groupHunt, dogZones, travelTicks, phase: "catching", miniGame };
   }
   return { ...groupHunt, dogZones, travelTicks };
@@ -116,8 +116,42 @@ function stepTravel(groupHunt) {
 const MINIGAME_START_METER = 50;
 const MINIGAME_HIT_GAIN = 22;
 const MINIGAME_MISS_LOSS = 18;
-const MINIGAME_HOG_HIT_CHANCE = 0.35;   // chance a miss also costs a dog some health
+const MINIGAME_HOG_HIT_CHANCE = 0.35;   // per-round chance a miss lets the hog land a hit back
 const MINIGAME_MAX_ROUNDS = 8;
+
+/* Post-hunt injury odds. Every hog-hit landed during the mini-game gives
+   each catch dog an independent shot at a real injury, capped so even a
+   disastrous mini-game can't make injury a near-certainty. A clean
+   mini-game (zero hog-hits) carries zero injury risk — the risk comes from
+   how the fight actually went, not from the catch/escape outcome. */
+const HOG_HIT_INJURY_CHANCE = 0.15;
+const HOG_HIT_INJURY_CAP = 0.6;
+function hogHitInjuryChance(hogHits) {
+  return Math.min((hogHits || 0) * HOG_HIT_INJURY_CHANCE, HOG_HIT_INJURY_CAP);
+}
+
+/* Fraction of a full catch's payout the player still banks for calling the
+   pack off a bayed hog — they found and held it, they just didn't spend
+   their dogs on it. */
+const CALL_OFF_PAYOUT_PCT = 0.15;
+
+/* The marker's position (0-100) on the sweep bar at a given elapsed time.
+   This is the exact triangle wave the kg-minigame-sweep keyframe animates
+   (0% -> left:0, 50% -> left:100%, 100% -> left:0, linear), recomputed from
+   the clock so the hit test never has to read DOM layout. Kept here, next to
+   the rest of the mini-game math, so it can be unit-tested. */
+function markerPctAt(elapsedMs, sweepMs) {
+  const phase = (elapsedMs % sweepMs) / sweepMs;
+  return phase < 0.5 ? phase * 2 * 100 : (1 - phase) * 2 * 100;
+}
+
+/* The spec's results-screen "Hunt Performance: N%" figure — half how well
+   the player worked the catch meter, half how quickly the bay dogs turned
+   up the hog (a search that runs to the tick cap scores 0 for efficiency). */
+function huntPerformancePct(meter, ticksElapsed) {
+  const searchEfficiency = clamp(100 - ((ticksElapsed || 0) / MAX_SEARCH_TICKS) * 100, 0, 100);
+  return Math.round(clamp((clamp(meter, 0, 100) + searchEfficiency) / 2, 0, 100));
+}
 
 /* Sweet-spot width (% of the bar) and marker sweep speed for a round.
    Bigger hog + weaker/fewer catch dogs = a smaller, faster window. */
@@ -139,15 +173,18 @@ function rollSweetSpot(sweetSpotPct) {
 
 /* Resolves a single tap against the current sweep position (0-100). Keeps a
    random component (hog fighting back on a miss) even though the odds are
-   stat-driven, per the "not fully deterministic" requirement. */
+   stat-driven, per the "not fully deterministic" requirement. `next.hogHits`
+   is the running total of hits the hog has landed across the whole
+   mini-game — finishGroupHunt drives its injury rolls off it. */
 function resolveMiniGameTap(miniGame, markerPct) {
   const hit = markerPct >= miniGame.sweetSpot.start && markerPct <= miniGame.sweetSpot.end;
   const meter = clamp(miniGame.meter + (hit ? MINIGAME_HIT_GAIN : -MINIGAME_MISS_LOSS), 0, 100);
   const round = miniGame.round + 1;
   const hogHit = !hit && Math.random() < MINIGAME_HOG_HIT_CHANCE;
+  const hogHits = (miniGame.hogHits || 0) + (hogHit ? 1 : 0);
   let outcome = null;
   if (meter >= 100) outcome = "caught";
   else if (meter <= 0) outcome = "escaped";
   else if (round >= MINIGAME_MAX_ROUNDS) outcome = meter >= MINIGAME_START_METER ? "caught" : "escaped";
-  return { hit, hogHit, outcome, next: { ...miniGame, meter, round, sweetSpot: outcome ? miniGame.sweetSpot : rollSweetSpot(miniGame.sweetSpotPct) } };
+  return { hit, hogHit, outcome, next: { ...miniGame, meter, round, hogHits, sweetSpot: outcome ? miniGame.sweetSpot : rollSweetSpot(miniGame.sweetSpotPct) } };
 }

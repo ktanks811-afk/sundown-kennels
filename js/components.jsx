@@ -28,7 +28,15 @@ function RoleBadge({ label, value }) {
    between zones on each simulation tick (see stepSearch/stepTravel in
    grouphunt.jsx). Not a free-position map: markers snap to whichever zone
    tile they currently occupy. */
-function HuntMap({ zones, dogZones, dogsById, bayDogIds, catchDogIds, hogZoneKey }) {
+function HuntMap({ zones, dogZones, dogsById, bayDogIds, catchDogIds, hogZoneKey, phase }) {
+  /* What each role is actually doing right now. During the search the bay
+     dogs are working ground and the catch dogs are held back; once the hog
+     is bayed those swap — the bay dogs are pinned holding it and the catch
+     dogs are the ones on the move. */
+  const statusFor = (isBay) =>
+    phase === "traveling"
+      ? (isBay ? "Holding the hog" : "Closing in")
+      : (isBay ? "Searching" : "Standing by");
   return (
     <div className="kg-huntmap">
       <div className="kg-huntmap__grid">
@@ -57,7 +65,7 @@ function HuntMap({ zones, dogZones, dogsById, bayDogIds, catchDogIds, hogZoneKey
           return (
             <li key={id}>
               🐕 <strong>{dog.name}</strong> — {zone ? zone.label : "Camp"}
-              <span className="kg-huntmap__statustag"> · {isBay ? "Searching" : "Standing by"}</span>
+              <span className="kg-huntmap__statustag"> · {statusFor(isBay)}</span>
             </li>
           );
         })}
@@ -67,8 +75,8 @@ function HuntMap({ zones, dogZones, dogsById, bayDogIds, catchDogIds, hogZoneKey
 }
 
 /* The bayed-hog interrupt — fires mid-search when stepSearch finds the hog.
-   Player chooses to send the catch dogs in (Task 5 drives that phase) or
-   call the whole pack off and bank nothing. */
+   Player chooses to send the catch dogs in, which opens the travel phase,
+   or call the whole pack off for a small consolation payout and no risk. */
 function BayedEventModal({ hog, bayDogs, zoneLabel, onRelease, onCallOff }) {
   return (
     <div className="kg-modal-backdrop">
@@ -97,10 +105,7 @@ function CatchMiniGame({ miniGame, onTap }) {
   useEffect(() => { startRef.current = Date.now(); }, [miniGame.round]);
 
   function handleTap() {
-    const elapsed = (Date.now() - startRef.current) % miniGame.sweepMs;
-    const phase = elapsed / miniGame.sweepMs;                          // 0-1, sweeps back and forth
-    const pct = phase < 0.5 ? phase * 2 * 100 : (1 - phase) * 2 * 100;
-    onTap(pct);
+    onTap(markerPctAt(Date.now() - startRef.current, miniGame.sweepMs));
   }
 
   return (
@@ -109,7 +114,12 @@ function CatchMiniGame({ miniGame, onTap }) {
       <div className="kg-minigame__meter"><div className="kg-minigame__meterfill" style={{ width: miniGame.meter + "%" }} /></div>
       <div className="kg-minigame__bar">
         <div className="kg-minigame__sweetspot" style={{ left: miniGame.sweetSpot.start + "%", width: (miniGame.sweetSpot.end - miniGame.sweetSpot.start) + "%" }} />
-        <div className="kg-minigame__marker" style={{ animationDuration: miniGame.sweepMs + "ms" }} />
+        {/* key={round} remounts the marker every round, which restarts the
+            CSS sweep animation from 0 in lockstep with the startRef reset
+            above. Without it the animation keeps running from the original
+            mount while the hit-test clock restarts each round, and the two
+            drift apart from round 2 on. */}
+        <div key={miniGame.round} className="kg-minigame__marker" style={{ animationDuration: miniGame.sweepMs + "ms" }} />
       </div>
       <button className="kg-btn kg-btn--gold" onClick={handleTap}>Tap!</button>
     </div>

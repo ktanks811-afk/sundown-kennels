@@ -656,11 +656,14 @@ html[data-theme="light"], html[data-theme="light"] body { background:#f2ebdd; }
 .kg-zone__label { font-size:12px; font-weight:600; color: var(--ink-soft); display:block; margin-bottom:8px; }
 .kg-zone__dogs { display:flex; flex-wrap:wrap; gap:6px; font-size:18px; }
 .kg-dogmarker { transition: transform 0.25s; }
+.kg-dogmarker--bay   { filter: drop-shadow(0 0 3px rgba(134,176,209,0.55)); }
+.kg-dogmarker--catch { filter: drop-shadow(0 0 3px rgba(232,181,90,0.55)); }
 .kg-dogmarker--hog { filter: drop-shadow(0 0 4px rgba(224,72,74,0.6)); }
 .kg-huntmap__status { list-style:none; margin:0; padding:0; font-size:13px; color: var(--ink-soft); display:flex; flex-direction:column; gap:4px; }
 .kg-huntmap__statustag { color: var(--denim); }
 @media (max-width: 640px) { .kg-huntmap__grid { grid-template-columns: 1fr 1fr; } }
 
+.kg-huntsession { margin-top: 14px; }
 .kg-huntresult { background: var(--paper-dark); border:1px solid var(--border); border-radius: var(--r-md); padding:20px; margin-top:14px; }
 
 .kg-minigame { background: var(--paper-dark); border:1px solid var(--border); border-radius: var(--r-md); padding:18px; margin:14px 0; }
