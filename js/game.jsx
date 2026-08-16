@@ -66,6 +66,13 @@ function KennelGame() {
     try { return window.localStorage.getItem(ADMIN_UNLOCK_KEY) === "1"; } catch { return false; }
   });
   const [adminTarget, setAdminTarget] = useState("");
+  const [layout, setLayout] = useState(() => {
+    try { return window.localStorage.getItem(LAYOUT_KEY) === "frame" ? "frame" : "classic"; } catch { return "classic"; }
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem(LAYOUT_KEY, layout); } catch {}
+    document.documentElement.setAttribute("data-layout", layout);
+  }, [layout]);
 
   useEffect(() => {
     try {
@@ -1348,75 +1355,10 @@ function KennelGame() {
   const prevNetWorth = state.netWorthHistory && state.netWorthHistory.length > 1 ? state.netWorthHistory[state.netWorthHistory.length - 2].netWorth : netWorth;
   const netWorthDelta = netWorth - prevNetWorth;
 
-  return (
-    <div className="kg-app">
-      <header className="kg-header">
-        <div className="kg-dusk" aria-hidden="true">
-          <svg className="kg-dusk__trees" viewBox="0 0 1200 60" preserveAspectRatio="none" focusable="false">
-            <path fill="currentColor" d="M0,60 L0,44 L14,30 L22,40 L34,18 L44,36 L56,26 L64,42 L78,22 L90,38 L100,28 L112,44 L126,24 L138,40 L150,32 L162,46 L176,20 L188,38 L200,30 L212,44 L226,26 L238,40 L250,34 L262,48 L276,24 L288,38 L300,28 L312,44 L326,22 L338,40 L350,30 L362,46 L376,26 L388,38 L400,32 L412,44 L426,20 L438,36 L450,28 L462,44 L476,24 L488,40 L500,30 L512,46 L526,26 L538,38 L550,34 L562,44 L576,22 L588,40 L600,28 L612,44 L626,24 L638,38 L650,32 L662,46 L676,26 L688,40 L700,30 L712,44 L726,20 L738,36 L750,30 L762,46 L776,24 L788,40 L800,28 L812,42 L826,26 L838,38 L850,34 L862,46 L876,22 L888,38 L900,30 L912,44 L926,24 L938,40 L950,28 L962,44 L976,26 L988,38 L1000,32 L1012,46 L1026,22 L1038,40 L1050,30 L1062,44 L1076,26 L1088,38 L1100,28 L1112,44 L1126,24 L1138,40 L1150,32 L1162,46 L1176,26 L1188,38 L1200,30 L1200,60 Z" />
-          </svg>
-        </div>
-        <div className="kg-header__controls">
-          {themeToggleEl}
-          {cloudAuthEl}
-        </div>
-
-        <img className="kg-header__logo" src="assets/logo.png" alt="Sundown Kennels" width="400" height="400" />
-
-        {editingName ? (
-          <div className="kg-rename">
-            <input autoFocus value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} maxLength={28} onKeyDown={(e) => e.key === "Enter" && renameKennel()} />
-            <button className="kg-iconbtn" onClick={renameKennel} aria-label="Save name">✓</button>
-          </div>
-        ) : (
-          <h1 className="kg-header__name">
-            <button type="button" className="kg-header__namebtn" onClick={() => { setNameDraft(state.kennelName); setEditingName(true); }} title="Rename your kennel">
-              {state.kennelName}<span className="kg-header__pencil" aria-hidden="true">✎</span>
-            </button>
-          </h1>
-        )}
-
-        <div className="kg-header__stats">
-          <span className="kg-hstat">{seasonLabel(state.day)} · Day {state.day}</span>
-          <span className="kg-hstat kg-hstat--cash">${state.cash.toLocaleString("en-US")}</span>
-          <span className="kg-hstat">{state.dogs.length} / {dogCapacity} dogs</span>
-          <button className="kg-btn kg-btn--ghost kg-btn--sm2" onClick={restWeek}>Rest a Week</button>
-        </div>
-      </header>
-
-      {saveError && <div className="kg-savewarn">Couldn't save progress just now — keep playing, it'll retry.</div>}
-      {storageMode === "memory" && <div className="kg-notice">This browser is blocking local storage, so progress won't be saved between visits.</div>}
-      <div className="kg-notice">Eight other kennels around the county breed, hunt, and sell dogs on their own — their world moves forward whenever you hunt, breed, or rest a week.</div>
-
-      <div className="kg-layout">
-      <nav className="kg-tabs">
-        {NAV.map((n, i) => {
-          const active = n.id === tab || (n.children || []).some((c) => c.id === tab);
-          return (
-            <React.Fragment key={n.id}>
-              {n.group && n.group !== (NAV[i - 1] || {}).group && <p className="kg-tabgroup">{n.group}</p>}
-              <button className={"kg-tab " + (active ? "kg-tab--active" : "")} onClick={() => setTab(firstTabOf(n))}>
-                <span className="kg-tab__icon" aria-hidden="true">{n.icon}</span>
-                <span className="kg-tab__label">{n.label}</span>
-              </button>
-            </React.Fragment>
-          );
-        })}
-      </nav>
-
-      <main className="kg-main">
-        {(() => {
-          const entry = navEntryFor(tab);
-          const children = navChildrenFor(entry, adminUnlocked);
-          if (!children) return null;
-          return (
-            <div className="kg-subtabs">
-              {children.map((c) => (
-                <button key={c.id} className={"kg-subtab " + (tab === c.id ? "kg-subtab--active" : "") + (c.id === "admin" ? " kg-subtab--admin" : "")} onClick={() => setTab(c.id)}>{c.label}</button>
-              ))}
-            </div>
-          );
-        })()}
+  /* Every screen, rendered the same in either layout. Only the chrome
+     around them differs, so nothing can drift between the two. */
+  const screens = (
+    <>
         {tab === "racerecords" && (() => {
           const timedEvents = Object.entries(HORSE_SHOWS).filter(([, ev]) => ev.timed);
           const leaderFor = (key) => raceLeaders.find((r) => r.event === key);
@@ -1586,6 +1528,19 @@ function KennelGame() {
                 </div>
 
                 <hr className="kg-divider" />
+                <h3 className="kg-subhead">Layout</h3>
+                <p className="kg-acct__hint" style={{ marginBottom: 10 }}>
+                  {(LAYOUTS.find((l) => l.id === layout) || {}).blurb} This is a preference on this
+                  device — it doesn't touch your kennel, and you can flip back any time.
+                </p>
+                <div className="kg-acct__seg" style={{ display: "inline-flex" }}>
+                  {LAYOUTS.map((l) => (
+                    <button key={l.id} className={"kg-subtab " + (layout === l.id ? "kg-subtab--active" : "")}
+                      onClick={() => setLayout(l.id)}>{l.label}</button>
+                  ))}
+                </div>
+
+                <hr className="kg-divider" />
                 <h3 className="kg-subhead">Access code</h3>
                 {adminUnlocked ? (
                   <p className="kg-acct__hint">Admin tools are unlocked — the tab is up with Profile and Settings.</p>
@@ -1678,6 +1633,22 @@ function KennelGame() {
                       <div className="kg-acct__seg">
                         <button className={"kg-subtab " + (theme === "dark" ? "kg-subtab--active" : "")} onClick={() => setTheme("dark")}>Night</button>
                         <button className={"kg-subtab " + (theme === "light" ? "kg-subtab--active" : "")} onClick={() => setTheme("light")}>Day</button>
+                      </div>
+                    </div>
+
+                    <div className="kg-acct__setting">
+                      <div>
+                        <strong>Layout</strong>
+                        <p className="kg-acct__hint">
+                          {(LAYOUTS.find((l) => l.id === layout) || {}).blurb} Switching is instant and
+                          changes nothing about your kennel — flip back any time.
+                        </p>
+                      </div>
+                      <div className="kg-acct__seg">
+                        {LAYOUTS.map((l) => (
+                          <button key={l.id} className={"kg-subtab " + (layout === l.id ? "kg-subtab--active" : "")}
+                            onClick={() => setLayout(l.id)}>{l.label}</button>
+                        ))}
                       </div>
                     </div>
 
@@ -2811,6 +2782,193 @@ function KennelGame() {
             </section>
           );
         })()}
+    </>
+  );
+
+  if (layout === "frame") {
+    const openMenu = menuFor(tab);
+    const groups = siblingsFor(tab, adminUnlocked);
+    return (
+      <div className="kg-app kg-app--frame">
+        {/* Top strip: identity on the left, account on the right. */}
+        <div className="kg-topstrip">
+          <div className="kg-topstrip__inner">
+            <img className="kg-topstrip__logo" src="assets/logo-mark.png" alt="" width="96" height="96" />
+            <span className="kg-topstrip__word">Sundown Kennels</span>
+            <div className="kg-topstrip__right">
+              {themeToggleEl}
+              {cloudAuthEl}
+            </div>
+          </div>
+        </div>
+
+        {/* Menu bar of dropdowns. Hover or focus opens; clicking a link navigates. */}
+        <nav className="kg-menubar" aria-label="Main">
+          <div className="kg-menubar__inner">
+            {MENUS.map((m) => (
+              <div key={m.id} className={"kg-menu " + (openMenu && openMenu.id === m.id ? "kg-menu--current" : "")}>
+                <button className="kg-menu__btn" onClick={() => setTab(m.columns[0].items[0].id)}>
+                  <span aria-hidden="true">{m.icon}</span> {m.label}
+                </button>
+                <div className="kg-menu__panel" role="menu">
+                  {m.columns.map((col) => (
+                    <div key={col.heading} className="kg-menu__col">
+                      <p className="kg-menu__heading">{col.heading}</p>
+                      {col.items.map((it) => (
+                        <button key={it.id} role="menuitem"
+                          className={"kg-menu__item " + (tab === it.id ? "kg-menu__item--active" : "")}
+                          onClick={() => setTab(it.id)}>{it.label}</button>
+                      ))}
+                    </div>
+                  ))}
+                  {m.id === "account" && adminUnlocked && (
+                    <div className="kg-menu__col">
+                      <p className="kg-menu__heading">Tools</p>
+                      <button role="menuitem" className={"kg-menu__item " + (tab === "admin" ? "kg-menu__item--active" : "")} onClick={() => setTab("admin")}>Admin</button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </nav>
+
+        {/* The bordered page. Sidebar, content, info rail. */}
+        <div className="kg-page">
+          <aside className="kg-side">
+            {groups.map((g) => (
+              <div key={g.heading} className="kg-side__group">
+                <p className="kg-side__heading">{g.heading}</p>
+                {g.items.map((it) => (
+                  <button key={it.id} className={"kg-side__link " + (tab === it.id ? "kg-side__link--active" : "")}
+                    onClick={() => setTab(it.id)}>{it.label}</button>
+                ))}
+              </div>
+            ))}
+          </aside>
+
+          <main className="kg-page__main">
+            {saveError && <div className="kg-savewarn">Couldn't save progress just now — keep playing, it'll retry.</div>}
+            {storageMode === "memory" && <div className="kg-notice">This browser is blocking local storage, so progress won't be saved between visits.</div>}
+            {screens}
+          </main>
+
+          <aside className="kg-rail">
+            <div className="kg-rail__box">
+              <p className="kg-rail__title">Game Time</p>
+              <p className="kg-rail__big">{seasonLabel(state.day)}</p>
+              <p className="kg-rail__sub">Day {state.day} · Year {yearOf(state.day)}</p>
+            </div>
+            <div className="kg-rail__box">
+              <p className="kg-rail__title">{editingName ? "Rename" : "Your Kennel"}</p>
+              {editingName ? (
+                <div className="kg-rename">
+                  <input autoFocus value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} maxLength={28} onKeyDown={(e) => e.key === "Enter" && renameKennel()} />
+                  <button className="kg-iconbtn" onClick={renameKennel} aria-label="Save name">✓</button>
+                </div>
+              ) : (
+                <button className="kg-rail__kennel" onClick={() => { setNameDraft(state.kennelName); setEditingName(true); }} title="Rename your kennel">
+                  {state.kennelName}<span className="kg-header__pencil" aria-hidden="true">✎</span>
+                </button>
+              )}
+              <ul className="kg-rail__list">
+                <li><span>Cash</span><strong className="kg-rail__cash">{fmtMoney(state.cash)}</strong></li>
+                <li><span>Dogs</span><strong>{state.dogs.length} / {dogCapacity}</strong></li>
+                <li><span>Fame</span><strong>{fameTier(state.fame || 0).label}</strong></li>
+                <li><span>Net worth</span><strong>{fmtMoney(netWorth)}</strong></li>
+              </ul>
+            </div>
+            <div className="kg-rail__box">
+              <p className="kg-rail__title">Quick</p>
+              <button className="kg-btn kg-btn--sm2" style={{ width: "100%" }} onClick={restWeek}>Rest a Week</button>
+              <button className="kg-btn kg-btn--sm2 kg-btn--ghost" style={{ width: "100%", marginTop: 6 }} onClick={() => setTab("hunt")}>Go hunting</button>
+              <button className="kg-btn kg-btn--sm2 kg-btn--ghost" style={{ width: "100%", marginTop: 6 }} onClick={() => setTab("market")}>Visit market</button>
+            </div>
+          </aside>
+        </div>
+
+        <DogProfileModal dog={viewDog} onClose={() => setViewDog(null)} />
+        <AnimalProfileModal target={viewAnimal} onClose={() => setViewAnimal(null)} />
+        <LitterPicker litter={pendingLitter} selectedIds={selectedPupIds} onConfirm={confirmLitter}
+          onToggle={(id) => setSelectedPupIds((prev) => {
+            if (prev.includes(id)) return prev.filter((x) => x !== id);
+            if (pendingLitter && prev.length >= pendingLitter.room) return prev;
+            return [...prev, id];
+          })} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="kg-app">
+      <header className="kg-header">
+        <div className="kg-dusk" aria-hidden="true">
+          <svg className="kg-dusk__trees" viewBox="0 0 1200 60" preserveAspectRatio="none" focusable="false">
+            <path fill="currentColor" d="M0,60 L0,44 L14,30 L22,40 L34,18 L44,36 L56,26 L64,42 L78,22 L90,38 L100,28 L112,44 L126,24 L138,40 L150,32 L162,46 L176,20 L188,38 L200,30 L212,44 L226,26 L238,40 L250,34 L262,48 L276,24 L288,38 L300,28 L312,44 L326,22 L338,40 L350,30 L362,46 L376,26 L388,38 L400,32 L412,44 L426,20 L438,36 L450,28 L462,44 L476,24 L488,40 L500,30 L512,46 L526,26 L538,38 L550,34 L562,44 L576,22 L588,40 L600,28 L612,44 L626,24 L638,38 L650,32 L662,46 L676,26 L688,40 L700,30 L712,44 L726,20 L738,36 L750,30 L762,46 L776,24 L788,40 L800,28 L812,42 L826,26 L838,38 L850,34 L862,46 L876,22 L888,38 L900,30 L912,44 L926,24 L938,40 L950,28 L962,44 L976,26 L988,38 L1000,32 L1012,46 L1026,22 L1038,40 L1050,30 L1062,44 L1076,26 L1088,38 L1100,28 L1112,44 L1126,24 L1138,40 L1150,32 L1162,46 L1176,26 L1188,38 L1200,30 L1200,60 Z" />
+          </svg>
+        </div>
+        <div className="kg-header__controls">
+          {themeToggleEl}
+          {cloudAuthEl}
+        </div>
+
+        <img className="kg-header__logo" src="assets/logo.png" alt="Sundown Kennels" width="400" height="400" />
+
+        {editingName ? (
+          <div className="kg-rename">
+            <input autoFocus value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} maxLength={28} onKeyDown={(e) => e.key === "Enter" && renameKennel()} />
+            <button className="kg-iconbtn" onClick={renameKennel} aria-label="Save name">✓</button>
+          </div>
+        ) : (
+          <h1 className="kg-header__name">
+            <button type="button" className="kg-header__namebtn" onClick={() => { setNameDraft(state.kennelName); setEditingName(true); }} title="Rename your kennel">
+              {state.kennelName}<span className="kg-header__pencil" aria-hidden="true">✎</span>
+            </button>
+          </h1>
+        )}
+
+        <div className="kg-header__stats">
+          <span className="kg-hstat">{seasonLabel(state.day)} · Day {state.day}</span>
+          <span className="kg-hstat kg-hstat--cash">${state.cash.toLocaleString("en-US")}</span>
+          <span className="kg-hstat">{state.dogs.length} / {dogCapacity} dogs</span>
+          <button className="kg-btn kg-btn--ghost kg-btn--sm2" onClick={restWeek}>Rest a Week</button>
+        </div>
+      </header>
+
+      {saveError && <div className="kg-savewarn">Couldn't save progress just now — keep playing, it'll retry.</div>}
+      {storageMode === "memory" && <div className="kg-notice">This browser is blocking local storage, so progress won't be saved between visits.</div>}
+      <div className="kg-notice">Eight other kennels around the county breed, hunt, and sell dogs on their own — their world moves forward whenever you hunt, breed, or rest a week.</div>
+
+      <div className="kg-layout">
+      <nav className="kg-tabs">
+        {NAV.map((n, i) => {
+          const active = n.id === tab || (n.children || []).some((c) => c.id === tab);
+          return (
+            <React.Fragment key={n.id}>
+              {n.group && n.group !== (NAV[i - 1] || {}).group && <p className="kg-tabgroup">{n.group}</p>}
+              <button className={"kg-tab " + (active ? "kg-tab--active" : "")} onClick={() => setTab(firstTabOf(n))}>
+                <span className="kg-tab__icon" aria-hidden="true">{n.icon}</span>
+                <span className="kg-tab__label">{n.label}</span>
+              </button>
+            </React.Fragment>
+          );
+        })}
+      </nav>
+
+      <main className="kg-main">
+        {(() => {
+          const entry = navEntryFor(tab);
+          const children = navChildrenFor(entry, adminUnlocked);
+          if (!children) return null;
+          return (
+            <div className="kg-subtabs">
+              {children.map((c) => (
+                <button key={c.id} className={"kg-subtab " + (tab === c.id ? "kg-subtab--active" : "") + (c.id === "admin" ? " kg-subtab--admin" : "")} onClick={() => setTab(c.id)}>{c.label}</button>
+              ))}
+            </div>
+          );
+        })()}
+        {screens}
       </main>
       </div>
       <DogProfileModal dog={viewDog} onClose={() => setViewDog(null)} />
