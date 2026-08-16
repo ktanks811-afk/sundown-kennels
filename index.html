@@ -2726,6 +2726,7 @@ function KennelGame() {
 
   function doAdopt(entry) {
     if (state.cash < entry.fee) return;
+    if (state.dogs.length >= kennelCapacity(state)) return;
     update((prev) => {
       const next = {
         ...prev,
@@ -3401,8 +3402,8 @@ function KennelGame() {
                       <>
                         <p className="kg-rescuecard__story">“{entry.story}”</p>
                         <p className="kg-card__price">Adoption fee {fmtMoney(entry.fee)}</p>
-                        <button className="kg-btn kg-btn--sm" disabled={state.cash < entry.fee} onClick={() => doAdopt(entry)}>
-                          {state.cash < entry.fee ? "Can't afford" : "Adopt"}
+                        <button className="kg-btn kg-btn--sm" disabled={state.cash < entry.fee || kennelFull} onClick={() => doAdopt(entry)}>
+                          {kennelFull ? "Kennel full" : state.cash < entry.fee ? "Can't afford" : "Adopt"}
                         </button>
                       </>
                     }
