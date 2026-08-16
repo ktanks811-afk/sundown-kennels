@@ -21,7 +21,8 @@ function KennelSetup({ onComplete, cloudAuth, themeToggle }) {
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, maxWidth: 640, margin: "0 auto" }}>{themeToggle}{cloudAuth}</div>
       <div className="kg-onboard">
         <div className="kg-onboard__hero">
-          <h1><span className="kg-header__logo">🐾</span> Found Your Kennel</h1>
+          <img className="kg-onboard__logo" src="assets/logo.png" alt="Sundown Kennels" width="400" height="400" />
+          <h1>Found Your Kennel</h1>
           <p>Every stud book starts with a name and a pair of dogs. Already got one? Use Cloud Save above to sign in and load it.</p>
         </div>
         <div className="kg-onboard__card">

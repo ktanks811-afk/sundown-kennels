@@ -616,7 +616,7 @@ function KennelGame() {
     <div className="kg-app">
       <header className="kg-header">
         <div className="kg-header__title">
-          <span className="kg-header__logo">🐾</span>
+          <img className="kg-header__logo" src="assets/logo-mark.png" alt="Sundown Kennels" width="96" height="96" />
           {editingName ? (
             <div className="kg-rename">
               <input autoFocus value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} maxLength={28} onKeyDown={(e) => e.key === "Enter" && renameKennel()} />
