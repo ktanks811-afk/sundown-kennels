@@ -182,8 +182,13 @@ function KennelGame() {
     const { error } = await sb.from("profiles").upsert(row, { onConflict: "user_id" });
     setAccountBusy(false);
     if (error) {
-      setAccountMsg({ tone: "rust", text: /duplicate|unique/i.test(error.message)
-        ? "That username is already taken — try another."
+      // PostgREST's "schema cache" wording means nothing to a player. The only
+      // way to hit it is the profiles migration not having been applied yet.
+      const missingTable = /schema cache|does not exist/i.test(error.message) || error.code === "PGRST205";
+      setAccountMsg({ tone: "rust", text:
+        missingTable ? "Profiles aren't set up on the server yet, so there's nowhere to save this. The database migration (migrations/001_profiles.sql) still needs running."
+        : /duplicate|unique/i.test(error.message) ? "That username is already taken — try another."
+        : /violates check constraint/i.test(error.message) ? "That doesn't fit the allowed length — shorten it and try again."
         : error.message });
       return false;
     }
