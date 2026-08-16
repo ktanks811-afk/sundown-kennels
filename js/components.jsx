@@ -17,6 +17,13 @@ function StatBar({ label, value }) {
 }
 function Badge({ tone, children }) { return <span className={"kg-badge kg-badge--" + tone}>{children}</span>; }
 
+/* A small suitability-percent pill for the group-hunt role pickers — not
+   shown on DogCard anywhere else in the game. */
+function RoleBadge({ label, value }) {
+  const tone = value >= 75 ? "olive" : value >= 45 ? "denim" : "rust";
+  return <span className={"kg-rolebadge kg-rolebadge--" + tone}>{label} {value}%</span>;
+}
+
 /* Hand-inked ledger line — plots net worth over time from the kennel's own
    recorded history, no external chart library. */
 function Sparkline({ points, width = 640, height = 140 }) {

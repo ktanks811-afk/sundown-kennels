@@ -27,7 +27,8 @@ function KennelGame() {
   const [saveError, setSaveError] = useState(false);
   const [storageMode, setStorageMode] = useState("local");
   const [huntPick, setHuntPick] = useState({ dogId: null, hunt: "hog" });
-  const [groupHuntPicks, setGroupHuntPicks] = useState([]);
+  const [groupSetup, setGroupSetup] = useState({ bayIds: [], catchIds: [] });
+  const [groupHunt, setGroupHunt] = useState(null);
   const [viewDog, setViewDog] = useState(null);
   const [trialPick, setTrialPick] = useState({ dogId: null, trial: "weightpull" });
   const [breedPick, setBreedPick] = useState({ sireId: null, damId: null });
@@ -622,31 +623,41 @@ function KennelGame() {
     });
   }
 
-  function doGroupHunt(dogIds) {
-    const dogs = state.dogs.filter((d) => dogIds.includes(d.id));
-    if (dogs.length < 2) return;
-    const avgStats = {};
-    STAT_KEYS.forEach((k) => (avgStats[k] = dogs.reduce((s, d) => s + d.stats[k], 0) / dogs.length));
-    const result = resolveHunt({ stats: avgStats, ageDays: AGE_PRIME_START + 1 }, "hog", state.day);
-    const weightLbs = catchWeight("hog", result.tier, dogs.length);
-    const payout = hogPayout(weightLbs);
-    update((prev) => {
-      const overrides = {};
-      dogs.forEach((d) => (overrides[d.id] = { healthDelta: -result.healthLoss }));
-      let next = tick(prev, 1, overrides);
-      next.cash = Math.round(next.cash + payout);
-      const names = dogs.map((d) => d.name).join(", ");
-      if (result.tier !== "Poor") {
-        next.catches = [...next.catches, { id: genId(), day: prev.day + 1, kennelName: prev.kennelName, dogName: `${names} (pack of ${dogs.length})`, breed: "Group Hunt", huntType: "Hog Hunt", tier: result.tier, weightLbs, payout }]
-          .sort((a, b) => (b.weightLbs || b.payout) - (a.weightLbs || a.payout)).slice(0, 25);
-      }
-      const monster = weightLbs >= 700 ? " — a genuine monster hog!" : "";
-      const msg = result.injured
-        ? `The pack (${names}) ran down a ${weightLbs} lb hog — ${result.tier.toLowerCase()} run, earned ${fmtMoney(payout)}, but some of them took a beating.${monster}`
-        : `The pack (${names}) ran down a ${weightLbs} lb hog — ${result.tier.toLowerCase()} run, earned ${fmtMoney(payout)}.${monster}`;
-      return addLog(next, result.injured ? "injury" : "hunt", msg);
+  function toggleBayPick(dogId) {
+    setGroupSetup((p) => {
+      if (p.bayIds.includes(dogId)) return { ...p, bayIds: p.bayIds.filter((id) => id !== dogId) };
+      const limit = groupHuntLimit(state.fame || 0);
+      if (p.bayIds.length >= limit.bay) return p;
+      return { ...p, bayIds: [...p.bayIds, dogId], catchIds: p.catchIds.filter((id) => id !== dogId) };
     });
-    setGroupHuntPicks([]);
+  }
+  function toggleCatchPick(dogId) {
+    setGroupSetup((p) => {
+      if (p.catchIds.includes(dogId)) return { ...p, catchIds: p.catchIds.filter((id) => id !== dogId) };
+      const limit = groupHuntLimit(state.fame || 0);
+      if (p.catchIds.length >= limit.catch) return p;
+      return { ...p, catchIds: [...p.catchIds, dogId], bayIds: p.bayIds.filter((id) => id !== dogId) };
+    });
+  }
+  function doStartGroupHunt() {
+    const bayDogs = state.dogs.filter((d) => groupSetup.bayIds.includes(d.id));
+    const catchDogs = state.dogs.filter((d) => groupSetup.catchIds.includes(d.id));
+    if (bayDogs.length < 1 || catchDogs.length < 1) return;
+    const dogsById = {};
+    [...bayDogs, ...catchDogs].forEach((d) => { dogsById[d.id] = d; });
+    const dogZones = {};
+    [...bayDogs, ...catchDogs].forEach((d) => { dogZones[d.id] = CAMP_ZONE; });
+    setGroupHunt({
+      phase: "searching",
+      bayDogIds: bayDogs.map((d) => d.id),
+      catchDogIds: catchDogs.map((d) => d.id),
+      dogsById,
+      dogZones,
+      ticksElapsed: 0,
+      travelTicks: 0,
+      hog: rollHog(bayDogs, catchDogs),
+      miniGame: null,
+    });
   }
 
   function doDeclineOffer(offerId) {
@@ -1411,25 +1422,50 @@ function KennelGame() {
             )}
 
             <hr className="kg-divider" />
-            <h2 className="kg-subhead">Group hog hunt</h2>
-            <p className="kg-hint">ℹ Send a pack after the same hog. More dogs means a real shot at something huge — solo hunts top out around 480 lb, but a pack of 3+ can occasionally run into 500–1,200 lb monster hogs. Every dog in the pack shares the risk.</p>
-            {huntableDogs.length < 2 ? <p className="kg-empty">Need at least 2 dogs fit to hunt for a group run.</p> : (
+            <h2 className="kg-subhead">Group Hunt</h2>
+            {!groupHunt && (
               <>
-                <div className="kg-grid" style={{ marginBottom: 14 }}>
-                  {huntableDogs.map((dog) => {
-                    const picked = groupHuntPicks.includes(dog.id);
-                    return (
-                      <DogCard key={dog.id} dog={dog} onView={setViewDog}
-                        footer={<button className={"kg-btn kg-btn--sm " + (picked ? "" : "kg-btn--ghost")}
-                          onClick={() => setGroupHuntPicks((p) => picked ? p.filter((id) => id !== dog.id) : [...p, dog.id])}>
-                          {picked ? "✓ In the pack" : "Add to pack"}
-                        </button>} />
-                    );
-                  })}
-                </div>
-                <button className="kg-btn kg-btn--gold" disabled={groupHuntPicks.length < 2} onClick={() => doGroupHunt(groupHuntPicks)}>
-                  {groupHuntPicks.length < 2 ? "Pick at least 2 dogs" : `Send the pack (${groupHuntPicks.length} dogs) after a hog`}
-                </button>
+                <p className="kg-hint">ℹ Build a hunting party: bay dogs find and hold the hog, catch dogs bring it down. Your kennel's fame sets how big a group you can field.</p>
+                <p className="kg-note">{fameTier(state.fame || 0).label} — up to {groupHuntLimit(state.fame || 0).bay} bay dogs, {groupHuntLimit(state.fame || 0).catch} catch dogs.</p>
+                {huntableDogs.length < 2 ? <p className="kg-empty">Need at least 2 dogs fit to hunt to build a group.</p> : (
+                  <>
+                    <h3 className="kg-subhead" style={{ fontSize: 15 }}>Bay dogs ({groupSetup.bayIds.length}/{groupHuntLimit(state.fame || 0).bay})</h3>
+                    <div className="kg-grid" style={{ marginBottom: 18 }}>
+                      {huntableDogs.map((dog) => {
+                        const picked = groupSetup.bayIds.includes(dog.id);
+                        const takenByCatch = groupSetup.catchIds.includes(dog.id);
+                        const disabled = !picked && (takenByCatch || groupSetup.bayIds.length >= groupHuntLimit(state.fame || 0).bay);
+                        return (
+                          <DogCard key={dog.id} dog={dog} onView={setViewDog}
+                            footer={<>
+                              <RoleBadge label="Bay" value={baySuitability(dog)} />
+                              <button className={"kg-btn kg-btn--sm " + (picked ? "" : "kg-btn--ghost")} disabled={disabled}
+                                onClick={() => toggleBayPick(dog.id)}>{picked ? "✓ Bay dog" : takenByCatch ? "Already a catch dog" : "Add as bay dog"}</button>
+                            </>} />
+                        );
+                      })}
+                    </div>
+                    <h3 className="kg-subhead" style={{ fontSize: 15 }}>Catch dogs ({groupSetup.catchIds.length}/{groupHuntLimit(state.fame || 0).catch})</h3>
+                    <div className="kg-grid" style={{ marginBottom: 18 }}>
+                      {huntableDogs.map((dog) => {
+                        const picked = groupSetup.catchIds.includes(dog.id);
+                        const takenByBay = groupSetup.bayIds.includes(dog.id);
+                        const disabled = !picked && (takenByBay || groupSetup.catchIds.length >= groupHuntLimit(state.fame || 0).catch);
+                        return (
+                          <DogCard key={dog.id} dog={dog} onView={setViewDog}
+                            footer={<>
+                              <RoleBadge label="Catch" value={catchSuitability(dog)} />
+                              <button className={"kg-btn kg-btn--sm " + (picked ? "" : "kg-btn--ghost")} disabled={disabled}
+                                onClick={() => toggleCatchPick(dog.id)}>{picked ? "✓ Catch dog" : takenByBay ? "Already a bay dog" : "Add as catch dog"}</button>
+                            </>} />
+                        );
+                      })}
+                    </div>
+                    <button className="kg-btn kg-btn--gold" disabled={groupSetup.bayIds.length < 1 || groupSetup.catchIds.length < 1} onClick={doStartGroupHunt}>
+                      {groupSetup.bayIds.length < 1 ? "Pick at least 1 bay dog" : groupSetup.catchIds.length < 1 ? "Pick at least 1 catch dog" : "Head out"}
+                    </button>
+                  </>
+                )}
               </>
             )}
           </section>

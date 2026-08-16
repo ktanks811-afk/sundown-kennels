@@ -384,6 +384,11 @@ html, body { margin:0; padding:0; background:#0a0605; }
 .kg-huntcard__meta { color: var(--denim) !important; }
 .kg-huntcard--active, .kg-trialcard--active { border-color: var(--accent-line); background: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent-line); }
 
+.kg-rolebadge { display:inline-block; font-size:11px; font-weight:600; padding:3px 9px; border-radius:999px; margin-right:8px; letter-spacing:0.01em; }
+.kg-rolebadge--olive { color: var(--olive); background: rgba(70,179,122,0.13); border:1px solid rgba(70,179,122,0.3); }
+.kg-rolebadge--denim { color: var(--denim); background: rgba(134,176,209,0.13); border:1px solid rgba(134,176,209,0.3); }
+.kg-rolebadge--rust  { color: var(--rust);  background: rgba(224,72,74,0.13);   border:1px solid rgba(224,72,74,0.3); }
+
 /* ---------- breeding ---------- */
 .kg-pairpick { display:flex; gap:11px; flex-wrap:wrap; margin-bottom: 20px; }
 .kg-pairpick select, .kg-pairpick input { font-size:13.5px; padding:11px 12px; min-width: 220px; flex:1; }
