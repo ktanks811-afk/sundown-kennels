@@ -87,6 +87,66 @@ function rollInjury(huntKey) {
   return { key, daysLeft: INJURIES[key].days + randInt(-3, 4) };
 }
 
+/* ------------------------------- avatars ---------------------------------- */
+
+/* Resize whatever the player picked down to a square thumbnail before it goes
+   anywhere near the database. A phone photo is 3-6MB; this lands around 30KB,
+   which is small enough to live in a column instead of needing a storage
+   bucket and its own policy surface. */
+const AVATAR_PX = 256;
+const AVATAR_MAX_BYTES = 400000;
+
+function readImageFile(file) {
+  return new Promise((resolve, reject) => {
+    if (!file) return reject(new Error("No file chosen."));
+    if (!/^image\//.test(file.type)) return reject(new Error("That's not an image file."));
+    if (file.size > 12 * 1024 * 1024) return reject(new Error("That image is over 12MB — pick a smaller one."));
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Couldn't read that file."));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("Couldn't decode that image."));
+      img.onload = () => resolve(img);
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+/* Centre-crop to a square so portrait and landscape photos both come out
+   looking deliberate rather than squashed. */
+function imageToAvatarDataUrl(img) {
+  const side = Math.min(img.naturalWidth, img.naturalHeight);
+  const sx = (img.naturalWidth - side) / 2;
+  const sy = (img.naturalHeight - side) / 2;
+  const canvas = document.createElement("canvas");
+  canvas.width = AVATAR_PX; canvas.height = AVATAR_PX;
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, sx, sy, side, side, 0, 0, AVATAR_PX, AVATAR_PX);
+  for (const q of [0.82, 0.7, 0.6, 0.5]) {
+    const url = canvas.toDataURL("image/jpeg", q);
+    if (url.length <= AVATAR_MAX_BYTES) return url;
+  }
+  return canvas.toDataURL("image/jpeg", 0.4);
+}
+
+function usernameError(name) {
+  const v = (name || "").trim();
+  if (v.length < 3) return "Pick something at least 3 characters long.";
+  if (v.length > 24) return "That's over 24 characters.";
+  if (!/^[A-Za-z0-9 ._-]+$/.test(v)) return "Letters, numbers, spaces, dots, dashes and underscores only.";
+  return null;
+}
+
+function initialsFor(nameOrEmail) {
+  const s = (nameOrEmail || "?").trim();
+  const parts = s.split(/[\s._-]+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return s.slice(0, 2).toUpperCase();
+}
+
 /* ------------------------------- titles ----------------------------------- */
 
 /* Real registries prefix a dog's name once it's earned something. Titles make

@@ -365,6 +365,8 @@ const NAV = [
     children: [{ id: "trade", label: "Dog market" }, { id: "rivals", label: "Challenges" }, { id: "leaderboard", label: "Leaderboard" }] },
   { id: "records",  label: "Records",  icon: "§", group: "Records",
     children: [{ id: "registry", label: "Stud book" }, { id: "rankings", label: "County ranks" }, { id: "hof", label: "Hall of Fame" }, { id: "log", label: "Ledger" }] },
+  { id: "account",  label: "Account",  icon: "☺", group: "You",
+    children: [{ id: "profile", label: "Profile" }, { id: "settings", label: "Settings" }, { id: "danger", label: "Account" }] },
 ];
 function navEntryFor(tabId) {
   return NAV.find((n) => n.id === tabId || (n.children || []).some((c) => c.id === tabId));
