@@ -49,6 +49,15 @@ function KennelGame() {
   const [authMsg, setAuthMsg] = useState("");
   const cloudTimer = useRef(null);
 
+  // Account screen
+  const [profile, setProfile] = useState(null);          // { username, avatar }
+  const [usernameDraft, setUsernameDraft] = useState("");
+  const [accountMsg, setAccountMsg] = useState(null);    // { tone, text }
+  const [accountBusy, setAccountBusy] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const avatarInputRef = useRef(null);
+
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -119,7 +128,97 @@ function KennelGame() {
     else { setAuthMsg(""); setCloudPanelOpen(false); setAuthPassword(""); }
   }, [authMode, authEmail, authPassword]);
 
-  const handleSignOut = useCallback(() => { sb.auth.signOut(); setCloudPanelOpen(false); }, []);
+  const handleSignOut = useCallback(() => { sb.auth.signOut(); setCloudPanelOpen(false); setProfile(null); }, []);
+
+  /* signInWithOAuth navigates immediately, so if the provider isn't enabled the
+     player lands on a raw JSON error page and any message we'd set never gets
+     shown. Ask the endpoint first, and only hand off if it's actually wired up. */
+  const handleGoogleSignIn = useCallback(async () => {
+    setAuthMsg("");
+    try {
+      const probe = await fetch(`${SUPABASE_URL}/auth/v1/authorize?provider=google`, { redirect: "manual" });
+      if (probe.type !== "opaqueredirect" && probe.status >= 400) {
+        setAuthMsg("Google sign-in isn't switched on for this site yet — use an email and password for now.");
+        return;
+      }
+    } catch {
+      /* Network or CORS hiccup: fall through and let the real redirect decide. */
+    }
+    const { error } = await sb.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin + window.location.pathname },
+    });
+    if (error) setAuthMsg(error.message);
+  }, []);
+
+  /* ------------------------------ profile ------------------------------ */
+
+  useEffect(() => {
+    if (!session) { setProfile(null); return; }
+    let cancelled = false;
+    sb.from("profiles").select("username, avatar").eq("user_id", session.user.id).maybeSingle()
+      .then(({ data, error }) => {
+        if (cancelled || error) return;
+        const p = data || { username: null, avatar: null };
+        setProfile(p);
+        setUsernameDraft(p.username || "");
+      });
+    return () => { cancelled = true; };
+  }, [session]);
+
+  const saveProfile = useCallback(async (patch) => {
+    if (!session) return;
+    setAccountBusy(true); setAccountMsg(null);
+    const row = { user_id: session.user.id, ...profile, ...patch };
+    delete row.created_at; delete row.updated_at;
+    const { error } = await sb.from("profiles").upsert(row, { onConflict: "user_id" });
+    setAccountBusy(false);
+    if (error) {
+      setAccountMsg({ tone: "rust", text: /duplicate|unique/i.test(error.message)
+        ? "That username is already taken — try another."
+        : error.message });
+      return false;
+    }
+    setProfile((prev) => ({ ...(prev || {}), ...patch }));
+    setAccountMsg({ tone: "olive", text: "Saved." });
+    return true;
+  }, [session, profile]);
+
+  const saveUsername = useCallback(async () => {
+    const err = usernameError(usernameDraft);
+    if (err) { setAccountMsg({ tone: "rust", text: err }); return; }
+    await saveProfile({ username: usernameDraft.trim() });
+  }, [usernameDraft, saveProfile]);
+
+  const handleAvatarFile = useCallback(async (file) => {
+    setAccountMsg(null);
+    try {
+      const img = await readImageFile(file);
+      const dataUrl = imageToAvatarDataUrl(img);
+      await saveProfile({ avatar: dataUrl });
+    } catch (err) {
+      setAccountMsg({ tone: "rust", text: err.message });
+    }
+  }, [saveProfile]);
+
+  const changePassword = useCallback(async () => {
+    if (newPassword.length < 6) { setAccountMsg({ tone: "rust", text: "Password needs to be at least 6 characters." }); return; }
+    setAccountBusy(true); setAccountMsg(null);
+    const { error } = await sb.auth.updateUser({ password: newPassword });
+    setAccountBusy(false);
+    setNewPassword("");
+    setAccountMsg(error ? { tone: "rust", text: error.message } : { tone: "olive", text: "Password changed." });
+  }, [newPassword]);
+
+  const deleteAccount = useCallback(async () => {
+    setAccountBusy(true); setAccountMsg(null);
+    const { error } = await sb.rpc("delete_my_account");
+    setAccountBusy(false);
+    if (error) { setAccountMsg({ tone: "rust", text: error.message }); return; }
+    try { window.localStorage.removeItem(STORAGE_KEY); } catch {}
+    await sb.auth.signOut();
+    window.location.reload();
+  }, []);
 
   const [leaderboardRows, setLeaderboardRows] = useState([]);
   const [pvpListings, setPvpListings] = useState([]);
@@ -477,7 +576,7 @@ function KennelGame() {
       session={session} cloudStatus={cloudStatus} open={cloudPanelOpen} onToggle={() => setCloudPanelOpen((v) => !v)}
       authMode={authMode} setAuthMode={setAuthMode} authEmail={authEmail} setAuthEmail={setAuthEmail}
       authPassword={authPassword} setAuthPassword={setAuthPassword} authMsg={authMsg}
-      onSubmit={handleAuthSubmit} onSignOut={handleSignOut}
+      onSubmit={handleAuthSubmit} onSignOut={handleSignOut} onGoogle={handleGoogleSignIn}
     />
   );
 
@@ -1102,6 +1201,133 @@ function KennelGame() {
             </div>
           );
         })()}
+        {(tab === "profile" || tab === "settings" || tab === "danger") && (
+          <section>
+            {!session ? (
+              <>
+                <h2 className="kg-subhead">Your account</h2>
+                <p className="kg-hint">You're playing signed out, so this kennel lives only in this browser. Sign in and it follows you anywhere — and you get a name and face other players can see.</p>
+                <button className="kg-btn kg-btn--gold" onClick={() => setCloudPanelOpen(true)}>Sign in or create an account</button>
+              </>
+            ) : (
+              <>
+                {accountMsg && (
+                  <p className={"kg-notice " + (accountMsg.tone === "rust" ? "kg-notice--bad" : "kg-notice--good")}
+                    role="status" style={{ margin: "0 0 18px" }}>{accountMsg.text}</p>
+                )}
+
+                {tab === "profile" && (
+                  <>
+                    <h2 className="kg-subhead">Profile</h2>
+                    <p className="kg-hint">This is what other players see next to your listings, challenges and leaderboard place. Your kennel name is separate — that's the in-game one, up in the header.</p>
+
+                    <div className="kg-acct__identity">
+                      <div className="kg-avatar kg-avatar--lg">
+                        {profile && profile.avatar
+                          ? <img src={profile.avatar} alt="Your profile picture" />
+                          : <span>{initialsFor((profile && profile.username) || session.user.email)}</span>}
+                      </div>
+                      <div className="kg-acct__identityText">
+                        <strong>{(profile && profile.username) || "No username yet"}</strong>
+                        <span>{session.user.email}</span>
+                        <div className="kg-acct__avatarBtns">
+                          <input ref={avatarInputRef} type="file" accept="image/*" hidden
+                            onChange={(e) => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) handleAvatarFile(f); }} />
+                          <button className="kg-btn kg-btn--sm2" disabled={accountBusy} onClick={() => avatarInputRef.current && avatarInputRef.current.click()}>
+                            {profile && profile.avatar ? "Change picture" : "Upload a picture"}
+                          </button>
+                          {profile && profile.avatar && (
+                            <button className="kg-btn kg-btn--sm2 kg-btn--ghost" disabled={accountBusy} onClick={() => saveProfile({ avatar: null })}>Remove</button>
+                          )}
+                        </div>
+                        <p className="kg-acct__hint">Any image works — it gets cropped square and shrunk to 256px before it's saved.</p>
+                      </div>
+                    </div>
+
+                    <hr className="kg-divider" />
+
+                    <label className="kg-auth__label" htmlFor="kg-username">Username</label>
+                    <div className="kg-acct__row">
+                      <input id="kg-username" className="kg-acct__input" type="text" maxLength={24} placeholder="e.g. SundownRiley"
+                        value={usernameDraft} onChange={(e) => setUsernameDraft(e.target.value)} />
+                      <button className="kg-btn kg-btn--sm2" disabled={accountBusy || !usernameDraft.trim()} onClick={saveUsername}>Save</button>
+                    </div>
+                    <p className="kg-acct__hint">3–24 characters. Letters, numbers, spaces, dots, dashes and underscores.</p>
+                  </>
+                )}
+
+                {tab === "settings" && (
+                  <>
+                    <h2 className="kg-subhead">Settings</h2>
+                    <p className="kg-hint">Preferences are remembered on this device.</p>
+
+                    <div className="kg-acct__setting">
+                      <div>
+                        <strong>Appearance</strong>
+                        <p className="kg-acct__hint">Night suits the sundown palette; day is easier in bright light.</p>
+                      </div>
+                      <div className="kg-acct__seg">
+                        <button className={"kg-subtab " + (theme === "dark" ? "kg-subtab--active" : "")} onClick={() => setTheme("dark")}>Night</button>
+                        <button className={"kg-subtab " + (theme === "light" ? "kg-subtab--active" : "")} onClick={() => setTheme("light")}>Day</button>
+                      </div>
+                    </div>
+
+                    <div className="kg-acct__setting">
+                      <div>
+                        <strong>Email</strong>
+                        <p className="kg-acct__hint">{session.user.email}</p>
+                      </div>
+                      <span className="kg-badge kg-badge--olive">Signed in</span>
+                    </div>
+
+                    <div className="kg-acct__setting">
+                      <div>
+                        <strong>Cloud sync</strong>
+                        <p className="kg-acct__hint">Your kennel saves automatically. Status: {cloudStatus}.</p>
+                      </div>
+                    </div>
+
+                    <hr className="kg-divider" />
+
+                    <h3 className="kg-subhead">Change password</h3>
+                    <div className="kg-acct__row">
+                      <input className="kg-acct__input" type="password" autoComplete="new-password" placeholder="New password (6+ characters)"
+                        value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+                      <button className="kg-btn kg-btn--sm2" disabled={accountBusy || !newPassword} onClick={changePassword}>Update</button>
+                    </div>
+
+                    <hr className="kg-divider" />
+                    <button className="kg-btn kg-btn--ghost" onClick={handleSignOut}>Sign out</button>
+                  </>
+                )}
+
+                {tab === "danger" && (
+                  <>
+                    <h2 className="kg-subhead">Account</h2>
+                    <p className="kg-hint">Signed in as {session.user.email}.</p>
+
+                    <div className="kg-danger">
+                      <h3>Delete your account</h3>
+                      <p>
+                        This removes your account, your kennel, every dog and bloodline in it, your
+                        profile, and anything you've listed or posted to other players. It cannot be
+                        undone and there's no backup.
+                      </p>
+                      <label className="kg-auth__label" htmlFor="kg-del">Type <b>DELETE</b> to confirm</label>
+                      <input id="kg-del" className="kg-acct__input" type="text" placeholder="DELETE"
+                        value={deleteConfirm} onChange={(e) => setDeleteConfirm(e.target.value)} />
+                      <button className="kg-btn kg-btn--danger" style={{ marginTop: 12 }}
+                        disabled={accountBusy || deleteConfirm !== "DELETE"} onClick={deleteAccount}>
+                        {accountBusy ? "Deleting…" : "Delete my account permanently"}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+          </section>
+        )}
+
         {tab === "overview" && (
           <section>
             <p className="kg-hint">ℹ The front page of the stud book — a running record of {state.kennelName}'s worth, and what's happening around the county.</p>
