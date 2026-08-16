@@ -242,6 +242,24 @@ function firstTabOf(navEntry) {
   return navEntry.children ? navEntry.children[0].id : navEntry.id;
 }
 
+/* ------------------------------ starter goals ------------------------------ */
+
+/* After founding a kennel the game stated no goal at all — you landed on the
+   overview facing eleven tabs with nothing telling you what to do first.
+   These are the five things that teach the loop, checked off as you do them. */
+const GOALS = [
+  { id: "hunt",     label: "Send a dog on a hunt",        hint: "Hunting is where the money comes from.", tab: "hunt",
+    done: (s) => s.log.some((l) => l.type === "hunt" || l.type === "injury") },
+  { id: "register", label: "Put papers on a dog",         hint: "Registered dogs are worth more and can found a bloodline.", tab: "kennel",
+    done: (s) => s.dogs.some((d) => d.registered) },
+  { id: "breed",    label: "Breed your first litter",     hint: "Two dogs over ten months, one of each sex.", tab: "breed",
+    done: (s) => s.dogs.some((d) => d.generation > 1) || s.log.some((l) => /whelped/.test(l.text)) },
+  { id: "trial",    label: "Win a trial",                 hint: "Trials build fame, and fame moves you up the county ranks.", tab: "trials",
+    done: (s) => s.dogs.some((d) => (d.trialWins || 0) > 0) },
+  { id: "bloodline",label: "Found a named bloodline",     hint: "Breed two registered dogs and name the line.", tab: "breed",
+    done: (s) => s.dogs.some((d) => d.bloodline) },
+];
+
 /* -------------------------------- seasons --------------------------------- */
 
 /* A 240-day year, 60 days a season, so the cycle turns at a playable pace.

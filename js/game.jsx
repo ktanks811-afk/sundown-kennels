@@ -798,6 +798,11 @@ function KennelGame() {
   return (
     <div className="kg-app">
       <header className="kg-header">
+        <div className="kg-dusk" aria-hidden="true">
+          <svg className="kg-dusk__trees" viewBox="0 0 1200 60" preserveAspectRatio="none" focusable="false">
+            <path fill="currentColor" d="M0,60 L0,44 L14,30 L22,40 L34,18 L44,36 L56,26 L64,42 L78,22 L90,38 L100,28 L112,44 L126,24 L138,40 L150,32 L162,46 L176,20 L188,38 L200,30 L212,44 L226,26 L238,40 L250,34 L262,48 L276,24 L288,38 L300,28 L312,44 L326,22 L338,40 L350,30 L362,46 L376,26 L388,38 L400,32 L412,44 L426,20 L438,36 L450,28 L462,44 L476,24 L488,40 L500,30 L512,46 L526,26 L538,38 L550,34 L562,44 L576,22 L588,40 L600,28 L612,44 L626,24 L638,38 L650,32 L662,46 L676,26 L688,40 L700,30 L712,44 L726,20 L738,36 L750,30 L762,46 L776,24 L788,40 L800,28 L812,42 L826,26 L838,38 L850,34 L862,46 L876,22 L888,38 L900,30 L912,44 L926,24 L938,40 L950,28 L962,44 L976,26 L988,38 L1000,32 L1012,46 L1026,22 L1038,40 L1050,30 L1062,44 L1076,26 L1088,38 L1100,28 L1112,44 L1126,24 L1138,40 L1150,32 L1162,46 L1176,26 L1188,38 L1200,30 L1200,60 Z" />
+          </svg>
+        </div>
         <div className="kg-header__controls">
           {themeToggleEl}
           {cloudAuthEl}
@@ -861,6 +866,32 @@ function KennelGame() {
         {tab === "overview" && (
           <section>
             <p className="kg-hint">ℹ The front page of the stud book — a running record of {state.kennelName}'s worth, and what's happening around the county.</p>
+
+            {(() => {
+              const done = GOALS.map((g) => ({ ...g, complete: g.done(state) }));
+              const left = done.filter((g) => !g.complete);
+              if (!left.length) return null;   // stops nagging once you know the game
+              const next = left[0];
+              return (
+                <div className="kg-goals">
+                  <div className="kg-goals__head">
+                    <h3>Getting started</h3>
+                    <span className="kg-goals__count">{done.length - left.length} of {done.length}</span>
+                  </div>
+                  <ul className="kg-goals__list">
+                    {done.map((g) => (
+                      <li key={g.id} className={"kg-goal " + (g.complete ? "kg-goal--done" : "")}>
+                        <span className="kg-goal__tick" aria-hidden="true">{g.complete ? "✓" : ""}</span>
+                        <span className="kg-goal__label">{g.label}</span>
+                        {g.id === next.id && <span className="kg-goal__hint">{g.hint}</span>}
+                        {g.id === next.id && <button className="kg-btn kg-btn--sm2" onClick={() => setTab(g.tab)}>Take me there</button>}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })()}
+
             <div className="kg-ovstats">
               <div className="kg-ovstat"><div className="kg-ovstat__label">Net worth</div><div className="kg-ovstat__value">{fmtMoney(netWorth)}</div></div>
               <div className="kg-ovstat"><div className="kg-ovstat__label">Cash on hand</div><div className="kg-ovstat__value">{fmtMoney(state.cash)}</div></div>
