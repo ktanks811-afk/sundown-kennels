@@ -130,6 +130,10 @@ function KennelGame() {
 
   const handleSignOut = useCallback(() => { sb.auth.signOut(); setCloudPanelOpen(false); setProfile(null); }, []);
 
+  // Stable identity: an inline arrow here gets a new one on every render, which
+  // is what let the dialog's focus effect re-fire while you were typing.
+  const toggleCloudPanel = useCallback(() => setCloudPanelOpen((v) => !v), []);
+
   /* signInWithOAuth navigates immediately, so if the provider isn't enabled the
      player lands on a raw JSON error page and any message we'd set never gets
      shown. Ask the endpoint first, and only hand off if it's actually wired up. */
@@ -573,7 +577,7 @@ function KennelGame() {
 
   const cloudAuthEl = (
     <CloudAuthPanel
-      session={session} cloudStatus={cloudStatus} open={cloudPanelOpen} onToggle={() => setCloudPanelOpen((v) => !v)}
+      session={session} cloudStatus={cloudStatus} open={cloudPanelOpen} onToggle={toggleCloudPanel}
       authMode={authMode} setAuthMode={setAuthMode} authEmail={authEmail} setAuthEmail={setAuthEmail}
       authPassword={authPassword} setAuthPassword={setAuthPassword} authMsg={authMsg}
       onSubmit={handleAuthSubmit} onSignOut={handleSignOut} onGoogle={handleGoogleSignIn}
