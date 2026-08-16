@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sundown Kennels</title>
+<!-- Without these the browser requests /favicon.ico on every load, gets a 404,
+     and logs a console error — which also made the CI smoke test flaky, since
+     it fails on any console error and the request is a race against the check. -->
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/favicon-180.png">
+<meta name="theme-color" content="#120c09">
+<meta name="description" content="Breed, hunt and trial a line of working dogs. A browser-based hunting-dog breeding sim.">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
