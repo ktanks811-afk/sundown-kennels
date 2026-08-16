@@ -381,7 +381,7 @@ function DogProfileModal({ dog, onClose }) {
 
 /* ---------------------------------- app ---------------------------------- */
 
-/* Cloud save widget: sign in / sign up / sign out, shared between the
+/* Account widget: sign in / create account / sign out, shared between the
    setup screen (so a returning player can pull their cloud kennel before
    founding a new local one) and the main game header. */
 function CloudAuthPanel(props) {
@@ -391,35 +391,70 @@ function CloudAuthPanel(props) {
     authMsg, onSubmit, onSignOut,
   } = props;
 
+  const firstFieldRef = useRef(null);
+
+  // This used to be a dropdown anchored under the button, which dropped straight
+  // over the masthead logo. A centred dialog can't collide with anything, and a
+  // sign-in form deserves more room than a popover.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => { if (e.key === "Escape") onToggle(); };
+    document.addEventListener("keydown", onKey);
+    if (firstFieldRef.current) firstFieldRef.current.focus();
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, onToggle]);
+
   return (
     <div className="kg-cloud">
-      <button className="kg-btn kg-btn--ghost kg-btn--sm" style={{ width: "auto" }} onClick={onToggle}>
-        {session ? `☁ ${cloudStatus === "syncing" ? "Syncing…" : "Synced"}` : "☁ Cloud Save"}
+      <button className={"kg-btn kg-btn--sm2" + (session ? " kg-btn--ghost" : "")} style={{ width: "auto" }} onClick={onToggle}>
+        {session ? (cloudStatus === "syncing" ? "Saving…" : "Account") : "Sign in"}
       </button>
       {open && (
-        <div className="kg-cloud__panel">
+        <div className="kg-modal-backdrop" onClick={onToggle}>
+          <div className="kg-modal kg-modal--auth" role="dialog" aria-modal="true"
+            aria-label={session ? "Your account" : "Sign in to Sundown Kennels"}
+            onClick={(e) => e.stopPropagation()}>
+          <button className="kg-modal__close" onClick={onToggle} aria-label="Close">✕</button>
           {session ? (
             <React.Fragment>
-              <h3>Cloud Save</h3>
-              <p>Signed in as {session.user.email}. Your kennel autosaves here.</p>
-              <div className="kg-cloud__status">Status: {cloudStatus}</div>
-              <button className="kg-btn kg-btn--danger kg-btn--sm" style={{ marginTop: 10 }} onClick={onSignOut}>Sign Out</button>
+              <h3 className="kg-auth__title">Your account</h3>
+              <p className="kg-auth__lede">
+                Signed in as <strong>{session.user.email}</strong>. Your dogs, bloodlines, cash
+                and property all save to this account automatically, and follow you to any
+                browser you sign in from.
+              </p>
+              <div className="kg-cloud__status">Sync status: {cloudStatus}</div>
+              <button className="kg-btn kg-btn--danger kg-btn--sm" style={{ marginTop: 14 }} onClick={onSignOut}>Sign out</button>
             </React.Fragment>
           ) : (
             <form onSubmit={onSubmit}>
-              <h3>{authMode === "signin" ? "Sign In" : "Sign Up"}</h3>
-              <p>{authMode === "signin" ? "Load your kennel from the cloud." : "Save your kennel to the cloud, playable from any browser."}</p>
-              <input type="email" placeholder="Email" required value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} />
-              <input type="password" placeholder="Password" required minLength={6} value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} />
+              <h3 className="kg-auth__title">{authMode === "signin" ? "Sign in" : "Create an account"}</h3>
+              <p className="kg-auth__lede">
+                {authMode === "signin"
+                  ? "Pick up where you left off. Your kennel is tied to your account, so it's waiting on any device you sign in from."
+                  : "Your kennel saves to your account — every dog, bloodline and dollar — so you can close the tab and come back to it from anywhere."}
+              </p>
+              <label className="kg-auth__label" htmlFor="kg-auth-email">Email</label>
+              <input id="kg-auth-email" ref={firstFieldRef} type="email" autoComplete="email" placeholder="you@example.com"
+                required value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} />
+              <label className="kg-auth__label" htmlFor="kg-auth-pw">Password</label>
+              <input id="kg-auth-pw" type="password" autoComplete={authMode === "signin" ? "current-password" : "new-password"}
+                placeholder={authMode === "signin" ? "Your password" : "At least 6 characters"}
+                required minLength={6} value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} />
               <div className="kg-cloud__row">
-                <button type="submit" className="kg-btn kg-btn--gold kg-btn--sm">{authMode === "signin" ? "Sign In" : "Sign Up"}</button>
+                <button type="submit" className="kg-btn kg-btn--gold">{authMode === "signin" ? "Sign in" : "Create account"}</button>
               </div>
               {authMsg && <div className="kg-cloud__msg">{authMsg}</div>}
               <button type="button" className="kg-cloud__switch" onClick={() => setAuthMode(authMode === "signin" ? "signup" : "signin")}>
-                {authMode === "signin" ? "Need an account? Sign up" : "Already have one? Sign in"}
+                {authMode === "signin" ? "No account yet? Create one" : "Already have an account? Sign in"}
               </button>
+              <p className="kg-auth__note">
+                Without an account the game still saves, but only to this browser — clearing
+                your history clears the kennel with it.
+              </p>
             </form>
           )}
+          </div>
         </div>
       )}
     </div>
@@ -560,7 +595,7 @@ function LivestockPanel({ kind, state, session, pvp, patch, cloudAuthEl,
 
       <hr className="kg-divider" />
       <h2 className="kg-subhead">Trade — real kennels, real {cfg.labelPlural.toLowerCase()}</h2>
-      {!session && <p className="kg-notice">Sign in with Cloud Save (top right) to trade with other players.</p>}
+      {!session && <p className="kg-notice">Sign in (top right) to trade with other players.</p>}
       {pvp.msg && <p className="kg-note">{pvp.msg}</p>}
       {session && (
         <React.Fragment>
