@@ -380,6 +380,77 @@ function navChildrenFor(navEntry, adminUnlocked) {
   }
   return navEntry.children;
 }
+/* ------------------------------ frame layout ------------------------------- */
+
+/* An alternate chrome modelled on the classic browser-game shell: a menu bar
+   of dropdowns across the top, a bordered content frame, a contextual sidebar
+   and a right-hand info rail. Same screens throughout — only the furniture
+   changes — and it's switchable from Settings so nothing is lost either way. */
+const LAYOUT_KEY = "kennel-layout";
+const LAYOUTS = [
+  { id: "classic", label: "Sidebar", blurb: "The current look — one column of links down the left." },
+  { id: "frame",   label: "Game frame", blurb: "Menu bar across the top, bordered page, info rail on the right." },
+];
+
+/* Each menu is a dropdown; columns group its links the way a stud book would. */
+const MENUS = [
+  { id: "kennel", label: "Kennel", icon: "⌂", columns: [
+    { heading: "Your dogs", items: [
+      { id: "overview", label: "Overview" }, { id: "kennel", label: "The Yard" }, { id: "breed", label: "Breeding" },
+    ] },
+    { heading: "Your place", items: [
+      { id: "property", label: "Property" }, { id: "shop", label: "Supply Store" }, { id: "inventory", label: "Inventory" },
+    ] },
+  ] },
+  { id: "work", label: "Work", icon: "✦", columns: [
+    { heading: "In the field", items: [
+      { id: "hunt", label: "Hunting" }, { id: "trials", label: "Trials & Shows" },
+    ] },
+    { heading: "Livestock", items: [
+      { id: "horses", label: "Horses" }, { id: "cattle", label: "Cattle" },
+    ] },
+  ] },
+  { id: "market", label: "Market", icon: "$", columns: [
+    { heading: "Buy & sell", items: [
+      { id: "market", label: "Dog Market" }, { id: "rescue", label: "Rescue" },
+    ] },
+    { heading: "Other players", items: [
+      { id: "trade", label: "Player Market" }, { id: "rivals", label: "Challenges" },
+    ] },
+  ] },
+  { id: "records", label: "Records", icon: "§", columns: [
+    { heading: "Your records", items: [
+      { id: "registry", label: "Stud Book" }, { id: "log", label: "Ledger" },
+    ] },
+    { heading: "Leader boards", items: [
+      { id: "leaderboard", label: "Leaderboard" }, { id: "rankings", label: "County Ranks" },
+      { id: "hof", label: "Hall of Fame" }, { id: "racerecords", label: "Race Records" },
+    ] },
+  ] },
+  { id: "account", label: "Account", icon: "☺", columns: [
+    { heading: "Your account", items: [
+      { id: "profile", label: "Profile" }, { id: "settings", label: "Settings" }, { id: "danger", label: "Manage" },
+    ] },
+  ] },
+];
+
+/* Which menu owns a screen, so the right one can be highlighted. */
+function menuFor(tabId) {
+  return MENUS.find((m) => m.columns.some((c) => c.items.some((i) => i.id === tabId)));
+}
+/* The sidebar inside the frame shows the siblings of whatever you're looking
+   at — the same trick the old browser games used to keep context. */
+function siblingsFor(tabId, adminUnlocked) {
+  const menu = menuFor(tabId);
+  if (!menu) return [];
+  const out = [];
+  menu.columns.forEach((c) => out.push({ heading: c.heading, items: c.items }));
+  if (menu.id === "account" && adminUnlocked) {
+    out.push({ heading: "Tools", items: [{ id: "admin", label: "Admin" }] });
+  }
+  return out;
+}
+
 function navEntryFor(tabId) {
   return NAV.find((n) => n.id === tabId || (n.children || []).some((c) => c.id === tabId));
 }
