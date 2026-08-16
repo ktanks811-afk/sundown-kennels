@@ -68,6 +68,77 @@ function deathChancePerDay(dog) {
   return Math.min(base, 0.02);
 }
 
+/* --------------------- livestock ageing (horses, cattle) ------------------- */
+
+/* Horses and cattle carried an ageDays field that nothing ever incremented, so
+   a thirty-year-old mare worked like a three-year-old and no horse ever died.
+   Dogs can't share the dog curve here — a horse peaks between five and fifteen,
+   a cow between two and eight. Years, not days, because that's how people
+   actually talk about stock. */
+const LIFESPANS = {
+  horse:  { rising: 3,  primeFrom: 5,  primeTo: 15, veteran: 20, retire: 28, deathFrom: 18, workAge: 3,   breedAge: 2 },
+  cattle: { rising: 1.5, primeFrom: 2, primeTo: 8,  veteran: 12, retire: 18, deathFrom: 11, workAge: 1.5, breedAge: 1.5 },
+};
+
+function animalYears(animal) { return (animal.ageDays || 0) / 365; }
+
+function animalPrime(kind, animal) {
+  const L = LIFESPANS[kind];
+  if (!L) return { mult: 1, injury: 1, stage: "prime" };
+  const y = animalYears(animal);
+  if (y < L.rising) return { mult: 0.78, injury: 1.3, stage: "young" };
+  if (y < L.primeFrom) return { mult: 0.92, injury: 1.1, stage: "rising" };
+  if (y <= L.primeTo) return { mult: 1, injury: 1, stage: "prime" };
+  if (y <= L.veteran) return { mult: 0.93, injury: 1.2, stage: "seasoned" };
+  if (y <= L.retire) {
+    const over = (y - L.veteran) / (L.retire - L.veteran);
+    return { mult: 0.86 - over * 0.22, injury: 1.35 + over * 0.6, stage: "veteran" };
+  }
+  return { mult: 0.58, injury: 2.2, stage: "retired" };
+}
+
+function animalStageLabel(kind, animal) {
+  return { young: "Young", rising: "Coming on", prime: "In its prime", seasoned: "Seasoned", veteran: "Veteran", retired: "Retired" }[animalPrime(kind, animal).stage];
+}
+function isAnimalRetired(kind, animal) {
+  const L = LIFESPANS[kind];
+  return L ? animalYears(animal) > L.retire : false;
+}
+function animalDeathChancePerDay(kind, animal) {
+  const L = LIFESPANS[kind];
+  if (!L) return 0;
+  const y = animalYears(animal);
+  if (y < L.deathFrom) return 0;
+  const span = Math.max(1, L.retire - L.deathFrom);
+  let base = Math.pow((y - L.deathFrom) / span, 2) * 0.0014;
+  if (animal.health < 40) base *= 2.6;
+  else if (animal.health < 70) base *= 1.4;
+  return Math.min(base, 0.02);
+}
+
+/* One pass shared by both species: age, heal, run down injury and breeding
+   clocks, and roll for old age. Returns the survivors plus what happened. */
+function ageLivestock(list, kind, days, recovery) {
+  const deaths = [];
+  const survivors = (list || []).map((a) => {
+    const next = {
+      ...a,
+      ageDays: (a.ageDays || 0) + days,
+      health: clamp((a.health || 100) + recovery * days),
+      breedCooldown: Math.max(0, (a.breedCooldown || 0) - days),
+    };
+    if (next.injury && next.injury.daysLeft > 0) {
+      const left = next.injury.daysLeft - days;
+      next.injury = left <= 0 ? null : { ...next.injury, daysLeft: left };
+    }
+    for (let i = 0; i < days; i++) {
+      if (Math.random() < animalDeathChancePerDay(kind, next)) { deaths.push(next); return null; }
+    }
+    return next;
+  }).filter(Boolean);
+  return { survivors, deaths };
+}
+
 /* ------------------------------- injuries --------------------------------- */
 
 const INJURIES = {

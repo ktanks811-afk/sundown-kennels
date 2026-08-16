@@ -570,7 +570,7 @@ function generateRandomHorse(breedName, day) {
     breedCooldown: 0,
   };
 }
-function canBreedHorse(h) { return h.ageDays >= 730 && h.health >= 55 && h.breedCooldown <= 0; }
+function canBreedHorse(h) { return h.ageDays >= 730 && h.health >= 55 && h.breedCooldown <= 0 && !isAnimalRetired("horse", h) && !h.injury; }
 function horseValue(h) {
   const rating = horseRating(h.stats);
   const breedMult = h.breed === "Thoroughbred" || h.breed === "Friesian" ? 1.3 : h.breed === "Clydesdale" || h.breed === "Percheron" || h.breed === "Belgian Draft" ? 1.15 : 1;
@@ -638,7 +638,7 @@ function generateRandomCow(breedName, day) {
     breedCooldown: 0,
   };
 }
-function canBreedCow(c) { return c.ageDays >= 550 && c.health >= 55 && c.breedCooldown <= 0; }
+function canBreedCow(c) { return c.ageDays >= 550 && c.health >= 55 && c.breedCooldown <= 0 && !isAnimalRetired("cattle", c) && !c.injury; }
 function cattleAuctionValue(c) {
   return Math.round((c.stats.weight / 100) * c.weightLb * 1.35 + (c.stats.muscle / 100) * 400 + (c.registered ? 250 : 0));
 }

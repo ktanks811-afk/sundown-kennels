@@ -492,14 +492,20 @@ function CloudAuthPanel(props) {
 /* One card component for both horses and cattle — much simpler than
    DogCard (no traits/rarity/bully-class), just breed, sex, age, colour,
    and whichever stat set the kind uses. */
-function AnimalCard({ kind, animal, price, sellerName, footer }) {
+function AnimalCard({ kind, animal, price, sellerName, footer, onView }) {
   const cfg = LIVESTOCK_CONFIG[kind];
   const rating = cfg.rating(animal.stats);
+  const stage = animalStageLabel(kind, animal);
+  const retired = isAnimalRetired(kind, animal);
   return (
     <div className="kg-card">
       <div className="kg-card__stamp">{cfg.label}</div>
       <div className="kg-card__top">
-        <h3 className="kg-card__name">{animal.sex === "M" ? "♂" : "♀"} {animal.name}</h3>
+        <h3 className="kg-card__name">
+          {onView
+            ? <button type="button" className="kg-card__namebtn" onClick={() => onView({ kind, animal })}>{animal.sex === "M" ? "♂" : "♀"} {animal.name}</button>
+            : <span>{animal.sex === "M" ? "♂" : "♀"} {animal.name}</span>}
+        </h3>
         <RatingSeal rating={rating} />
       </div>
       <p className="kg-card__breed">{animal.breed} · {cfg.colorLabel(animal)}</p>
@@ -508,6 +514,8 @@ function AnimalCard({ kind, animal, price, sellerName, footer }) {
       </p>
       <div className="kg-card__tags">
         {animal.registered && <Badge tone="gold">Registered</Badge>}
+        {animal.injury && <Badge tone="rust">{(INJURIES[animal.injury.key] || {}).label || "Injured"}</Badge>}
+        {retired ? <Badge tone="tan">Retired</Badge> : <Badge tone={stage === "In its prime" ? "olive" : "denim"}>{stage}</Badge>}
         {animal.breedCooldown > 0 && <Badge tone="rust">Resting</Badge>}
       </div>
       <div className="kg-card__stats">
@@ -520,10 +528,82 @@ function AnimalCard({ kind, animal, price, sellerName, footer }) {
   );
 }
 
+/* The livestock equivalent of DogProfileModal — horses and cattle had cards
+   but nothing to click into, so their pedigree and condition were invisible. */
+function AnimalProfileModal({ target, onClose }) {
+  const closeRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const id = target ? target.animal.id : null;
+
+  useEffect(() => {
+    if (!id) return;
+    const onKey = (e) => { if (e.key === "Escape") onCloseRef.current(); };
+    const previouslyFocused = document.activeElement;
+    document.addEventListener("keydown", onKey);
+    if (closeRef.current) closeRef.current.focus();
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      if (previouslyFocused && previouslyFocused.focus) previouslyFocused.focus();
+    };
+  }, [id]);
+
+  if (!target) return null;
+  const { kind, animal } = target;
+  const cfg = LIVESTOCK_CONFIG[kind];
+  const rating = cfg.rating(animal.stats);
+  const years = (animal.ageDays / 365).toFixed(1);
+  const L = LIFESPANS[kind] || {};
+  const injury = animal.injury && INJURIES[animal.injury.key];
+
+  return (
+    <div className="kg-modal-backdrop" onClick={onClose}>
+      <div className="kg-modal" role="dialog" aria-modal="true" aria-label={`${animal.name} — ${animal.breed}`} onClick={(e) => e.stopPropagation()}>
+        <button className="kg-modal__close" ref={closeRef} onClick={onClose} aria-label="Close">✕</button>
+        <div className="kg-modal__head">
+          <h2>{animal.sex === "M" ? "♂" : "♀"} {animal.name}</h2>
+          <p className="kg-card__breed">{animal.breed} · {cfg.colorLabel(animal)}</p>
+        </div>
+
+        <div className="kg-modal__tags">
+          <Badge tone="denim">{cfg.label}</Badge>
+          <Badge tone={isAnimalRetired(kind, animal) ? "tan" : "olive"}>{animalStageLabel(kind, animal)}</Badge>
+          {animal.registered && <Badge tone="gold">Registered</Badge>}
+          {animal.injury && <Badge tone="rust">{injury ? injury.label : "Injured"}</Badge>}
+        </div>
+
+        <h3 className="kg-modal__section">Ability</h3>
+        <div className="kg-card__stats">
+          {cfg.statKeys.map((k) => <StatBar key={k} label={cfg.statLabels[k]} value={animal.stats[k]} />)}
+        </div>
+        <p className="kg-note">Overall rating: {rating} / 100</p>
+
+        <h3 className="kg-modal__section">Condition &amp; age</h3>
+        <ul className="kg-modal__facts">
+          <li><strong>Age:</strong> {years} years ({ageLabel(animal.ageDays)})</li>
+          <li><strong>Stage:</strong> {animalStageLabel(kind, animal)} — prime is {L.primeFrom}–{L.primeTo} years for {kind === "horse" ? "horses" : "cattle"}</li>
+          <li><strong>Health:</strong> {Math.round(animal.health)} / 100</li>
+          <li><strong>Size:</strong> {cfg.sizeLabel(animal)}</li>
+          {animal.injury && <li><strong>Injury:</strong> {injury ? injury.desc : "Recovering"} — {Math.max(0, Math.round(animal.injury.daysLeft))} days to go</li>}
+          {animal.breedCooldown > 0 && <li><strong>Resting:</strong> {Math.round(animal.breedCooldown)} days before breeding again</li>}
+        </ul>
+
+        <h3 className="kg-modal__section">Breeding</h3>
+        <ul className="kg-modal__facts">
+          <li><strong>Generation:</strong> {animal.generation}</li>
+          <li><strong>Sire:</strong> {animal.sire || "Unknown"}</li>
+          <li><strong>Dam:</strong> {animal.dam || "Unknown"}</li>
+          <li><strong>Value:</strong> {fmtMoney(cfg.value(animal))}</li>
+        </ul>
+      </div>
+    </div>
+  );
+}
+
 /* One panel handles horses and cattle both — herd, breeding, AI market,
    shows, and the full multiplayer suite (trade/rivals/stud board), all
    driven by LIVESTOCK_CONFIG[kind] rather than being written twice. */
-function LivestockPanel({ kind, state, session, pvp, patch, cloudAuthEl,
+function LivestockPanel({ kind, state, session, pvp, patch, cloudAuthEl, setViewAnimal,
   doBuyAnimal, scoutAnimalMarket, doSellAnimal, doBreedAnimal, doEnterShow,
   listAnimalForSale, cancelAnimalListing, buyAnimalListing,
   createAnimalChallenge, cancelAnimalChallenge, acceptAnimalChallenge,
@@ -551,7 +631,7 @@ function LivestockPanel({ kind, state, session, pvp, patch, cloudAuthEl,
       {herd.length === 0 ? <p className="kg-empty">None yet — buy one from the market below, or a real player's Trade listing.</p> : (
         <div className="kg-grid">
           {herd.map((a) => (
-            <AnimalCard key={a.id} kind={kind} animal={a} footer={
+            <AnimalCard key={a.id} kind={kind} animal={a} onView={setViewAnimal} footer={
               <React.Fragment>
                 <button className="kg-btn kg-btn--sm kg-btn--danger" onClick={() => doSellAnimal(kind, a, false)}>Sell privately — {fmtMoney(cfg.value(a))}</button>
                 {cfg.auctionValue && (
@@ -591,7 +671,7 @@ function LivestockPanel({ kind, state, session, pvp, patch, cloudAuthEl,
       {state[cfg.marketKey].length === 0 ? <p className="kg-empty">Nothing here right now — scout for more.</p> : (
         <div className="kg-grid">
           {state[cfg.marketKey].map((a) => (
-            <AnimalCard key={a.id} kind={kind} animal={a} price={a.price} sellerName={"from " + a.sellerName}
+            <AnimalCard key={a.id} kind={kind} animal={a} onView={setViewAnimal} price={a.price} sellerName={"from " + a.sellerName}
               footer={<button className="kg-btn kg-btn--sm" disabled={state.cash < a.price || full} onClick={() => doBuyAnimal(kind, a)}>
                 {full ? "No room" : state.cash < a.price ? "Can't afford" : "Buy"}
               </button>} />
