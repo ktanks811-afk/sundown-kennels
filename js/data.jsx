@@ -391,7 +391,7 @@ function firstTabOf(navEntry) {
    testing, not a security boundary — anyone can read it in the source or edit
    their own save. What it must not do is quietly corrupt the shared
    leaderboard, so any save it touches gets flagged (see ADMIN_FLAG). */
-const ADMIN_CODE = "sundown-boss";
+const ADMIN_CODE = "ktanks";
 const ADMIN_UNLOCK_KEY = "kennel-admin";
 const ADMIN_FLAG = "adminUsed";
 
