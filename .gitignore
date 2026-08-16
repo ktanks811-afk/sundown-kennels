@@ -1,0 +1,24 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+
+# Env / secrets (not currently used by this project, but ignored by default)
+.env
+.env.local
+
+# In case a build step or package manager is added later
+node_modules/
+dist/
+build/

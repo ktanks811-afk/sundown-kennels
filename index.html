@@ -1,0 +1,2144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sundown Kennels</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Rye&family=Special+Elite&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
+* { box-sizing: border-box; }
+html, body { margin:0; padding:0; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+.kg-app {
+  --paper: #d8c294; --paper-dark: #c7ab76; --ink: #211a10; --ink-soft: #55442c;
+  --rust: #8a3320; --olive: #454f30; --denim: #293c4a; --tan-ink: #7a5f1e; --gold: #96751a; --border: #7c6435;
+  --hide: #2a2015; --hide-deep: #17110a; --metal: #948c78; --stitch: rgba(33,26,16,0.35);
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  color: var(--ink);
+  background:
+    radial-gradient(ellipse at 20% -10%, rgba(255,235,190,0.08), transparent 55%),
+    radial-gradient(ellipse at 100% 110%, rgba(0,0,0,0.35), transparent 60%),
+    repeating-linear-gradient(0deg, rgba(0,0,0,0.05) 0px, rgba(0,0,0,0.05) 1px, transparent 1px, transparent 3px),
+    repeating-linear-gradient(90deg, rgba(0,0,0,0.03) 0px, rgba(0,0,0,0.03) 1px, transparent 1px, transparent 4px),
+    linear-gradient(160deg, var(--hide) 0%, var(--hide-deep) 100%);
+  min-height: 100vh; padding: 20px 16px 48px;
+}
+.kg-app *:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.kg-loading { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; color: var(--paper-dark); min-height:100vh; }
+
+.kg-header { max-width: 1200px; margin: 0 auto 4px; display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; border-bottom: 3px solid var(--metal); padding-bottom: 12px; }
+.kg-header__title { display:flex; align-items:center; gap:10px; }
+.kg-header__title h1 { font-family:'Rye', 'Special Elite', monospace; font-weight:400; font-size: 30px; letter-spacing:0.5px; margin:0; cursor:pointer; display:flex; align-items:center; gap:8px; color: var(--paper); text-shadow: 0 1px 0 rgba(255,255,255,0.08), 0 2px 3px rgba(0,0,0,0.6); }
+.kg-header__logo { opacity:0.85; font-size:20px; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.5)); }
+.kg-header__stats { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+.kg-hstat { font-size: 13px; color: var(--paper-dark); font-weight:600; }
+.kg-hstat--cash { color: #c9a63e; }
+
+.kg-savewarn, .kg-notice { max-width:1200px; margin: 8px auto 0; font-size:12px; padding:6px 10px; border:1px solid; }
+.kg-savewarn { background: #f4ddd3; border-color: var(--rust); color: var(--rust); }
+.kg-notice { background: #dfe7ec; border-color: var(--denim); color: var(--denim); }
+
+.kg-layout { max-width: 1200px; margin: 14px auto 0; display:flex; align-items:flex-start; gap:16px; }
+.kg-tabs { flex: 0 0 176px; display:flex; flex-direction:column; gap:5px; position:sticky; top:14px; }
+.kg-tab { font-family:'Special Elite', monospace; background: var(--paper-dark); border: 2px solid var(--border); padding: 10px 14px; font-size: 13px; text-align:left; color: var(--ink-soft); cursor:pointer; border-left: 5px solid var(--hide); transition: background 0.15s, border-color 0.15s, transform 0.1s; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08); }
+.kg-tab:hover { background: #d3bb85; transform: translateX(1px); }
+.kg-tab:active { transform: scale(0.98); }
+.kg-tab--active { background: var(--paper); color: var(--ink); border-left: 5px solid var(--rust); font-weight:700; }
+.kg-main { flex:1; min-width:0; background: var(--paper); border:3px solid var(--hide); box-shadow: 0 8px 22px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.08); padding: 22px; }
+@media (max-width: 860px) {
+  .kg-layout { flex-direction: column; }
+  .kg-tabs { flex-direction:row; overflow-x:auto; position:static; width:100%; flex:none; padding-bottom:3px; -webkit-overflow-scrolling:touch; }
+  .kg-tab { flex: 0 0 auto; border-left: 2px solid var(--border); border-bottom: 5px solid var(--hide); }
+  .kg-tab--active { border-left: 2px solid var(--border); border-bottom: 5px solid var(--rust); }
+}
+
+.kg-hint { font-size:12px; color: var(--ink-soft); margin: 0 0 16px; }
+.kg-subhead { font-family:'Rye', 'Special Elite', monospace; font-weight:400; font-size:19px; margin: 4px 0 14px; letter-spacing:0.3px; }
+.kg-empty { color: var(--ink-soft); font-size:13px; padding: 24px 0; text-align:center; }
+.kg-note { font-size:12px; color: var(--denim); margin: 6px 0; }
+.kg-search { width:100%; font-family:'IBM Plex Mono', monospace; font-size:13px; padding:9px 10px; border:1px solid var(--border); background: var(--paper-dark); margin-bottom:14px; }
+
+.kg-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap:14px; }
+
+/* Overview dashboard */
+.kg-ovstats { display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:10px; margin-bottom:20px; }
+.kg-ovstat { background: var(--paper-dark); border:1px solid var(--border); padding:12px 14px; }
+.kg-ovstat__label { font-size:10px; text-transform:uppercase; letter-spacing:0.5px; color: var(--ink-soft); }
+.kg-ovstat__value { font-family:'Rye', 'Special Elite', monospace; font-weight:400; font-size:24px; margin-top:2px; }
+.kg-ovpanel { background: var(--paper-dark); border:1px solid var(--border); padding:16px; margin-bottom:20px; }
+.kg-spark { display:block; }
+.kg-ovgrid { display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
+@media (max-width: 700px) { .kg-ovgrid { grid-template-columns: 1fr; } }
+.kg-quickactions { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; }
+.kg-offers { display:flex; flex-direction:column; gap:10px; }
+.kg-offer { background: var(--paper); border:1px solid var(--border); padding:10px 12px; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; }
+.kg-offer p { margin:0; font-size:13px; flex:1; min-width:200px; }
+.kg-offer__actions { display:flex; gap:6px; }
+.kg-offer__actions .kg-btn { width:auto; }
+
+.kg-card { position:relative; background: var(--paper-dark); border:2px solid var(--border); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.15), 0 3px 8px rgba(0,0,0,0.18); padding: 16px 14px 12px; transition: transform 0.15s, box-shadow 0.15s; }
+.kg-card:hover { transform: translateY(-2px); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.15), 0 8px 18px rgba(0,0,0,0.32); }
+.kg-card::before, .kg-card::after { content:""; position:absolute; bottom:6px; width:6px; height:6px; border-radius:50%; background: var(--metal); box-shadow: inset 0 1px 1px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.25); }
+.kg-card::before { left:7px; }
+.kg-card::after { right:7px; }
+.kg-seal { flex: 0 0 auto; width:28px; height:28px; border-radius:50%; border:2px solid; display:flex; align-items:center; justify-content:center; font-family:'Special Elite', monospace; font-size:11px; transform: rotate(-8deg); background: var(--paper); }
+.kg-seal--gold { border-color: var(--gold); color: var(--gold); }
+.kg-seal--olive { border-color: var(--olive); color: var(--olive); }
+.kg-seal--denim { border-color: var(--denim); color: var(--denim); }
+.kg-seal--rust { border-color: var(--rust); color: var(--rust); }
+.kg-card__stamp { position:absolute; top:8px; right:10px; max-width:112px; font-family:'Special Elite', monospace; font-size:10px; letter-spacing:1px; color: var(--denim); border:1.5px solid var(--denim); padding:2px 5px; transform: rotate(6deg); opacity:0.75; text-transform:uppercase; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.kg-card__swatch { display:block; margin: 4px 0 8px; border:1px solid var(--border); }
+.kg-card__top { display:flex; align-items:center; justify-content:space-between; gap:6px; padding-right:52px; padding-top: 6px; }
+.kg-card__name { font-family:'Special Elite', monospace; font-size:15px; margin:0; display:flex; align-items:center; gap:5px; }
+.kg-card__breed { font-size:12px; color: var(--ink-soft); margin:3px 0 0; font-style:italic; }
+.kg-card__meta { font-size:11px; color: var(--ink-soft); margin: 2px 0 8px; }
+.kg-card__tags { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:8px; }
+.kg-card__stats { display:flex; flex-direction:column; gap:4px; margin-bottom:8px; }
+.kg-card__health { display:flex; align-items:center; gap:6px; color: var(--rust); margin-bottom: 8px; }
+.kg-card__price { font-weight:700; color: var(--olive); margin: 0 0 8px; }
+.kg-card__footer { margin-top: 6px; display:flex; flex-direction:column; gap:6px; }
+
+.kg-statrow { display:grid; grid-template-columns: 84px 1fr 24px; align-items:center; gap:6px; }
+.kg-statlabel { font-size:10px; color: var(--ink-soft); }
+.kg-statbar { height:6px; background: rgba(0,0,0,0.12); }
+.kg-statbar--health { flex:1; height:6px; }
+.kg-statfill { height:100%; }
+.kg-statval { font-size:10px; text-align:right; color: var(--ink-soft); }
+
+.kg-badge { font-size:10px; text-transform:uppercase; letter-spacing:0.5px; padding: 2px 6px; border:1px solid; white-space:nowrap; }
+.kg-badge--olive { color: var(--olive); border-color: var(--olive); }
+.kg-badge--rust { color: var(--rust); border-color: var(--rust); }
+.kg-badge--denim { color: var(--denim); border-color: var(--denim); }
+.kg-badge--tan { color: var(--tan-ink); border-color: var(--tan-ink); }
+.kg-badge--gold { color: var(--gold); border-color: var(--gold); background: rgba(156,122,26,0.12); text-transform:none; letter-spacing:0; }
+
+.kg-btn { font-family:'IBM Plex Mono', monospace; font-weight:700; font-size:12.5px; letter-spacing:0.5px; text-transform:uppercase; background: var(--ink); color: var(--paper); border: 1px solid var(--hide-deep); box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 2px 0 rgba(0,0,0,0.35); padding: 10px 14px; cursor:pointer; transition: transform 0.08s, box-shadow 0.08s; }
+.kg-btn:hover { background: #3a3120; }
+.kg-btn:active:not(:disabled) { transform: translateY(2px); box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 0 0 rgba(0,0,0,0.35); }
+.kg-btn:disabled { opacity:0.4; cursor:not-allowed; }
+.kg-btn--sm { padding: 7px 10px; font-size:11.5px; width:100%; }
+.kg-btn--ghost { background:transparent; border:1.5px solid var(--ink); color: var(--ink); box-shadow:none; }
+.kg-btn--ghost:hover { background: rgba(0,0,0,0.08); }
+.kg-btn--danger { background: var(--rust); color: #fdf3ee; }
+.kg-btn--danger:hover { background: #6f2818; }
+.kg-btn--gold { background: var(--gold); color: #fdf6e3; }
+
+.kg-iconbtn { border:none; background:transparent; cursor:pointer; color: var(--ink-soft); padding:2px; display:inline-flex; font-size:12px; }
+.kg-iconbtn--ghost { opacity:0.4; }
+.kg-iconbtn:hover { color: var(--ink); }
+.kg-rename { display:flex; align-items:center; gap:4px; }
+.kg-rename input { font-family:'IBM Plex Mono', monospace; font-size:13px; border:1px solid var(--border); background: var(--paper); padding:3px 6px; width:120px; }
+
+.kg-hunttypes { display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:10px; margin-bottom: 22px; }
+.kg-huntcard { text-align:left; background: var(--paper-dark); border:2px solid var(--border); padding:12px; cursor:pointer; display:flex; flex-direction:column; gap:4px; font-family:'IBM Plex Mono', monospace; }
+.kg-huntcard strong { font-family:'Special Elite', monospace; font-size:13px; }
+.kg-huntcard span { font-size:11px; color: var(--ink-soft); }
+.kg-huntcard__meta { color: var(--denim) !important; }
+.kg-huntcard--active { outline: 2px solid var(--ink); background: var(--paper); }
+
+.kg-pairpick { display:flex; gap:10px; flex-wrap:wrap; margin-bottom: 18px; }
+.kg-pairpick select, .kg-pairpick input { font-family:'IBM Plex Mono', monospace; font-size:13px; padding:8px; border:1px solid var(--border); background: var(--paper-dark); min-width: 220px; flex:1; }
+.kg-preview { background: var(--paper-dark); border:1px solid var(--border); padding: 16px; max-width:440px; margin-bottom: 28px; }
+.kg-preview h3 { font-family:'Special Elite', monospace; font-size:14px; margin: 0 0 4px; }
+.kg-warn { color: var(--rust); font-size:12px; margin: 6px 0; }
+.kg-divider { border:none; border-top:1px dashed var(--border); margin: 26px 0 20px; }
+
+.kg-marketbar { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; flex-wrap:wrap; gap:8px; }
+.kg-filters { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px; background: var(--paper-dark); border:1px solid var(--border); padding:12px; }
+.kg-filters select, .kg-filters input { font-family:'IBM Plex Mono', monospace; font-size:12px; padding:6px 8px; border:1px solid var(--border); background: var(--paper); }
+.kg-filters label { display:flex; flex-direction:column; gap:3px; font-size:10px; color: var(--ink-soft); text-transform:uppercase; letter-spacing:0.5px; }
+.kg-filters input[type="number"] { width:90px; }
+
+.kg-log { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
+.kg-logrow { display:flex; gap:10px; font-size:12px; padding: 8px 10px; border-left: 3px solid var(--border); background: var(--paper-dark); }
+.kg-logrow--money { border-color: var(--olive); }
+.kg-logrow--injury { border-color: var(--rust); }
+.kg-logrow--breed { border-color: var(--denim); }
+.kg-logrow--hunt { border-color: var(--tan-ink); }
+.kg-logrow--catch { border-color: var(--gold); }
+.kg-logday { color: var(--ink-soft); white-space:nowrap; font-weight:600; }
+.kg-logrank { color: var(--gold); font-weight:700; white-space:nowrap; }
+
+.kg-bloodline { background: var(--paper-dark); border:1px solid var(--border); padding: 14px; margin-bottom: 12px; }
+.kg-bloodline h3 { font-family:'Special Elite', monospace; font-size:14px; margin: 0 0 6px; }
+
+.kg-onboard { max-width: 720px; margin: 40px auto; }
+.kg-onboard__hero { text-align:center; margin-bottom: 22px; }
+.kg-onboard__hero h1 { font-family:'Rye', 'Special Elite', monospace; font-weight:400; font-size: 40px; color: var(--paper); text-shadow: 0 2px 4px rgba(0,0,0,0.6); margin: 0 0 6px; }
+.kg-onboard__hero p { color: var(--paper-dark); font-size:13px; margin:0; }
+.kg-onboard__card { background: var(--paper); border:3px solid var(--hide); box-shadow: 0 10px 26px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.08); padding: 28px 24px; }
+.kg-onboard__step { font-family:'Special Elite', monospace; font-size:11px; text-transform:uppercase; letter-spacing:1px; color: var(--ink-soft); margin: 0 0 6px; }
+.kg-onboard__title { font-family:'Rye', 'Special Elite', monospace; font-weight:400; font-size:24px; margin: 0 0 12px; }
+.kg-onboard__input { width:100%; font-family:'IBM Plex Mono', monospace; font-size:16px; padding:14px 12px; border:2px solid var(--border); background: var(--paper-dark); margin-bottom:14px; }
+.kg-onboard__count { font-size:12px; color: var(--ink-soft); margin-bottom:12px; }
+.kg-onboard__actions { display:flex; justify-content:flex-end; gap:10px; margin-top: 18px; }
+.kg-pickcard { position:relative; }
+.kg-pickcard--chosen .kg-card { outline: 3px solid var(--gold); }
+.kg-pickcard__check { position:absolute; top:8px; left:8px; width:22px; height:22px; border-radius:50%; background: var(--gold); color:#fff; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; z-index:2; }
+
+.kg-modal-backdrop { position:fixed; inset:0; background:rgba(20,16,10,0.55); display:flex; align-items:center; justify-content:center; padding:16px; z-index:50; }
+.kg-modal { position:relative; background: var(--paper); border:1px solid var(--border); max-width:460px; width:100%; max-height:88vh; overflow-y:auto; padding:22px 20px; }
+.kg-modal__close { position:absolute; top:10px; right:10px; background:transparent; border:1px solid var(--border); width:26px; height:26px; cursor:pointer; color: var(--ink-soft); }
+.kg-modal__head h2 { font-family:'Special Elite', monospace; font-size:20px; margin: 8px 0 2px; }
+.kg-modal__tags { display:flex; gap:5px; flex-wrap:wrap; margin: 10px 0 18px; }
+.kg-modal__section { font-family:'Special Elite', monospace; font-size:13px; margin: 18px 0 8px; border-top:1px dashed var(--border); padding-top:14px; }
+.kg-modal__facts { list-style:none; margin:0; padding:0; font-size:12px; color: var(--ink-soft); display:flex; flex-direction:column; gap:5px; }
+.kg-modal__facts li strong { color: var(--ink); }
+.kg-pedtree { font-size:12px; }
+.kg-pednode { position:relative; padding: 6px 0 6px 16px; border-left: 1px dashed var(--border); margin-left: 4px; }
+.kg-pednode:last-child { border-left: 1px dashed var(--border); }
+.kg-pednode__row { display:flex; align-items:baseline; gap:6px; flex-wrap:wrap; }
+.kg-pednode__role { font-family:'Special Elite', monospace; font-size:10px; text-transform:uppercase; letter-spacing:0.5px; color: var(--denim); }
+.kg-pednode__name { font-weight:600; color: var(--ink); }
+.kg-pednode__meta { color: var(--ink-soft); font-style:italic; }
+.kg-pednode__unknown { color: var(--ink-soft); font-style:italic; }
+.kg-pednode__children { margin-left: 10px; }
+.kg-pedroot { font-weight:700; font-family:'Special Elite', monospace; font-size:13px; margin-bottom:6px; }
+
+.kg-trialcard { text-align:left; background: var(--paper-dark); border:1px solid var(--border); padding:12px; cursor:pointer; display:flex; flex-direction:column; gap:4px; font-family:'IBM Plex Mono', monospace; }
+.kg-trialcard strong { font-family:'Special Elite', monospace; font-size:13px; }
+.kg-trialcard span { font-size:11px; color: var(--ink-soft); }
+.kg-trialcard--active { outline: 2px solid var(--ink); background: var(--paper); }
+
+@media (max-width: 560px) {
+  .kg-statrow { grid-template-columns: 70px 1fr 22px; }
+  .kg-header { flex-direction:column; align-items:flex-start; }
+}
+</style>
+</head>
+<body>
+<div id="root"><div class="kg-app kg-loading">Loading…</div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+
+<script type="text/babel">
+const { useState, useEffect, useCallback } = React;
+
+/* ---------------------------------- data ---------------------------------- */
+
+const STAT_KEYS = ["gameness", "grip", "nose", "stamina", "speed", "conformation"];
+const STAT_LABELS = { gameness: "Gameness", grip: "Grip", nose: "Nose", stamina: "Stamina", speed: "Speed", conformation: "Conformation" };
+
+const BREEDS = {
+  "American Pit Bull Terrier": { short: "APBT", base: { gameness: 85, grip: 82, nose: 45, stamina: 75, speed: 65, conformation: 68 } },
+  "Catahoula Leopard Dog": { short: "Catahoula", base: { gameness: 62, grip: 55, nose: 80, stamina: 82, speed: 62, conformation: 65 } },
+  "Black Mouth Cur": { short: "BM Cur", base: { gameness: 70, grip: 62, nose: 72, stamina: 78, speed: 58, conformation: 64 } },
+  "Blue Lacy": { short: "Lacy", base: { gameness: 58, grip: 42, nose: 74, stamina: 70, speed: 87, conformation: 58 } },
+  "Plott Hound": { short: "Plott", base: { gameness: 68, grip: 48, nose: 92, stamina: 80, speed: 58, conformation: 63 } },
+  "Mountain Cur": { short: "Mtn Cur", base: { gameness: 63, grip: 54, nose: 76, stamina: 68, speed: 63, conformation: 60 } },
+  "American Bulldog": { short: "Am Bulldog", base: { gameness: 74, grip: 88, nose: 40, stamina: 62, speed: 50, conformation: 72 } },
+  "American Leopard Hound": { short: "Am Leopard Hound", base: { gameness: 65, grip: 50, nose: 85, stamina: 78, speed: 65, conformation: 62 } },
+  "Treeing Walker Coonhound": { short: "Walker", base: { gameness: 60, grip: 35, nose: 88, stamina: 80, speed: 78, conformation: 62 } },
+  "Redbone Coonhound": { short: "Redbone", base: { gameness: 62, grip: 38, nose: 85, stamina: 75, speed: 70, conformation: 63 } },
+  "Bluetick Coonhound": { short: "Bluetick", base: { gameness: 63, grip: 45, nose: 87, stamina: 76, speed: 68, conformation: 66 } },
+  "Dogo Argentino": { short: "Dogo", base: { gameness: 82, grip: 85, nose: 55, stamina: 78, speed: 68, conformation: 78 } },
+  "Cane Corso": { short: "Corso", base: { gameness: 70, grip: 80, nose: 45, stamina: 60, speed: 50, conformation: 82 } },
+  "Airedale Terrier": { short: "Airedale", base: { gameness: 68, grip: 62, nose: 68, stamina: 68, speed: 60, conformation: 66 } },
+};
+const BREED_NAMES = Object.keys(BREEDS);
+
+const HEIGHT_WEIGHT = {
+  "American Pit Bull Terrier": { mH: [18, 21], fH: [17, 20], mW: [35, 60], fW: [30, 50] },
+  "Catahoula Leopard Dog": { mH: [22, 24], fH: [22, 24], mW: [50, 95], fW: [50, 95] },
+  "Black Mouth Cur": { mH: [18, 25], fH: [16, 23], mW: [50, 95], fW: [40, 80] },
+  "Blue Lacy": { mH: [18, 21], fH: [18, 21], mW: [35, 55], fW: [25, 45] },
+  "Plott Hound": { mH: [20, 25], fH: [20, 23], mW: [50, 60], fW: [40, 55] },
+  "Mountain Cur": { mH: [18, 26], fH: [16, 24], mW: [30, 60], fW: [30, 60] },
+  "American Bulldog": { mH: [22, 28], fH: [20, 26], mW: [70, 120], fW: [60, 100] },
+  "American Leopard Hound": { mH: [21, 27], fH: [21, 27], mW: [35, 75], fW: [35, 75] },
+  "Treeing Walker Coonhound": { mH: [22, 27], fH: [20, 25], mW: [55, 70], fW: [50, 65] },
+  "Redbone Coonhound": { mH: [22, 27], fH: [21, 26], mW: [50, 70], fW: [45, 65] },
+  "Bluetick Coonhound": { mH: [21, 27], fH: [21, 27], mW: [55, 80], fW: [45, 65] },
+  "Dogo Argentino": { mH: [24, 26.5], fH: [24, 25.5], mW: [88, 100], fW: [80, 95] },
+  "Cane Corso": { mH: [24, 27.5], fH: [23, 25.5], mW: [95, 110], fW: [85, 99] },
+  "Airedale Terrier": { mH: [22, 24], fH: [22, 24], mW: [50, 70], fW: [50, 70] },
+};
+
+const COLOR_NAMES = ["black", "blue", "red", "fawn", "chocolate", "white", "buckskin", "yellow", "tricolor", "tan"];
+const COLOR_HEX = { black: "#242019", blue: "#5c6773", red: "#a1552f", fawn: "#c9a06b", chocolate: "#5b3a2a", white: "#f1ead9", buckskin: "#b98f52", yellow: "#d6ac52", tricolor: "#453a2c", tan: "#c19a5b" };
+const BREED_COLOR_PROFILE = {
+  "American Pit Bull Terrier": { bases: ["black", "blue", "red", "fawn", "chocolate", "white"], patterns: { solid: 0.45, brindle: 0.35, piebald: 0.2 }, merleCapable: false },
+  "Catahoula Leopard Dog": { bases: ["black", "red", "blue"], patterns: { solid: 0.25, merle: 0.55, brindle: 0.2 }, merleCapable: true },
+  "Black Mouth Cur": { bases: ["red", "fawn", "yellow", "black"], patterns: { solid: 0.7, brindle: 0.3 }, merleCapable: false },
+  "Blue Lacy": { bases: ["blue", "red", "tricolor"], patterns: { solid: 1 }, merleCapable: false },
+  "Plott Hound": { bases: ["buckskin", "black"], patterns: { brindle: 0.6, saddle: 0.3, solid: 0.1 }, merleCapable: false },
+  "Mountain Cur": { bases: ["yellow", "black", "blue"], patterns: { brindle: 0.45, solid: 0.5, merle: 0.05 }, merleCapable: true },
+  "American Bulldog": { bases: ["white", "red", "black"], patterns: { piebald: 0.6, brindle: 0.25, solid: 0.15 }, merleCapable: false },
+  "American Leopard Hound": { bases: ["blue", "black", "red", "yellow"], patterns: { merle: 0.5, brindle: 0.25, solid: 0.25 }, merleCapable: true },
+  "Treeing Walker Coonhound": { bases: ["black", "tan"], patterns: { tricolor: 0.65, piebald: 0.35 }, merleCapable: false },
+  "Redbone Coonhound": { bases: ["red"], patterns: { solid: 1 }, merleCapable: false },
+  "Bluetick Coonhound": { bases: ["blue", "black"], patterns: { ticked: 0.85, solid: 0.15 }, merleCapable: false },
+  "Dogo Argentino": { bases: ["white"], patterns: { solid: 1 }, merleCapable: false },
+  "Cane Corso": { bases: ["black", "blue", "fawn", "red"], patterns: { solid: 0.6, brindle: 0.4 }, merleCapable: false },
+  "Airedale Terrier": { bases: ["tan"], patterns: { saddle: 1 }, merleCapable: false },
+};
+
+const HUNTS = {
+  hog: { label: "Hog Hunt", desc: "Bay and catch. Rewards grit and grip.", weights: { gameness: 0.35, grip: 0.35, stamina: 0.2, nose: 0.1 }, basePay: 240, injuryRisk: 0.32 },
+  coon: { label: "Coon Hunt", desc: "Trail and tree. Rewards nose and wind.", weights: { nose: 0.4, stamina: 0.3, gameness: 0.2, speed: 0.1 }, basePay: 95, injuryRisk: 0.07 },
+  trail: { label: "Blood Trailing", desc: "Track wounded game. Rewards nose and nerve.", weights: { nose: 0.5, gameness: 0.3, stamina: 0.2 }, basePay: 75, injuryRisk: 0.04 },
+  squirrel: { label: "Squirrel Hunt", desc: "Light work for young dogs.", weights: { nose: 0.4, speed: 0.4, stamina: 0.2 }, basePay: 40, injuryRisk: 0.015 },
+};
+
+/* Real, legal competitive dog sports — not simulated animal violence. Dogs
+   are judged side by side on performance, not set against each other. */
+const TRIALS = {
+  weightpull: { label: "Weight Pull", desc: "Drag a loaded sled the farthest. Rewards grit and grip.", weights: { gameness: 0.3, grip: 0.35, conformation: 0.35 } },
+  catchcourse: { label: "Catch-Dog Course", desc: "Work a padded decoy against the clock. Rewards gameness and speed.", weights: { gameness: 0.4, speed: 0.3, grip: 0.3 } },
+  treeingtrial: { label: "Treeing Trial", desc: "Find and tree the fastest. Rewards nose and stamina.", weights: { nose: 0.5, stamina: 0.5 } },
+  show: { label: "Conformation Show", desc: "A bench show — judged on structure and breed type, not work ethic.", weights: { conformation: 1.0 } },
+};
+
+const AI_KENNEL_DEFS = [
+  { id: "ai-redclay", name: "Redclay Kennels", focusBreed: "American Pit Bull Terrier" },
+  { id: "ai-briar", name: "Briar Hollow Dogs", focusBreed: "Catahoula Leopard Dog" },
+  { id: "ai-ironwood", name: "Ironwood Curs", focusBreed: "Black Mouth Cur" },
+  { id: "ai-cypress", name: "Cypress Bend Kennels", focusBreed: "Plott Hound" },
+  { id: "ai-stonegate", name: "Stonegate Bulldogges", focusBreed: "American Bulldog" },
+  { id: "ai-lacyrun", name: "Lacy Run Ranch", focusBreed: "Blue Lacy" },
+  { id: "ai-bayou", name: "Bayou Bluetick Kennels", focusBreed: "Bluetick Coonhound" },
+  { id: "ai-cordoba", name: "Cordoba Dogo Ranch", focusBreed: "Dogo Argentino" },
+];
+
+const NAMES_M = ["Diesel", "Cutter", "Duke", "Bo", "Ranger", "Scout", "Bull", "Tank", "Gunner", "Trapper", "Colt", "Reb", "Zeke", "Bandit", "Ridge", "Sarge", "Rowdy", "Ox", "Copperhead", "Dozer"];
+const NAMES_F = ["Ruby", "Bella", "Trix", "Dixie", "Roxy", "Sadie", "Belle", "Piper", "Blaze", "Honey", "Willow", "Delta", "Sage", "Marlow", "Cricket", "Josie", "Rowan", "Huckleberry", "Fern", "Scrappy"];
+
+const TABS = [
+  { id: "overview", label: "Overview" },
+  { id: "kennel", label: "Kennel" },
+  { id: "hunt", label: "Hunt" },
+  { id: "breed", label: "Breed" },
+  { id: "trials", label: "Trials" },
+  { id: "market", label: "Market" },
+  { id: "registry", label: "Registry" },
+  { id: "hof", label: "Hall of Fame" },
+  { id: "log", label: "Ledger" },
+];
+
+/* --------------------------------- helpers --------------------------------- */
+
+const rand = (min, max) => Math.random() * (max - min) + min;
+const randInt = (min, max) => Math.floor(rand(min, max + 1));
+const clamp = (v, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, v));
+const genId = () => "d" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const fmtMoney = (n) => "$" + Math.round(n).toLocaleString("en-US");
+const ageLabel = (days) => (days < 30 ? days + "d" : Math.floor(days / 30) + "mo");
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+const randomName = (sex) => { const pool = sex === "M" ? NAMES_M : NAMES_F; return pool[randInt(0, pool.length - 1)]; };
+const overallRating = (stats) => Math.round(STAT_KEYS.reduce((a, k) => a + stats[k], 0) / STAT_KEYS.length);
+const statScore = (stats, weights) => Object.entries(weights).reduce((s, [k, w]) => s + stats[k] * w, 0);
+
+function breedShort(breedName) { return BREEDS[breedName] ? BREEDS[breedName].short : breedName; }
+
+/* Every mix gets its own generated tag name instead of a generic "X/Y
+   Cross" label — a short fragment from each parent breed, fused into one
+   word. Mixing a mix further just chains the fragments on, so a dog with
+   three or four breeds behind it ends up with a longer, more distinctive
+   (and rarer) name than a first-generation cross — genetics compounding
+   into the name the same way it compounds into rarity. */
+const BREED_FRAGMENTS = {
+  "American Pit Bull Terrier": "Pit", "Catahoula Leopard Dog": "Cata", "Black Mouth Cur": "Cur",
+  "Blue Lacy": "Lacy", "Plott Hound": "Plott", "Mountain Cur": "Mtn", "American Bulldog": "Bull",
+  "American Leopard Hound": "Leo", "Treeing Walker Coonhound": "Walker", "Redbone Coonhound": "Red",
+  "Bluetick Coonhound": "Tick", "Dogo Argentino": "Dogo", "Cane Corso": "Corso", "Airedale Terrier": "Aire",
+};
+function fragmentFor(breedName) {
+  return BREED_FRAGMENTS[breedName] || breedName.replace(/[^A-Za-z]/g, "").slice(0, 8);
+}
+function generateMixName(breedA, breedB) {
+  const [x, y] = [breedA, breedB].sort();
+  const name = fragmentFor(x) + fragmentFor(y);
+  return name.length > 22 ? name.slice(0, 22) : name;
+}
+/* Bandog: a real, named type — crossing an APBT with a big mastiff-type breed
+   (Cane Corso, Dogo Argentino, American Bulldog) to combine terrier gameness
+   with mastiff size/power. Modern usage traces to the 1960s "bandogge"
+   revival. Modeled here as bigger, stronger, and faster than either parent. */
+const BANDOG_PARTNERS = ["Cane Corso", "Dogo Argentino", "American Bulldog"];
+function isBandogPair(breedA, breedB) {
+  return (breedA === "American Pit Bull Terrier" && BANDOG_PARTNERS.includes(breedB)) ||
+         (breedB === "American Pit Bull Terrier" && BANDOG_PARTNERS.includes(breedA));
+}
+/* Any name ending in "Bandog" (plus the bare legacy "Bandog" tag) counts as
+   part of the lineage — this is what lets sizing, stat bonuses, and bully
+   classification keep recognizing a dog as a Bandog even once it's carrying
+   a sub-type name like "CorsoBandog" or "DogoBullBandog". */
+function isBandogBreed(breedName) {
+  return breedName === "Bandog" || breedName.endsWith("Bandog");
+}
+function bandogPartnerFrag(breedName) {
+  if (BANDOG_PARTNERS.includes(breedName)) return fragmentFor(breedName);
+  if (breedName === "Bandog") return "";
+  if (breedName.endsWith("Bandog")) return breedName.slice(0, -6);
+  return "";
+}
+/* Every Bandog now gets a sub-type name based on which big breed(s) are
+   actually behind it — APBT x Cane Corso makes a "CorsoBandog", APBT x
+   Dogo Argentino a "DogoBandog", and so on. Breeding two different
+   sub-type Bandogs together fuses both partner names into one, so a line
+   that's picked up both Corso and Dogo blood becomes "CorsoDogoBandog" —
+   more breeds behind it, a longer name, and (per the rarity system) a
+   rarer, pricier dog. */
+function generateBandogName(sire, dam) {
+  const fresh = isBandogPair(sire.breed, dam.breed);
+  const frags = new Set();
+  if (fresh) {
+    const partnerBreed = sire.breed === "American Pit Bull Terrier" ? dam.breed : sire.breed;
+    frags.add(fragmentFor(partnerBreed));
+  }
+  if (isBandogBreed(sire.breed)) { const f = bandogPartnerFrag(sire.breed); if (f) frags.add(f); }
+  if (isBandogBreed(dam.breed)) { const f = bandogPartnerFrag(dam.breed); if (f) frags.add(f); }
+  if (frags.size === 0) return "Bandog";
+  const name = Array.from(frags).sort().join("") + "Bandog";
+  return name.length > 22 ? name.slice(0, 22) : name;
+}
+function pickWeighted(weightsObj) {
+  const entries = Object.entries(weightsObj);
+  const total = entries.reduce((s, [, w]) => s + w, 0);
+  let r = Math.random() * total;
+  for (const [k, w] of entries) { if (r < w) return k; r -= w; }
+  return entries[0][0];
+}
+function colorLabel(colorGenes) {
+  if (colorGenes.pattern === "solid") return cap(colorGenes.base);
+  return cap(colorGenes.base) + " " + cap(colorGenes.pattern);
+}
+function shade(hex, percent) {
+  const num = parseInt(hex.slice(1), 16);
+  let r = (num >> 16) + Math.round(2.55 * percent);
+  let g = ((num >> 8) & 0xff) + Math.round(2.55 * percent);
+  let b = (num & 0xff) + Math.round(2.55 * percent);
+  r = Math.max(0, Math.min(255, r)); g = Math.max(0, Math.min(255, g)); b = Math.max(0, Math.min(255, b));
+  return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+}
+function hashStr(str) { let h = 0; for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0; return h; }
+function mulberry32(seed) {
+  let s = seed;
+  return function () {
+    s |= 0; s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function randomColorGenes(breedName) {
+  const profile = BREED_COLOR_PROFILE[breedName] || BREED_COLOR_PROFILE["American Pit Bull Terrier"];
+  const base = profile.bases[randInt(0, profile.bases.length - 1)];
+  const pattern = pickWeighted(profile.patterns);
+  return { base, pattern, merleAlleles: pattern === "merle" ? 1 : 0 };
+}
+/* Inheritance draws from each parent's VISIBLE trait plus whatever hidden
+   trait they carry — the same basic logic as a recessive allele resurfacing
+   from a grandparent, just simplified to one hidden slot per parent instead
+   of a full diploid model. Merle stays a true dominant-gene punnett square
+   since that part is accurately single-gene in real dogs. */
+function inheritColorGenes(sire, dam) {
+  const sM = sire.colorGenes.merleAlleles, dM = dam.colorGenes.merleAlleles;
+  let merleAlleles;
+  if (sM >= 1 && dM >= 1) { const r = Math.random(); merleAlleles = r < 0.25 ? 2 : r < 0.75 ? 1 : 0; }
+  else if (sM >= 1 || dM >= 1) merleAlleles = Math.random() < 0.5 ? 1 : 0;
+  else merleAlleles = 0;
+  let pattern;
+  if (merleAlleles >= 1) pattern = "merle";
+  else {
+    const candidates = [sire.colorGenes.pattern, dam.colorGenes.pattern, sire.hiddenPattern, dam.hiddenPattern].filter((p) => p && p !== "merle");
+    pattern = candidates.length ? candidates[randInt(0, candidates.length - 1)] : "solid";
+  }
+  const baseCandidates = [sire.colorGenes.base, dam.colorGenes.base, sire.hiddenColor, dam.hiddenColor].filter(Boolean);
+  const base = baseCandidates[randInt(0, baseCandidates.length - 1)];
+  return { base, pattern, merleAlleles };
+}
+function rollHiddenGenes(colorGenes, sire, dam) {
+  let hiddenColor = null;
+  if (Math.random() < 0.3) {
+    const pool = [sire.colorGenes.base, dam.colorGenes.base, sire.hiddenColor, dam.hiddenColor].filter((c) => c && c !== colorGenes.base);
+    if (pool.length) hiddenColor = pool[randInt(0, pool.length - 1)];
+  }
+  let hiddenPattern = null;
+  if (Math.random() < 0.3 && colorGenes.pattern !== "merle") {
+    const pool = [sire.colorGenes.pattern, dam.colorGenes.pattern, sire.hiddenPattern, dam.hiddenPattern].filter((p) => p && p !== "merle" && p !== colorGenes.pattern);
+    if (pool.length) hiddenPattern = pool[randInt(0, pool.length - 1)];
+  }
+  return { hiddenColor, hiddenPattern };
+}
+function rollFounderHiddenGenes(colorGenes) {
+  let hiddenColor = null;
+  if (Math.random() < 0.3) { const opts = COLOR_NAMES.filter((c) => c !== colorGenes.base); hiddenColor = opts[randInt(0, opts.length - 1)]; }
+  let hiddenPattern = null;
+  if (Math.random() < 0.3 && colorGenes.pattern !== "merle") { const opts = ["solid", "brindle", "piebald", "saddle", "tricolor", "ticked"].filter((p) => p !== colorGenes.pattern); hiddenPattern = opts[randInt(0, opts.length - 1)]; }
+  return { hiddenColor, hiddenPattern };
+}
+/* American Bully size classes, researched from the ABKC and UKC breed
+   standards (height at withers, measured to the ABKC's 2021 amendment):
+   Pocket: males 14-under 17in, females 13-under 16in
+   Standard: males 17-20in, females 16-19in
+   Classic: same height as Standard — the real distinction is a lighter
+     frame and less mass, not height, so it's approximated here from
+     weight-for-height rather than invented as a separate height band
+   XL: males over 20-23in, females over 19-22in
+   XXL: not an official ABKC/UKC class — informally used for dogs running
+     roughly 2-3in taller and 20-30lb heavier than XL
+   Important honesty note: the American Bully is its own breed (APBT x
+   American Staffordshire Terrier, with historical Bulldog influence), not
+   the same thing as a Bandog. In practice, though, people casually slap
+   "XL Bully" on any big, heavily-muscled APBT-type dog by height alone —
+   which is exactly what this tag models, on your APBT and Bandog stock. */
+const BULLY_CLASSES = {
+  pocket: { label: "Pocket Bully", desc: "Under the Pocket height ceiling — compact, dense, and just as much bully as the bigger classes, only in a smaller frame." },
+  classic: { label: "Classic Bully", desc: "Standard height range, but a lighter frame and less overall mass — more of the original American Pit Bull Terrier athleticism showing through." },
+  standard: { label: "Standard Bully", desc: "The breed's baseline — heavy bone, thick muscle, and the classic blocky bully silhouette at a middle height." },
+  xl: { label: "XL Bully", desc: "Taller than Standard, same heavy-muscled build scaled up — the size class most people picture when they hear 'bully.'" },
+  xxl: { label: "XXL Bully", desc: "Bigger than any officially recognized class — not an ABKC/UKC size, just what breeders informally call anything running past XL height and weight." },
+};
+/* Body-type grade — separate from the working stat bars, this judges
+   structure the way a bench-show judge would: soundness, proportion, and
+   freedom from faults, rather than gameness or grip. */
+function conformationGrade(dog) {
+  let score = dog.stats.conformation;
+  if (dog.impaired) score -= 15;
+  if (dog.colorGenes.merleAlleles === 2) score -= 5;
+  if (dog.culled) score -= 20;
+  score = clamp(score, 0, 100);
+  if (score >= 90) return { grade: "A+", tone: "gold", desc: "Exceptional structure — exactly what a judge is looking for." };
+  if (score >= 80) return { grade: "A", tone: "gold", desc: "Excellent, standard-correct build." };
+  if (score >= 70) return { grade: "B+", tone: "olive", desc: "Strong structure with only minor faults." };
+  if (score >= 60) return { grade: "B", tone: "olive", desc: "Solid, sound, unremarkable structure." };
+  if (score >= 50) return { grade: "C+", tone: "denim", desc: "Workable but noticeably off breed type." };
+  if (score >= 40) return { grade: "C", tone: "denim", desc: "Several structural faults." };
+  if (score >= 25) return { grade: "D", tone: "rust", desc: "Poor structure — would place last in any bench show." };
+  return { grade: "F", tone: "rust", desc: "Serious structural faults." };
+}
+function bullyClass(dog) {
+  if (dog.breed !== "Bandog" && dog.breed !== "American Pit Bull Terrier") return null;
+  const isM = dog.sex === "M";
+  const min = isM ? 14 : 13, stdLo = isM ? 17 : 16, stdHi = isM ? 20 : 19, xlHi = isM ? 23 : 22;
+  const h = dog.heightIn;
+  if (h < min) return null;
+  if (h < stdLo) return { key: "pocket", ...BULLY_CLASSES.pocket };
+  if (h <= stdHi) {
+    const dense = dog.weightLb >= h * 3;
+    return dense ? { key: "standard", ...BULLY_CLASSES.standard } : { key: "classic", ...BULLY_CLASSES.classic };
+  }
+  if (h <= xlHi) return { key: "xl", ...BULLY_CLASSES.xl };
+  return { key: "xxl", ...BULLY_CLASSES.xxl };
+}
+function computeRarity(dog) {
+  let score = 0;
+  score += { solid: 0, brindle: 1, saddle: 2, piebald: 2, tricolor: 2, ticked: 3, merle: 4 }[dog.colorGenes.pattern] || 0;
+  if (dog.crossBred && dog.breed !== "Bandog") score += 2;
+  if (isBandogBreed(dog.breed)) score += 3;
+  /* A longer generated mix name means more distinct breeds fused into this
+     one line — genuinely rarer, so the name itself feeds rarity. */
+  if (dog.crossBred && !BREEDS[dog.breed] && dog.breed !== "Bandog") score += Math.min(dog.breed.length / 6, 3.5);
+  if (dog.mstnAlleles === 1) score += 2;
+  if (dog.mstnAlleles === 2) score += 4;
+  score += (dog.traits ? dog.traits.length : 0) * 1.5;
+  if (dog.generation > 1) score += Math.min(dog.generation - 1, 3) * 0.5;
+  const bc = bullyClass(dog);
+  if (bc && bc.key === "xl") score += 2;
+  if (bc && bc.key === "xxl") score += 4;
+  if (bc && bc.key === "pocket") score += 1;
+  const profile = BREED_COLOR_PROFILE[dog.breed];
+  if (profile && !profile.bases.includes(dog.colorGenes.base)) score += 2;
+  if (profile && !(dog.colorGenes.pattern in profile.patterns)) score += 2;
+  if (score >= 7) return { tier: "Legendary", mult: 1.6, tone: "gold" };
+  if (score >= 4.5) return { tier: "Rare", mult: 1.35, tone: "rust" };
+  if (score >= 2) return { tier: "Uncommon", mult: 1.15, tone: "denim" };
+  return { tier: "Common", mult: 1, tone: "tan" };
+}
+function starTrait(dog) {
+  let bestKey = STAT_KEYS[0], bestVal = -1;
+  STAT_KEYS.forEach((k) => { if (dog.stats[k] > bestVal) { bestVal = dog.stats[k]; bestKey = k; } });
+  return { key: bestKey, value: bestVal, stars: clamp(Math.round(bestVal / 20), 1, 5) };
+}
+function starString(n) { return "★".repeat(n) + "☆".repeat(5 - n); }
+
+function sizeFromStats(breed, sex, stats) {
+  const hw = HEIGHT_WEIGHT[breed] || HEIGHT_WEIGHT["American Pit Bull Terrier"];
+  const hRange = sex === "M" ? hw.mH : hw.fH;
+  const wRange = sex === "M" ? hw.mW : hw.fW;
+  const sizeFactor = clamp(stats.conformation / 100 + rand(-0.15, 0.15), 0, 1);
+  const heightIn = Math.round((hRange[0] + sizeFactor * (hRange[1] - hRange[0])) * 10) / 10;
+  const weightLb = Math.round(wRange[0] + sizeFactor * (wRange[1] - wRange[0]));
+  return { heightIn, weightLb };
+}
+function inheritSize(sire, dam, inbred) {
+  const spread = inbred ? 2.1 : 1.5;
+  const heightIn = clamp(Math.round(((sire.heightIn + dam.heightIn) / 2 + rand(-spread, spread)) * 10) / 10, 12, 32);
+  const weightLb = clamp(Math.round((sire.weightLb + dam.weightLb) / 2 + rand(-spread * 4, spread * 4)), 18, 135);
+  return { heightIn, weightLb };
+}
+/* Bandog lines only grow from here — breeding two Bandogs takes the LARGER
+   parent's size as the floor and adds pure growth, never shrinks. Bringing
+   in a smaller outside dog dilutes the size (weighted toward the Bandog
+   parent) but still always adds a positive size bump — still an enhanced
+   mix, just not a bigger one than the purebred Bandog line would produce. */
+function bandogSize(sire, dam, inbred) {
+  const sireIsBandog = isBandogBreed(sire.breed);
+  const damIsBandog = isBandogBreed(dam.breed);
+  if (sireIsBandog && damIsBandog) {
+    const heightIn = clamp(Math.round((Math.max(sire.heightIn, dam.heightIn) + rand(0.3, 1.8)) * 10) / 10, 12, 34);
+    const weightLb = clamp(Math.round(Math.max(sire.weightLb, dam.weightLb) + randInt(6, 18)), 18, 160);
+    return { heightIn, weightLb };
+  }
+  const bandogParent = sireIsBandog ? sire : dam;
+  const otherParent = sireIsBandog ? dam : sire;
+  const heightIn = clamp(Math.round((bandogParent.heightIn * 0.65 + otherParent.heightIn * 0.35 + rand(0.2, 1.2)) * 10) / 10, 12, 32);
+  const weightLb = clamp(Math.round(bandogParent.weightLb * 0.65 + otherParent.weightLb * 0.35 + randInt(4, 12)), 18, 150);
+  return { heightIn, weightLb };
+}
+
+/* Physical traits, researched against real canine genetics where a real
+   gene is documented. A few (marked real:false) are gameplay abstractions
+   of natural individual variation rather than a single named gene — those
+   are flagged honestly in their own description text rather than invented
+   as fake science. */
+const TRAIT_DEFS = {
+  myostatin1: { name: "Muscled (MSTN)", tone: "rust", effects: { grip: 5, conformation: 4 }, real: true,
+    desc: "One copy of a myostatin (MSTN) gene mutation — the same one documented in athletic 'bully' whippets — limits the protein that normally caps muscle growth, adding noticeably more lean muscle." },
+  myostatin2: { name: "Double Muscled (MSTN/MSTN)", tone: "rust", effects: { grip: 14, conformation: 10, stamina: -6 }, real: true,
+    desc: "Two copies of the myostatin mutation — true double-muscling, dramatic added mass and power at a real cost to endurance, exactly as documented in homozygous 'bully whippets'." },
+  ridgeback: { name: "Dorsal Ridge", tone: "denim", founderChance: 0.05, effects: {}, real: true,
+    desc: "A reversed ridge of hair along the spine from a dominant gene — the same trait that defines the Rhodesian Ridgeback. Purely cosmetic, though ridgeback lines carry a documented risk of dermoid sinus." },
+  bobtail: { name: "Natural Bobtail", tone: "denim", founderChance: 0.04, effects: {}, real: true,
+    desc: "A short or absent tail from a dominant T-box gene mutation, the same one found in some Australian Shepherds and Corgis. Two copies is lethal early in development, so bobtail dogs only ever carry one." },
+  furnishings: { name: "Furnished Coat", tone: "tan", founderChance: 0.08, effects: {}, real: true,
+    desc: "The wiry coat, beard, and eyebrows of a wire-haired terrier, governed by the RSPO2 gene. Cosmetic." },
+  longcoat: { name: "Long Coat", tone: "tan", founderChance: 0.08, effects: {}, real: true,
+    desc: "A recessive FGF5 mutation that grows a longer, fluffier coat than the breed standard. Cosmetic, more upkeep in hot weather." },
+  doubledew: { name: "Double Dewclaws", tone: "tan", founderChance: 0.03, effects: { stamina: 2 }, real: true,
+    desc: "An extra set of rear dewclaws — documented in breeds like the Great Pyrenees, thought to help traction on rough or icy ground." },
+  weathercoat: { name: "Heavy Double Coat", tone: "tan", founderChance: 0.06, effects: { stamina: 2 }, real: true,
+    desc: "A dense insulating undercoat under the guard hairs, common in cold-climate working lines — genuinely useful on cold or wet hunts." },
+  broadskull: { name: "Broad Skull", tone: "rust", founderChance: 0.07, effects: { grip: 4, conformation: 2 }, real: false,
+    desc: "An unusually wide, heavy skull and jaw hinge. Not one named gene — more a byproduct of generations of selecting hard for bite strength." },
+  longteeth: { name: "Extended Dentition", tone: "rust", founderChance: 0.06, effects: { grip: 5 }, real: false,
+    desc: "Noticeably longer canine teeth than breed standard. Tooth proportions do vary naturally between individuals; this is the exaggerated end of that range, favored in old-school catch-dog lines." },
+  rangy: { name: "Rangy Build", tone: "olive", founderChance: 0.08, effects: { speed: 4, grip: -2 }, real: false,
+    desc: "A long-legged, lean build for covering ground fast, at some cost to raw grip strength." },
+  stocky: { name: "Stocky Build", tone: "olive", founderChance: 0.08, effects: { grip: 3, conformation: 3, speed: -3 }, real: false,
+    desc: "A low, heavy-boned, thickset build — more power, less top end." },
+  supernose: { name: "Exceptional Scenting", tone: "gold", founderChance: 0.05, effects: { nose: 6 }, real: false,
+    desc: "A nose that outperforms the rest of the litter. Individual variation in olfactory receptor genes is real and documented; this is simply the high end of it." },
+};
+const COSMETIC_TRAIT_KEYS = Object.keys(TRAIT_DEFS).filter((k) => k !== "myostatin1" && k !== "myostatin2");
+
+function applyTraitEffects(stats, traits, mstnAlleles) {
+  const out = { ...stats };
+  traits.forEach((key) => {
+    const def = TRAIT_DEFS[key];
+    if (def && def.effects) Object.entries(def.effects).forEach(([k, v]) => (out[k] = clamp(out[k] + v)));
+  });
+  if (mstnAlleles === 1) Object.entries(TRAIT_DEFS.myostatin1.effects).forEach(([k, v]) => (out[k] = clamp(out[k] + v)));
+  if (mstnAlleles === 2) Object.entries(TRAIT_DEFS.myostatin2.effects).forEach(([k, v]) => (out[k] = clamp(out[k] + v)));
+  return out;
+}
+function rollFounderTraits() {
+  const traits = [];
+  const hiddenTraits = [];
+  for (const key of COSMETIC_TRAIT_KEYS) {
+    const def = TRAIT_DEFS[key];
+    if (traits.length < 2 && Math.random() < def.founderChance) traits.push(key);
+    else if (hiddenTraits.length < 2 && Math.random() < def.founderChance * 0.6) hiddenTraits.push(key);
+  }
+  const r = Math.random();
+  const mstnAlleles = r < 0.005 ? 2 : r < 0.06 ? 1 : 0;
+  return { traits, hiddenTraits, mstnAlleles };
+}
+function inheritTraits(sire, dam) {
+  const pool = Array.from(new Set([...(sire.traits || []), ...(dam.traits || []), ...(sire.hiddenTraits || []), ...(dam.hiddenTraits || [])]));
+  const traits = [];
+  const hiddenTraits = [];
+  pool.forEach((key) => {
+    if (traits.length < 2 && Math.random() < 0.45) traits.push(key);
+    else if (hiddenTraits.length < 2 && Math.random() < 0.3) hiddenTraits.push(key);
+  });
+  const sM = sire.mstnAlleles || 0, dM = dam.mstnAlleles || 0;
+  let mstnAlleles;
+  if (sM >= 1 && dM >= 1) { const r = Math.random(); mstnAlleles = r < 0.25 ? 2 : r < 0.75 ? 1 : 0; }
+  else if (sM >= 1 || dM >= 1) mstnAlleles = Math.random() < 0.5 ? 1 : 0;
+  else mstnAlleles = 0;
+  return { traits, hiddenTraits, mstnAlleles };
+}
+
+/* The myostatin mutation doesn't just add muscle — real double-muscled
+   animals also run measurably bigger. Modeled here as a 75% chance per
+   generation of an added growth spurt in height and/or weight, scaled by
+   how many copies of the mutation the dog carries, and it inherits right
+   alongside the myostatin allele itself — so it genuinely runs in the
+   bloodline rather than being a one-off roll. */
+function applyGrowthMutation(heightIn, weightLb, mstnAlleles) {
+  if (!mstnAlleles || Math.random() >= 0.75) return { heightIn, weightLb, grew: false };
+  const mult = mstnAlleles === 2 ? 1.6 : 1;
+  const heightBoost = rand(0.4, 1.6) * mult;
+  const weightBoost = randInt(6, 16) * mult;
+  return {
+    heightIn: clamp(Math.round((heightIn + heightBoost) * 10) / 10, 10, 34),
+    weightLb: clamp(Math.round(weightLb + weightBoost), 15, 160),
+    grew: true,
+  };
+}
+
+function generateRandomDog(breedName) {
+  const breed = breedName || BREED_NAMES[randInt(0, BREED_NAMES.length - 1)];
+  const base = BREEDS[breed].base;
+  let stats = {};
+  STAT_KEYS.forEach((k) => (stats[k] = clamp(Math.round(base[k] + rand(-14, 14)))));
+  const sex = Math.random() < 0.5 ? "M" : "F";
+  const { traits, hiddenTraits, mstnAlleles } = rollFounderTraits();
+  stats = applyTraitEffects(stats, traits, mstnAlleles);
+  const baseSize = sizeFromStats(breed, sex, stats);
+  const { heightIn, weightLb, grew: grewBigger } = applyGrowthMutation(baseSize.heightIn, baseSize.weightLb, mstnAlleles);
+  let impaired = false;
+  if (breed === "Dogo Argentino" && Math.random() < 0.1) {
+    impaired = true;
+    stats.nose = clamp(stats.nose - randInt(10, 25));
+  }
+  const colorGenes = randomColorGenes(breed);
+  const { hiddenColor, hiddenPattern } = rollFounderHiddenGenes(colorGenes);
+  return {
+    id: genId(), name: randomName(sex), breed, sex, stats,
+    colorGenes, crossBred: false, impaired,
+    hiddenColor, hiddenPattern, traits, hiddenTraits, mstnAlleles, grewBigger,
+    heightIn, weightLb,
+    registered: false, regNumber: null, bloodline: null,
+    health: randInt(80, 100), ageDays: randInt(220, 950),
+    sire: null, dam: null, pedigree: null, generation: 1, breedCooldown: 0, bornDay: null,
+  };
+}
+function generateAiDog(breedName) {
+  const dog = generateRandomDog(breedName);
+  STAT_KEYS.forEach((k) => (dog.stats[k] = clamp(dog.stats[k] + randInt(3, 10))));
+  dog.health = 100;
+  return dog;
+}
+
+function computeValue(dog) {
+  const rating = overallRating(dog.stats);
+  const genBonus = Math.min(dog.generation - 1, 4) * 30;
+  const rarity = computeRarity(dog);
+  const papersMult = dog.registered ? 1.15 : 1;
+  const culledMult = dog.culled ? 0.55 : 1;
+  return Math.round(rating * 16 * rarity.mult * papersMult * culledMult + dog.health * 2 + genBonus);
+}
+
+function isInbred(sire, dam) {
+  return !!((sire.sire && (sire.sire === dam.name || sire.dam === dam.name)) || (dam.sire && (dam.sire === sire.name || dam.dam === sire.name)));
+}
+
+function breedPuppies(sire, dam, day, bloodline) {
+  const inbred = isInbred(sire, dam);
+  const crossBred = sire.breed !== dam.breed;
+  const freshBandogCross = isBandogPair(sire.breed, dam.breed);
+  const bandogLineage = isBandogBreed(sire.breed) || isBandogBreed(dam.breed);
+  const bandog = freshBandogCross || bandogLineage;
+  const label = bandog ? generateBandogName(sire, dam) : crossBred ? generateMixName(sire.breed, dam.breed) : sire.breed;
+  const litterSize = randInt(2, 5);
+  const pups = [];
+  let doubleMerleWarned = false;
+  for (let i = 0; i < litterSize; i++) {
+    const sex = Math.random() < 0.5 ? "M" : "F";
+    const stats = {};
+    STAT_KEYS.forEach((k) => {
+      const avg = (sire.stats[k] + dam.stats[k]) / 2;
+      const spread = inbred ? 14 : 9;
+      const penalty = inbred ? -8 : 0;
+      stats[k] = clamp(Math.round(avg + penalty + rand(-spread, spread)));
+    });
+    if (bandog) {
+      ["gameness", "grip", "conformation", "speed"].forEach((k) => (stats[k] = clamp(stats[k] + randInt(5, 12))));
+    } else if (crossBred) {
+      const boosted = new Set();
+      while (boosted.size < 2) boosted.add(STAT_KEYS[randInt(0, STAT_KEYS.length - 1)]);
+      boosted.forEach((k) => (stats[k] = clamp(stats[k] + randInt(2, 5))));
+    }
+    const { traits, hiddenTraits, mstnAlleles } = inheritTraits(sire, dam);
+    Object.assign(stats, applyTraitEffects(stats, traits, mstnAlleles));
+    const colorGenes = inheritColorGenes(sire, dam);
+    const { hiddenColor, hiddenPattern } = rollHiddenGenes(colorGenes, sire, dam);
+    let heightIn, weightLb;
+    if (bandogLineage) {
+      ({ heightIn, weightLb } = bandogSize(sire, dam, inbred));
+    } else {
+      ({ heightIn, weightLb } = inheritSize(sire, dam, inbred));
+      if (freshBandogCross) {
+        heightIn = clamp(Math.round((heightIn + rand(0.5, 2)) * 10) / 10, 12, 32);
+        weightLb = clamp(weightLb + randInt(8, 20), 18, 140);
+      }
+    }
+    const grownSize = applyGrowthMutation(heightIn, weightLb, mstnAlleles);
+    heightIn = grownSize.heightIn; weightLb = grownSize.weightLb;
+    const grewBigger = grownSize.grew;
+    let health = inbred ? randInt(55, 80) : 100;
+    let impaired = false;
+    if (colorGenes.merleAlleles === 2) {
+      doubleMerleWarned = true;
+      impaired = Math.random() < 0.7;
+      if (impaired) {
+        stats.nose = clamp(stats.nose - randInt(15, 30));
+        stats.stamina = clamp(stats.stamina - randInt(5, 15));
+        health = clamp(health - 20);
+      }
+    }
+    /* Not every pup in a real litter is breeding or sale quality — a small
+       chance of a genuinely below-par pup, worse odds in a close breeding. */
+    const culled = Math.random() < (inbred ? 0.22 : 0.08);
+    if (culled) {
+      STAT_KEYS.forEach((k) => (stats[k] = clamp(stats[k] - randInt(10, 25))));
+      health = clamp(health - randInt(10, 20));
+    }
+    pups.push({
+      id: genId(), name: randomName(sex), breed: label, sex, stats, colorGenes, crossBred: crossBred || bandog, impaired,
+      hiddenColor, hiddenPattern, traits, hiddenTraits, mstnAlleles, grewBigger, culled,
+      heightIn, weightLb, registered: false, regNumber: null, bloodline: bloodline || null,
+      health, ageDays: 0, sire: sire.name, dam: dam.name,
+      pedigree: {
+        sire: { name: sire.name, breed: sire.breed, colorGenes: sire.colorGenes, bloodline: sire.bloodline || null, regNumber: sire.regNumber || null, pedigree: sire.pedigree || null },
+        dam: { name: dam.name, breed: dam.breed, colorGenes: dam.colorGenes, bloodline: dam.bloodline || null, regNumber: dam.regNumber || null, pedigree: dam.pedigree || null },
+      },
+      generation: Math.max(sire.generation, dam.generation) + 1, breedCooldown: 0, bornDay: day,
+    });
+  }
+  return { pups, inbred, doubleMerleWarned, bandog, doubleMuscledCount: pups.filter((p) => p.mstnAlleles === 2).length, culledCount: pups.filter((p) => p.culled).length, grewBiggerCount: pups.filter((p) => p.grewBigger).length };
+}
+
+function resolveHunt(dog, huntKey) {
+  const hunt = HUNTS[huntKey];
+  const raw = statScore(dog.stats, hunt.weights);
+  const roll = raw + rand(-15, 15);
+  let tier, payMult, injMult;
+  if (roll >= 85) { tier = "Excellent"; payMult = 1.6; injMult = 0.5; }
+  else if (roll >= 65) { tier = "Good"; payMult = 1.1; injMult = 0.8; }
+  else if (roll >= 45) { tier = "Fair"; payMult = 0.62; injMult = 1.1; }
+  else { tier = "Poor"; payMult = 0.28; injMult = 1.8; }
+  const payout = Math.round(hunt.basePay * payMult * (0.85 + Math.random() * 0.3));
+  const injured = Math.random() < hunt.injuryRisk * injMult;
+  const healthLoss = injured ? randInt(18, 40) : randInt(3, 9);
+  return { tier, payout, injured, healthLoss };
+}
+function catchWeight(huntKey, tier, groupSize) {
+  if (huntKey !== "hog") return null;
+  const n = groupSize || 1;
+  let lo, hi;
+  if (tier === "Excellent") { lo = 220; hi = 480; }
+  else if (tier === "Good") { lo = 150; hi = 320; }
+  else if (tier === "Fair") { lo = 100; hi = 220; }
+  else { lo = 100; hi = 160; }
+  let weight = randInt(lo, hi);
+  if (n > 1) {
+    const groupMult = 1 + (n - 1) * 0.35;
+    weight = Math.round(weight * groupMult);
+    if (tier === "Excellent" && n >= 3) {
+      const crit = Math.random();
+      if (crit < 0.004) weight = randInt(1000, 1200);       // ~1 in 250 — veryyyyy super rare
+      else if (crit < 0.02) weight = randInt(700, 999);      // ~1.6%
+      else if (crit < 0.08) weight = randInt(500, 699);      // ~6%
+    }
+  }
+  return clamp(weight, 100, 1200);
+}
+/* Bigger hog, bigger payday — this is the main hog-hunt income driver now. */
+function hogPayout(weightLbs) { return Math.round(weightLbs * rand(2.5, 3.5)); }
+function canHunt(dog) { return dog.ageDays >= 90 && dog.health >= 35; }
+function canBreed(dog) { return dog.ageDays >= 300 && dog.health >= 50 && dog.breedCooldown <= 0; }
+function statusOf(dog) {
+  if (dog.health < 35) return { label: "Injured", tone: "rust" };
+  if (dog.ageDays < 90) return { label: "Pup", tone: "denim" };
+  if (dog.breedCooldown > 0) return { label: "Resting", tone: "tan" };
+  return { label: "Ready", tone: "olive" };
+}
+function generateMarket(n, day) {
+  return Array.from({ length: n }, () => {
+    const dog = generateRandomDog();
+    const price = Math.round(computeValue(dog) * rand(1.05, 1.45));
+    return { ...dog, price, listedDay: day };
+  });
+}
+function initAiKennels() {
+  const out = {};
+  AI_KENNEL_DEFS.forEach((def) => {
+    const dogs = [0, 1].map((i) => {
+      const sex = i === 0 ? "M" : "F";
+      const d = generateAiDog(def.focusBreed);
+      d.sex = sex; d.name = randomName(sex); d.ageDays = randInt(350, 900);
+      return d;
+    });
+    out[def.id] = { id: def.id, name: def.name, focusBreed: def.focusBreed, dogs };
+  });
+  return out;
+}
+function simulateAiWorld(aiKennels, days, currentDay) {
+  const kennels = {};
+  const newListings = [];
+  const newCatches = [];
+  Object.values(aiKennels).forEach((k) => {
+    let dogs = k.dogs.map((d) => ({ ...d }));
+    for (let step = 0; step < days; step++) {
+      const simDay = currentDay + step + 1;
+      dogs = dogs.map((d) => ({ ...d, ageDays: d.ageDays + 1 }));
+      if (Math.random() < 0.22) {
+        const eligible = dogs.filter(canHunt);
+        if (eligible.length) {
+          const dog = eligible[randInt(0, eligible.length - 1)];
+          const huntKey = pickWeighted({ hog: 0.55, coon: 0.2, trail: 0.1, squirrel: 0.15 });
+          const result = resolveHunt(dog, huntKey);
+          if (result.tier !== "Poor") {
+            const weightLbs = catchWeight(huntKey, result.tier);
+            const payout = huntKey === "hog" && weightLbs ? hogPayout(weightLbs) : result.payout;
+            newCatches.push({ id: genId(), day: simDay, kennelName: k.name, dogName: dog.name, breed: dog.breed, huntType: HUNTS[huntKey].label, tier: result.tier, weightLbs, payout });
+          }
+        }
+      }
+      if (dogs.length < 7 && Math.random() < 0.05) {
+        const males = dogs.filter((x) => x.sex === "M" && canBreed(x));
+        const females = dogs.filter((x) => x.sex === "F" && canBreed(x));
+        if (males.length && females.length) {
+          const sire = males[randInt(0, males.length - 1)];
+          const dam = females[randInt(0, females.length - 1)];
+          const { pups } = breedPuppies(sire, dam, simDay);
+          dogs = dogs.concat(pups.map((p) => ({ ...p, health: 100 })));
+        }
+      }
+      if (dogs.length > 5 && Math.random() < 0.2) {
+        const sellable = dogs.filter((x) => x.ageDays >= 90);
+        if (sellable.length) {
+          const dog = sellable[randInt(0, sellable.length - 1)];
+          dogs = dogs.filter((x) => x.id !== dog.id);
+          newListings.push({ ...dog, price: Math.round(computeValue(dog) * rand(1.0, 1.3)), listedDay: simDay, sellerName: k.name });
+        }
+      }
+      while (dogs.length > 7) {
+        dogs = dogs.slice().sort((a, b) => overallRating(a.stats) - overallRating(b.stats));
+        const weakest = dogs.shift();
+        newListings.push({ ...weakest, price: Math.round(computeValue(weakest) * rand(0.9, 1.1)), listedDay: simDay, sellerName: k.name });
+      }
+    }
+    kennels[k.id] = { ...k, dogs };
+  });
+  return { kennels, newListings, newCatches };
+}
+
+const OFFER_BUYER_FLAVOR = ["A traveling breeder passing through", "A hunt club rep from three counties over", "A collector from out of state", "An old-timer looking to restock", "A weekend hobbyist with cash to spend"];
+/* Random social events — other kennels inviting you along on a hunt,
+   someone offering above market for a dog they've heard about, or a fellow
+   breeder asking to pair one of their dogs with one of yours. Rolled per
+   simulated day so they show up naturally as time passes. */
+function rollNewOffers(dogs, day, existingCount) {
+  const offers = [];
+  if (existingCount >= 6) return offers;
+  if (dogs.some(canHunt) && Math.random() < 0.10) {
+    const kennel = AI_KENNEL_DEFS[randInt(0, AI_KENNEL_DEFS.length - 1)];
+    offers.push({ id: genId(), type: "hunt", kennelName: kennel.name, day, expiresDay: day + 3 });
+  }
+  if (dogs.length > 0 && Math.random() < 0.08) {
+    const target = dogs[randInt(0, dogs.length - 1)];
+    const buyerPool = [...AI_KENNEL_DEFS.map((k) => k.name), ...OFFER_BUYER_FLAVOR];
+    const buyerName = buyerPool[randInt(0, buyerPool.length - 1)];
+    const price = Math.round(computeValue(target) * rand(1.2, 1.85));
+    offers.push({ id: genId(), type: "purchase", buyerName, dogId: target.id, dogName: target.name, price, day, expiresDay: day + 3 });
+  }
+  const breedable = dogs.filter(canBreed);
+  if (breedable.length > 0 && Math.random() < 0.07) {
+    const target = breedable[randInt(0, breedable.length - 1)];
+    const requesterSex = target.sex === "M" ? "F" : "M";
+    const requesterBreed = BREED_NAMES[randInt(0, BREED_NAMES.length - 1)];
+    const requesterDog = generateAiDog(requesterBreed);
+    requesterDog.sex = requesterSex;
+    requesterDog.name = randomName(requesterSex);
+    requesterDog.ageDays = randInt(380, 900);
+    const kennel = AI_KENNEL_DEFS[randInt(0, AI_KENNEL_DEFS.length - 1)];
+    const fee = Math.round(computeValue(target) * rand(0.25, 0.45));
+    offers.push({ id: genId(), type: "breeding_request", kennelName: kennel.name, requesterDog, targetDogId: target.id, targetDogName: target.name, fee, day, expiresDay: day + 3 });
+  }
+  return offers;
+}
+/* Fame drives how much the county's talking about you — higher fame means
+   more frequent mentions in the social feed. */
+function rollSocialPosts(kennelName, dogs, fame, existingCount) {
+  const posts = [];
+  if (existingCount >= 10) return posts;
+  const chance = 0.05 + Math.min(fame / 400, 0.25);
+  if (Math.random() < chance) {
+    const dog = dogs.length ? dogs[randInt(0, dogs.length - 1)] : null;
+    const { handle, text } = socialPostText(kennelName, dog);
+    posts.push({ id: genId(), handle, text });
+  }
+  return posts;
+}
+function collectStuds(aiKennels) {
+  const studs = [];
+  Object.values(aiKennels).forEach((k) => {
+    k.dogs.filter((d) => d.sex === "M" && canBreed(d)).forEach((d) => studs.push({ ...d, kennelName: k.name }));
+  });
+  return studs;
+}
+function studFee(dog) { return Math.round(computeValue(dog) * 0.35); }
+function registrationFee(dog) { return Math.max(40, Math.round(computeValue(dog) * 0.08)); }
+
+function collectCompetitors(aiKennels) {
+  const list = [];
+  Object.values(aiKennels).forEach((k) => {
+    k.dogs.filter(canHunt).forEach((d) => list.push({ ...d, kennelName: k.name }));
+  });
+  return list;
+}
+function resolveTrial(myDog, oppDog, trialKey) {
+  const t = TRIALS[trialKey];
+  const scoreMe = statScore(myDog.stats, t.weights) + rand(-12, 12);
+  const scoreOpp = statScore(oppDog.stats, t.weights) + rand(-12, 12);
+  const won = scoreMe >= scoreOpp;
+  const margin = Math.abs(scoreMe - scoreOpp);
+  const healthLoss = randInt(2, 8);
+  return { won, margin: Math.round(margin), healthLoss };
+}
+function trialPurse(myDog, oppDog) { return Math.round(30 + (computeValue(myDog) + computeValue(oppDog)) * 0.02); }
+
+function kennelNetWorth(state) {
+  return Math.round(state.cash + state.dogs.reduce((s, d) => s + computeValue(d), 0));
+}
+/* Fame builds from show wins, trial wins, and big catches — media attention
+   is mostly a show-ring thing in real dog sports, so conformation wins pay
+   out the most fame here. */
+const FAME_TIERS = [
+  { min: 0, label: "Unknown" },
+  { min: 15, label: "Locally Known" },
+  { min: 40, label: "Regional Name" },
+  { min: 80, label: "County Famous" },
+  { min: 150, label: "State Renowned" },
+  { min: 260, label: "Living Legend" },
+];
+function fameTier(fame) {
+  let t = FAME_TIERS[0];
+  for (const f of FAME_TIERS) { if (fame >= f.min) t = f; }
+  return t;
+}
+const FAN_HANDLES = ["HogHunter_Dale", "CountyKennelWatch", "SouthernCurClub", "BullyBloodlinesTV", "TreeDogNation", "RuralWorkingDogs", "BackwoodsBreeder22", "GameDogGazette"];
+function socialPostText(kennelName, dog) {
+  const templates = [
+    () => `@${kennelName} congrats on the new litter — that's a good-looking bunch of pups.`,
+    () => dog ? `@${kennelName} that ${dog.name} y'all got is looking real good this season.` : `@${kennelName} y'all's kennel is looking sharp lately.`,
+    () => `@${kennelName} heard talk about a rare pup out of your place, that true?`,
+    () => `@${kennelName} killing it at the shows lately, respect.`,
+    () => dog ? `@${kennelName} how much for a pup outta your ${dog.name}?` : `@${kennelName} taking any inquiries on pups right now?`,
+    () => `@${kennelName} solid hunting stock, been hearing good things.`,
+  ];
+  const pick = templates[randInt(0, templates.length - 1)]();
+  const handle = FAN_HANDLES[randInt(0, FAN_HANDLES.length - 1)];
+  return { handle, text: pick };
+}
+function generateStarterCandidates() {
+  const shuffled = BREED_NAMES.slice().sort(() => Math.random() - 0.5).slice(0, 6);
+  return shuffled.map((breed) => {
+    const sex = Math.random() < 0.5 ? "M" : "F";
+    const dog = generateRandomDog(breed);
+    dog.sex = sex;
+    dog.name = randomName(sex);
+    dog.ageDays = randInt(380, 600);
+    return dog;
+  });
+}
+function initKennel(kennelName, starterDogs) {
+  const day = 1;
+  const starters = (starterDogs && starterDogs.length === 2) ? starterDogs : [
+    { ...generateRandomDog("American Pit Bull Terrier"), name: "Diesel", sex: "M", ageDays: 420 },
+    { ...generateRandomDog("Catahoula Leopard Dog"), name: "Ruby", sex: "F", ageDays: 380 },
+  ];
+  const name = (kennelName && kennelName.trim()) || "Sundown Kennels";
+  const base = {
+    kennelName: name, day, cash: 2500, dogs: starters,
+    market: generateMarket(4, day),
+    aiKennels: initAiKennels(),
+    catches: [],
+    nextRegNumber: 1,
+    netWorthHistory: [],
+    offers: [],
+    fame: 0,
+    socialFeed: [],
+    log: [{ day, type: "info", text: `${name} established. Stud book opened.` }],
+  };
+  base.netWorthHistory = [{ day, netWorth: kennelNetWorth(base) }];
+  return base;
+}
+function addLog(state, type, text) { return { ...state, log: [{ day: state.day, type, text }, ...state.log].slice(0, 60) }; }
+
+const STORAGE_KEY = "kennel-save-v7";
+
+/* --------------------------------- pieces --------------------------------- */
+
+function StatBar({ label, value }) {
+  const pct = clamp(value);
+  const tone = pct >= 75 ? "var(--olive)" : pct >= 45 ? "var(--denim)" : "var(--rust)";
+  return (
+    <div className="kg-statrow">
+      <span className="kg-statlabel">{label}</span>
+      <div className="kg-statbar"><div className="kg-statfill" style={{ width: pct + "%", background: tone }} /></div>
+      <span className="kg-statval">{pct}</span>
+    </div>
+  );
+}
+function Badge({ tone, children }) { return <span className={"kg-badge kg-badge--" + tone}>{children}</span>; }
+
+/* Hand-inked ledger line — plots net worth over time from the kennel's own
+   recorded history, no external chart library. */
+function Sparkline({ points, width = 640, height = 140 }) {
+  if (!points || points.length < 2) return <p className="kg-empty">Not enough history yet — keep playing and the line will fill in.</p>;
+  const values = points.map((p) => p.netWorth);
+  const min = Math.min(...values), max = Math.max(...values);
+  const range = max - min || 1;
+  const stepX = width / (points.length - 1);
+  const coords = points.map((p, i) => [Math.round(i * stepX * 10) / 10, Math.round((height - 8 - ((p.netWorth - min) / range) * (height - 20)) * 10) / 10]);
+  const line = coords.map((c) => c.join(",")).join(" ");
+  const area = `0,${height} ` + line + ` ${width},${height}`;
+  return (
+    <svg className="kg-spark" viewBox={`0 0 ${width} ${height}`} width="100%" height={height} preserveAspectRatio="none">
+      <polygon points={area} fill="var(--olive)" opacity="0.12" />
+      <polyline points={line} fill="none" stroke="var(--olive)" strokeWidth="2" />
+      {coords.length && <circle cx={coords[coords.length - 1][0]} cy={coords[coords.length - 1][1]} r="3.5" fill="var(--gold)" />}
+    </svg>
+  );
+}
+
+/* The through-line signature element: a rubber-stamped rating seal, same
+   device used for the breed stamp and papers, now doing double duty as an
+   at-a-glance quality mark on every card. */
+function RatingSeal({ rating }) {
+  const tone = rating >= 80 ? "gold" : rating >= 65 ? "olive" : rating >= 45 ? "denim" : "rust";
+  return <div className={"kg-seal kg-seal--" + tone}>{rating}</div>;
+}
+
+/* A procedurally generated coat swatch — not a photoreal AI image (no image
+   model is available in this environment), but a genuinely generated strip
+   built from the dog's actual base color + pattern genes, seeded on its id
+   so it's stable every time you look at it. */
+function CoatSwatch({ dog, width = 200, height = 26 }) {
+  const rng = mulberry32(hashStr(dog.id));
+  const baseHex = COLOR_HEX[dog.colorGenes.base] || COLOR_HEX.fawn;
+  const darker = shade(baseHex, -30);
+  const lighter = shade(baseHex, 26);
+  const pattern = dog.colorGenes.pattern;
+  const shapes = [];
+  if (pattern === "brindle") {
+    for (let i = 0; i < 14; i++) {
+      const x = rng() * width;
+      shapes.push(<rect key={i} x={x} y={-4} width={2.5 + rng() * 3} height={height + 8} fill={darker} opacity="0.6" transform={`rotate(22 ${x} ${height / 2})`} />);
+    }
+  } else if (pattern === "merle") {
+    const patchFill = dog.colorGenes.merleAlleles === 2 ? "#ece4d3" : darker;
+    const count = dog.colorGenes.merleAlleles === 2 ? 11 : 7;
+    for (let i = 0; i < count; i++) {
+      const cx = rng() * width, cy = rng() * height, r = 5 + rng() * 9;
+      shapes.push(<ellipse key={i} cx={cx} cy={cy} rx={r} ry={r * 0.7} fill={patchFill} opacity={dog.colorGenes.merleAlleles === 2 ? 0.6 : 0.5} />);
+    }
+  } else if (pattern === "piebald") {
+    for (let i = 0; i < 5; i++) {
+      const cx = rng() * width, cy = rng() * height, r = 9 + rng() * 14;
+      shapes.push(<ellipse key={i} cx={cx} cy={cy} rx={r} ry={r * 0.75} fill={COLOR_HEX.white} opacity="0.92" />);
+    }
+  } else if (pattern === "saddle") {
+    shapes.push(<rect key="s" x={width * 0.32} y={0} width={width * 0.36} height={height} fill={darker} opacity="0.88" />);
+  } else if (pattern === "tricolor") {
+    shapes.push(<rect key="w" x={0} y={0} width={width} height={height} fill={COLOR_HEX.white} />);
+    shapes.push(<rect key="a" x={0} y={0} width={width * 0.4} height={height} fill={baseHex} />);
+    shapes.push(<rect key="b" x={width * 0.6} y={0} width={width * 0.4} height={height} fill={shade(baseHex, 20)} />);
+  } else if (pattern === "ticked") {
+    shapes.push(<rect key="w" x={0} y={0} width={width} height={height} fill={COLOR_HEX.white} />);
+    for (let i = 0; i < 70; i++) {
+      const cx = rng() * width, cy = rng() * height;
+      shapes.push(<circle key={i} cx={cx} cy={cy} r={1.1 + rng()} fill={baseHex} opacity="0.75" />);
+    }
+  }
+  return (
+    <svg className="kg-card__swatch" width="100%" viewBox={`0 0 ${width} ${height}`} height={height} preserveAspectRatio="none">
+      <rect x="0" y="0" width={width} height={height} fill={pattern === "tricolor" || pattern === "ticked" ? "none" : baseHex} />
+      {shapes}
+    </svg>
+  );
+}
+
+function DogCard({ dog, price, sellerName, footer, onView }) {
+  const st = statusOf(dog);
+  const rarity = computeRarity(dog);
+  const star = starTrait(dog);
+  const bc = bullyClass(dog);
+  const grade = conformationGrade(dog);
+  return (
+    <div className="kg-card">
+      <div className="kg-card__stamp">{breedShort(dog.breed)}</div>
+      <CoatSwatch dog={dog} />
+      <div className="kg-card__top">
+        <h3 className="kg-card__name" style={onView ? { cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted" } : null} onClick={onView ? () => onView(dog) : undefined}>
+          {dog.sex === "M" ? "♂" : "♀"} {dog.name}
+        </h3>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <RatingSeal rating={overallRating(dog.stats)} />
+          <Badge tone={st.tone}>{st.label}</Badge>
+        </div>
+      </div>
+      <p className="kg-card__breed">{dog.breed} · {colorLabel(dog.colorGenes)}</p>
+      <p className="kg-card__meta">
+        {ageLabel(dog.ageDays)} old · {dog.heightIn}in · {dog.weightLb}lb · Gen {dog.generation}{dog.sire ? " · out of " + dog.sire + " × " + dog.dam : ""}{sellerName ? " · " + sellerName : ""}
+      </p>
+      <div className="kg-card__tags">
+        <Badge tone={rarity.tone}>{rarity.tier}</Badge>
+        <Badge tone={grade.tone}>Grade {grade.grade}</Badge>
+        {dog.culled && <Badge tone="rust">Below Standard</Badge>}
+        {star.stars >= 3 && <Badge tone="gold">{starString(star.stars)} {STAT_LABELS[star.key]}</Badge>}
+        {isBandogBreed(dog.breed) && <Badge tone="rust">{dog.breed === "Bandog" ? "Bandog" : dog.breed}</Badge>}
+        {bc && <Badge tone={bc.key === "xxl" ? "gold" : bc.key === "xl" ? "rust" : bc.key === "pocket" ? "tan" : "denim"}>{bc.label}</Badge>}
+        {dog.crossBred && dog.breed !== "Bandog" && <Badge tone="denim">Hybrid Vigor</Badge>}
+        {dog.mstnAlleles === 1 && <Badge tone="rust">Muscled (MSTN)</Badge>}
+        {dog.mstnAlleles === 2 && <Badge tone="rust">Double Muscled</Badge>}
+        {dog.grewBigger && <Badge tone="gold">Growth Mutation</Badge>}
+        {(dog.traits || []).map((k) => <Badge key={k} tone={TRAIT_DEFS[k].tone}>{TRAIT_DEFS[k].name}</Badge>)}
+        {dog.impaired && <Badge tone="rust">⚠ {dog.breed === "Dogo Argentino" ? "Hearing Impaired" : "Double Merle"}</Badge>}
+        {dog.registered && <Badge tone="gold">Papers {dog.regNumber}</Badge>}
+        {dog.bloodline && <Badge tone="denim">{dog.bloodline} Line</Badge>}
+      </div>
+      {(dog.hiddenColor || dog.hiddenPattern || (dog.hiddenTraits && dog.hiddenTraits.length > 0)) && (
+        <p className="kg-hint" style={{ margin: "0 0 8px" }}>
+          Carries: {[dog.hiddenColor && cap(dog.hiddenColor) + " (color)", dog.hiddenPattern && cap(dog.hiddenPattern) + " (pattern)", ...(dog.hiddenTraits || []).map((k) => TRAIT_DEFS[k].name)].filter(Boolean).join(", ")} — may surface in pups
+        </p>
+      )}
+      <div className="kg-card__stats">{STAT_KEYS.map((k) => <StatBar key={k} label={STAT_LABELS[k]} value={dog.stats[k]} />)}</div>
+      <div className="kg-card__health">
+        <span>♥</span>
+        <div className="kg-statbar kg-statbar--health"><div className="kg-statfill" style={{ width: clamp(dog.health) + "%", background: dog.health >= 60 ? "var(--olive)" : dog.health >= 35 ? "var(--tan-ink)" : "var(--rust)" }} /></div>
+        <span className="kg-statval">{Math.round(dog.health)}</span>
+      </div>
+      {price != null && <p className="kg-card__price">${price.toLocaleString("en-US")}</p>}
+      {footer && <div className="kg-card__footer">{footer}</div>}
+    </div>
+  );
+}
+
+/* Renders as far back as the game actually knows — pedigree is snapshotted
+   at breeding time, so it goes back exactly as many generations as you've
+   bred toward, and stops honestly at "Unknown" for bought/scouted/founder
+   stock rather than making anything up. */
+function PedigreeBranch({ role, entry, depth, maxDepth }) {
+  return (
+    <div className="kg-pednode">
+      <div className="kg-pednode__row">
+        <span className="kg-pednode__role">{role}</span>
+        {entry ? (
+          <span className="kg-pednode__name">{entry.name} <span className="kg-pednode__meta">— {entry.breed}, {colorLabel(entry.colorGenes)}{entry.bloodline ? ", " + entry.bloodline + " Line" : ""}{entry.regNumber ? ", " + entry.regNumber : ""}</span></span>
+        ) : (
+          <span className="kg-pednode__unknown">Unknown — foundation stock</span>
+        )}
+      </div>
+      {entry && entry.pedigree && depth < maxDepth && (
+        <div className="kg-pednode__children">
+          <PedigreeBranch role="Sire" entry={entry.pedigree.sire} depth={depth + 1} maxDepth={maxDepth} />
+          <PedigreeBranch role="Dam" entry={entry.pedigree.dam} depth={depth + 1} maxDepth={maxDepth} />
+        </div>
+      )}
+      {entry && entry.pedigree && depth >= maxDepth && <div className="kg-pednode__unknown" style={{ marginLeft: 16 }}>…earlier generations on file, not shown here</div>}
+    </div>
+  );
+}
+function FamilyTree({ dog }) {
+  if (!dog.pedigree) return <p className="kg-empty">No ancestry on record — {dog.name} is foundation stock (bought, scouted, or an original founder).</p>;
+  return (
+    <div className="kg-pedtree">
+      <div className="kg-pedroot">{dog.sex === "M" ? "♂" : "♀"} {dog.name} — Gen {dog.generation}</div>
+      <PedigreeBranch role="Sire" entry={dog.pedigree.sire} depth={1} maxDepth={4} />
+      <PedigreeBranch role="Dam" entry={dog.pedigree.dam} depth={1} maxDepth={4} />
+    </div>
+  );
+}
+
+function DogProfileModal({ dog, onClose }) {
+  if (!dog) return null;
+  const rarity = computeRarity(dog);
+  const star = starTrait(dog);
+  const value = computeValue(dog);
+  const bc = bullyClass(dog);
+  const grade = conformationGrade(dog);
+  return (
+    <div className="kg-modal-backdrop" onClick={onClose}>
+      <div className="kg-modal" onClick={(e) => e.stopPropagation()}>
+        <button className="kg-modal__close" onClick={onClose} aria-label="Close">✕</button>
+        <div className="kg-modal__head">
+          <CoatSwatch dog={dog} height={40} />
+          <h2>{dog.sex === "M" ? "♂" : "♀"} {dog.name}</h2>
+          <p className="kg-card__breed">{dog.breed} · {colorLabel(dog.colorGenes)}</p>
+        </div>
+
+        <div className="kg-modal__tags">
+          <Badge tone={rarity.tone}>{rarity.tier}</Badge>
+          <Badge tone="gold">{starString(star.stars)} {STAT_LABELS[star.key]} specialist</Badge>
+          {isBandogBreed(dog.breed) && <Badge tone="rust">{dog.breed === "Bandog" ? "Bandog" : dog.breed}</Badge>}
+          {dog.crossBred && dog.breed !== "Bandog" && <Badge tone="denim">Hybrid Vigor</Badge>}
+          {dog.impaired && <Badge tone="rust">⚠ {dog.breed === "Dogo Argentino" ? "Hearing Impaired" : "Double Merle"}</Badge>}
+          {dog.registered && <Badge tone="gold">Papers {dog.regNumber}</Badge>}
+          {dog.bloodline && <Badge tone="denim">{dog.bloodline} Line</Badge>}
+        </div>
+
+        <h3 className="kg-modal__section">Working stats</h3>
+        <div className="kg-card__stats">{STAT_KEYS.map((k) => <StatBar key={k} label={STAT_LABELS[k]} value={dog.stats[k]} />)}</div>
+        <p className="kg-note">Overall rating: {overallRating(dog.stats)} / 100</p>
+
+        <h3 className="kg-modal__section">Body &amp; condition</h3>
+        <ul className="kg-modal__facts">
+          <li>Age: {ageLabel(dog.ageDays)} ({dog.ageDays} days)</li>
+          <li>Height: {dog.heightIn} in</li>
+          <li>Weight: {dog.weightLb} lb</li>
+          <li>Health: {Math.round(dog.health)} / 100</li>
+          <li>Conformation grade: <strong>{grade.grade}</strong> — {grade.desc}</li>
+          <li>Estimated value: {fmtMoney(value)}</li>
+        </ul>
+        {dog.culled && <p className="kg-warn">This pup came out below standard at birth — noticeably weaker across the board. It happens in real litters too; not every pup is breeding or sale quality.</p>}
+
+        {(isBandogBreed(dog.breed) || dog.breed === "American Pit Bull Terrier") && (
+          <>
+            <h3 className="kg-modal__section">Bully Classification</h3>
+            {bc ? (
+              <>
+                <p className="kg-note" style={{ margin: "0 0 6px" }}><strong>{bc.label}</strong> — {bc.desc}</p>
+                <p className="kg-hint" style={{ margin: 0 }}>{dog.sex === "M" ? "Male" : "Female"} thresholds (ABKC/UKC): Pocket under {dog.sex === "M" ? 17 : 16}in · Standard/Classic {dog.sex === "M" ? "17–20" : "16–19"}in · XL {dog.sex === "M" ? "over 20–23" : "over 19–22"}in · XXL past that (unofficial). At {dog.heightIn}in this one lands in {bc.label}.</p>
+              </>
+            ) : (
+              <p className="kg-hint">Under {dog.sex === "M" ? 14 : 13}in — too short to fall inside a recognized Bully height class.</p>
+            )}
+            <p className="kg-hint" style={{ marginTop: 6 }}>Worth knowing: the real American Bully is its own breed (APBT × American Staffordshire Terrier, with historical Bulldog influence) — this tag is the informal height-based label people use on big APBT-type dogs and Bandogs, not a claim that this dog is a registered American Bully.</p>
+          </>
+        )}
+
+        <h3 className="kg-modal__section">Genetics</h3>
+        <ul className="kg-modal__facts">
+          <li>Visible coat: {colorLabel(dog.colorGenes)}</li>
+          <li>Merle alleles carried: {dog.colorGenes.merleAlleles}{dog.colorGenes.merleAlleles === 2 ? " (double merle)" : dog.colorGenes.merleAlleles === 1 ? " (single copy — visible)" : " (none)"}</li>
+          <li>Hidden color gene: {dog.hiddenColor ? cap(dog.hiddenColor) : "none known"}</li>
+          <li>Hidden pattern gene: {dog.hiddenPattern ? cap(dog.hiddenPattern) : "none known"}</li>
+        </ul>
+
+        <h3 className="kg-modal__section">Physical Traits</h3>
+        {(dog.traits && dog.traits.length) || dog.mstnAlleles ? (
+          <ul className="kg-modal__facts" style={{ gap: 10 }}>
+            {dog.mstnAlleles === 1 && <li><strong>{TRAIT_DEFS.myostatin1.name}</strong> — {TRAIT_DEFS.myostatin1.desc}</li>}
+            {dog.mstnAlleles === 2 && <li><strong>{TRAIT_DEFS.myostatin2.name}</strong> — {TRAIT_DEFS.myostatin2.desc}</li>}
+            {(dog.traits || []).map((k) => (
+              <li key={k}><strong>{TRAIT_DEFS[k].name}</strong> — {TRAIT_DEFS[k].desc}{TRAIT_DEFS[k].real === false && <em style={{ color: "var(--ink-soft)" }}> (gameplay trait, not a single named gene)</em>}</li>
+            ))}
+          </ul>
+        ) : <p className="kg-empty">No standout physical traits — an even, unremarkable specimen for the breed.</p>}
+        {(dog.hiddenTraits && dog.hiddenTraits.length > 0) && (
+          <p className="kg-note">Also carries hidden: {dog.hiddenTraits.map((k) => TRAIT_DEFS[k].name).join(", ")} — not expressed in this dog, but can surface in pups.</p>
+        )}
+
+        <h3 className="kg-modal__section">Family Tree</h3>
+        <ul className="kg-modal__facts" style={{ marginBottom: 10 }}>
+          <li>Registration: {dog.registered ? dog.regNumber : "unregistered"}</li>
+          <li>Bloodline: {dog.bloodline ? dog.bloodline + " Line" : "none"}</li>
+        </ul>
+        <FamilyTree dog={dog} />
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------- app ---------------------------------- */
+
+/* First-time setup: name the kennel, then pick exactly 2 starter dogs from
+   a fresh set of candidates to found the roster with. */
+function KennelSetup({ onComplete }) {
+  const [step, setStep] = useState(1);
+  const [name, setName] = useState("");
+  const [candidates] = useState(() => generateStarterCandidates());
+  const [chosen, setChosen] = useState([]);
+
+  function toggle(dogId) {
+    setChosen((prev) => {
+      if (prev.includes(dogId)) return prev.filter((id) => id !== dogId);
+      if (prev.length >= 2) return prev;
+      return [...prev, dogId];
+    });
+  }
+
+  return (
+    <div className="kg-app">
+      <div className="kg-onboard">
+        <div className="kg-onboard__hero">
+          <h1>🐾 Found Your Kennel</h1>
+          <p>Every stud book starts with a name and a pair of dogs.</p>
+        </div>
+        <div className="kg-onboard__card">
+          {step === 1 && (
+            <>
+              <p className="kg-onboard__step">Step 1 of 2</p>
+              <h2 className="kg-onboard__title">Name your kennel</h2>
+              <p className="kg-hint">This is what other kennels, buyers, and the stud book will know you by. You can't change it once you're set up, so pick something you like.</p>
+              <input className="kg-onboard__input" type="text" placeholder="e.g. Sundown Kennels" value={name} maxLength={28}
+                onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && name.trim() && setStep(2)} autoFocus />
+              <div className="kg-onboard__actions">
+                <button className="kg-btn kg-btn--gold" disabled={!name.trim()} onClick={() => setStep(2)}>Continue</button>
+              </div>
+            </>
+          )}
+          {step === 2 && (
+            <>
+              <p className="kg-onboard__step">Step 2 of 2</p>
+              <h2 className="kg-onboard__title">Pick 2 starter dogs</h2>
+              <p className="kg-hint">Six dogs are available this time only. Choose the pair {name} will be built on — think about breed, sex (you'll want one of each to breed later), and stats.</p>
+              <p className="kg-onboard__count">{chosen.length} / 2 selected</p>
+              <div className="kg-grid">
+                {candidates.map((dog) => {
+                  const isChosen = chosen.includes(dog.id);
+                  return (
+                    <div key={dog.id} className={"kg-pickcard " + (isChosen ? "kg-pickcard--chosen" : "")} onClick={() => toggle(dog.id)} style={{ cursor: "pointer" }}>
+                      {isChosen && <div className="kg-pickcard__check">✓</div>}
+                      <DogCard dog={dog} />
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="kg-onboard__actions">
+                <button className="kg-btn kg-btn--ghost" onClick={() => setStep(1)}>Back</button>
+                <button className="kg-btn kg-btn--gold" disabled={chosen.length !== 2} onClick={() => onComplete(name, candidates.filter((d) => chosen.includes(d.id)))}>
+                  {chosen.length !== 2 ? "Pick 2 dogs" : `Found ${name}`}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function KennelGame() {
+  const [state, setState] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState("overview");
+  const [saveError, setSaveError] = useState(false);
+  const [storageMode, setStorageMode] = useState("local");
+  const [huntPick, setHuntPick] = useState({ dogId: null, hunt: "hog" });
+  const [groupHuntPicks, setGroupHuntPicks] = useState([]);
+  const [viewDog, setViewDog] = useState(null);
+  const [trialPick, setTrialPick] = useState({ dogId: null, trial: "weightpull" });
+  const [breedPick, setBreedPick] = useState({ sireId: null, damId: null });
+  const [newBloodline, setNewBloodline] = useState("");
+  const [studDamId, setStudDamId] = useState(null);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [filters, setFilters] = useState({ breed: "all", sex: "all", maxPrice: "", minStars: "0", sort: "priceAsc" });
+  const [kennelSearch, setKennelSearch] = useState("");
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      setState(raw ? JSON.parse(raw) : null);
+      setStorageMode("local");
+    } catch { setState(null); setStorageMode("memory"); }
+    setLoading(false);
+  }, []);
+
+  const persist = useCallback((next) => {
+    if (storageMode !== "local") return;
+    try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); setSaveError(false); }
+    catch { setSaveError(true); }
+  }, [storageMode]);
+
+  const update = useCallback((fn) => {
+    setState((prev) => {
+      let next = fn(prev);
+      const nw = kennelNetWorth(next);
+      const hist = next.netWorthHistory || [];
+      const last = hist[hist.length - 1];
+      if (!last || last.day !== next.day) next = { ...next, netWorthHistory: [...hist, { day: next.day, netWorth: nw }].slice(-60) };
+      else next = { ...next, netWorthHistory: [...hist.slice(0, -1), { day: next.day, netWorth: nw }] };
+      persist(next);
+      return next;
+    });
+  }, [persist]);
+
+  if (loading) return <div className="kg-app kg-loading"><p>Opening the stud book…</p></div>;
+  if (!state) {
+    return <KennelSetup onComplete={(name, dogs) => {
+      const fresh = initKennel(name, dogs);
+      setState(fresh);
+      persist(fresh);
+    }} />;
+  }
+
+  function tick(prev, days, overrides = {}) {
+    let next = { ...prev, day: prev.day + days };
+    const upkeep = prev.dogs.length * 4 * days;
+    next.cash = Math.round((prev.cash - upkeep) * 100) / 100;
+    next.dogs = prev.dogs.map((d) => {
+      const ov = overrides[d.id];
+      let health = d.health + 4.5 * days;
+      let cooldown = Math.max(0, d.breedCooldown - days);
+      if (ov && typeof ov.healthDelta === "number") health = d.health + ov.healthDelta;
+      if (ov && typeof ov.cooldownSet === "number") cooldown = ov.cooldownSet;
+      return { ...d, ageDays: d.ageDays + days, health: clamp(health), breedCooldown: cooldown };
+    });
+    const { kennels, newListings, newCatches } = simulateAiWorld(prev.aiKennels, days, prev.day);
+    next.aiKennels = kennels;
+    next.market = [...prev.market, ...newListings].slice(-30);
+    next.catches = [...prev.catches, ...newCatches].sort((a, b) => (b.weightLbs || b.payout) - (a.weightLbs || a.payout)).slice(0, 25);
+
+    let offers = (prev.offers || []).filter((o) => o.expiresDay >= next.day);
+    let social = prev.socialFeed || [];
+    for (let step = 0; step < days; step++) {
+      offers = offers.concat(rollNewOffers(next.dogs, prev.day + step + 1, offers.length));
+      social = social.concat(rollSocialPosts(prev.kennelName, next.dogs, prev.fame || 0, social.length));
+    }
+    next.offers = offers.slice(-6);
+    next.socialFeed = social.slice(-10);
+    return next;
+  }
+
+  function doHunt() {
+    const dog = state.dogs.find((d) => d.id === huntPick.dogId);
+    if (!dog) return;
+    const hunt = HUNTS[huntPick.hunt];
+    const result = resolveHunt(dog, huntPick.hunt);
+    const weightLbs = catchWeight(huntPick.hunt, result.tier);
+    const payout = huntPick.hunt === "hog" && weightLbs ? hogPayout(weightLbs) : result.payout;
+    update((prev) => {
+      let next = tick(prev, 1, { [dog.id]: { healthDelta: -result.healthLoss } });
+      next.cash = Math.round(next.cash + payout);
+      if (result.tier !== "Poor") {
+        next.catches = [...next.catches, { id: genId(), day: prev.day + 1, kennelName: prev.kennelName, dogName: dog.name, breed: dog.breed, huntType: hunt.label, tier: result.tier, weightLbs, payout }]
+          .sort((a, b) => (b.weightLbs || b.payout) - (a.weightLbs || a.payout)).slice(0, 25);
+      }
+      const msg = result.injured
+        ? `${dog.name} came back hurt from the ${hunt.label.toLowerCase()} — ${result.tier.toLowerCase()} run, earned ${fmtMoney(payout)}, but took a beating.`
+        : `${dog.name} put in a ${result.tier.toLowerCase()} run at the ${hunt.label.toLowerCase()}, earned ${fmtMoney(payout)}.`;
+      return addLog(next, result.injured ? "injury" : "hunt", msg);
+    });
+  }
+
+  function doGroupHunt(dogIds) {
+    const dogs = state.dogs.filter((d) => dogIds.includes(d.id));
+    if (dogs.length < 2) return;
+    const avgStats = {};
+    STAT_KEYS.forEach((k) => (avgStats[k] = dogs.reduce((s, d) => s + d.stats[k], 0) / dogs.length));
+    const result = resolveHunt({ stats: avgStats }, "hog");
+    const weightLbs = catchWeight("hog", result.tier, dogs.length);
+    const payout = hogPayout(weightLbs);
+    update((prev) => {
+      const overrides = {};
+      dogs.forEach((d) => (overrides[d.id] = { healthDelta: -result.healthLoss }));
+      let next = tick(prev, 1, overrides);
+      next.cash = Math.round(next.cash + payout);
+      const names = dogs.map((d) => d.name).join(", ");
+      if (result.tier !== "Poor") {
+        next.catches = [...next.catches, { id: genId(), day: prev.day + 1, kennelName: prev.kennelName, dogName: `${names} (pack of ${dogs.length})`, breed: "Group Hunt", huntType: "Hog Hunt", tier: result.tier, weightLbs, payout }]
+          .sort((a, b) => (b.weightLbs || b.payout) - (a.weightLbs || a.payout)).slice(0, 25);
+      }
+      const monster = weightLbs >= 700 ? " — a genuine monster hog!" : "";
+      const msg = result.injured
+        ? `The pack (${names}) ran down a ${weightLbs} lb hog — ${result.tier.toLowerCase()} run, earned ${fmtMoney(payout)}, but some of them took a beating.${monster}`
+        : `The pack (${names}) ran down a ${weightLbs} lb hog — ${result.tier.toLowerCase()} run, earned ${fmtMoney(payout)}.${monster}`;
+      return addLog(next, result.injured ? "injury" : "hunt", msg);
+    });
+    setGroupHuntPicks([]);
+  }
+
+  function doDeclineOffer(offerId) {
+    update((prev) => ({ ...prev, offers: prev.offers.filter((o) => o.id !== offerId) }));
+  }
+
+  function doAcceptHuntOffer(offer) {
+    const eligible = state.dogs.filter(canHunt);
+    if (eligible.length === 0) return;
+    const dog = eligible.slice().sort((a, b) => overallRating(b.stats) - overallRating(a.stats))[0];
+    const result = resolveHunt(dog, "hog");
+    const weightLbs = catchWeight("hog", result.tier);
+    const payout = weightLbs ? Math.round(hogPayout(weightLbs) * 1.3) : Math.round(result.payout * 1.3);
+    update((prev) => {
+      let next = tick(prev, 1, { [dog.id]: { healthDelta: -result.healthLoss } });
+      next.cash = Math.round(next.cash + payout);
+      next.offers = next.offers.filter((o) => o.id !== offer.id);
+      if (result.tier !== "Poor") {
+        next.catches = [...next.catches, { id: genId(), day: prev.day + 1, kennelName: prev.kennelName, dogName: dog.name, breed: dog.breed, huntType: "Hog Hunt", tier: result.tier, weightLbs, payout }]
+          .sort((a, b) => (b.weightLbs || b.payout) - (a.weightLbs || a.payout)).slice(0, 25);
+      }
+      const msg = result.injured
+        ? `Hunted with ${offer.kennelName} — ${dog.name} came back hurt, ${result.tier.toLowerCase()} run, earned ${fmtMoney(payout)}.`
+        : `Hunted with ${offer.kennelName} — ${dog.name} put in a ${result.tier.toLowerCase()} run, earned ${fmtMoney(payout)} (invited hunts pay a premium).`;
+      return addLog(next, result.injured ? "injury" : "hunt", msg);
+    });
+  }
+
+  function doAcceptPurchaseOffer(offer) {
+    const dog = state.dogs.find((d) => d.id === offer.dogId);
+    if (!dog) { doDeclineOffer(offer.id); return; }
+    update((prev) => {
+      const next = { ...prev, cash: Math.round(prev.cash + offer.price), dogs: prev.dogs.filter((d) => d.id !== offer.dogId), offers: prev.offers.filter((o) => o.id !== offer.id) };
+      return addLog(next, "money", `${offer.buyerName} bought ${offer.dogName} for ${fmtMoney(offer.price)}.`);
+    });
+  }
+
+  function doAcceptBreedingRequest(offer) {
+    const target = state.dogs.find((d) => d.id === offer.targetDogId);
+    if (!target) { doDeclineOffer(offer.id); return; }
+    const sire = target.sex === "M" ? target : offer.requesterDog;
+    const dam = target.sex === "F" ? target : offer.requesterDog;
+    update((prev) => {
+      const { pups, doubleMerleWarned, grewBiggerCount } = breedPuppies(sire, dam, prev.day + 1, target.bloodline || null);
+      let next = tick(prev, 1, { [target.id]: { cooldownSet: 45, healthDelta: -14 } });
+      next.cash = Math.round(next.cash + offer.fee);
+      next.dogs = [...next.dogs, ...pups];
+      next.offers = next.offers.filter((o) => o.id !== offer.id);
+      const names = pups.map((p) => p.name).join(", ");
+      let note = ` Paid a breeding fee of ${fmtMoney(offer.fee)}.`;
+      if (doubleMerleWarned) note += " At least one double-merle pup — risk of deafness or vision problems.";
+      if (grewBiggerCount) note += ` ${grewBiggerCount} pup${grewBiggerCount > 1 ? "s" : ""} threw a growth mutation.`;
+      return addLog(next, "breed", `${offer.kennelName} bred their ${offer.requesterDog.name} with your ${target.name} — whelped ${pups.length}: ${names}.${note}`);
+    });
+  }
+
+  function doTrial(myDog, oppDog) {
+    const trial = TRIALS[trialPick.trial];
+    const result = resolveTrial(myDog, oppDog, trialPick.trial);
+    const purse = trialPurse(myDog, oppDog);
+    const fameGain = result.won ? (trialPick.trial === "show" ? 5 : 2) : 0;
+    update((prev) => {
+      let next = tick(prev, 1, { [myDog.id]: { healthDelta: -result.healthLoss } });
+      next.cash = Math.round(next.cash + (result.won ? purse : -Math.round(purse * 0.3)));
+      /* Competing builds real muscle over time — a small, permanent grip
+         and conformation gain each time out, bigger on a win. */
+      const gain = result.won ? randInt(2, 4) : randInt(1, 2);
+      next.dogs = next.dogs.map((d) => d.id === myDog.id ? { ...d, stats: { ...d.stats, grip: clamp(d.stats.grip + gain), conformation: clamp(d.stats.conformation + gain) } } : d);
+      const prevTier = fameTier(prev.fame || 0);
+      next.fame = (prev.fame || 0) + fameGain;
+      const newTier = fameTier(next.fame);
+      const msg = result.won
+        ? `${myDog.name} beat ${oppDog.name} (${oppDog.kennelName}) at the ${trial.label.toLowerCase()} by ${result.margin} points — won ${fmtMoney(purse)}. Training's paying off — ${myDog.name} put on some muscle.`
+        : `${myDog.name} lost to ${oppDog.name} (${oppDog.kennelName}) at the ${trial.label.toLowerCase()} by ${result.margin} points — entry fee cost ${fmtMoney(Math.round(purse * 0.3))}.`;
+      next = addLog(next, result.won ? "money" : "injury", msg);
+      if (newTier.label !== prevTier.label) {
+        next = addLog(next, "info", `📰 Word's spreading — ${next.kennelName} is now "${newTier.label}" around the working-dog circuit.`);
+      }
+      return next;
+    });
+  }
+
+  function doBreed() {
+    const sire = state.dogs.find((d) => d.id === breedPick.sireId);
+    const dam = state.dogs.find((d) => d.id === breedPick.damId);
+    if (!sire || !dam) return;
+    const foundedName = newBloodline.trim();
+    const bloodline = foundedName || sire.bloodline || dam.bloodline || null;
+    update((prev) => {
+      const { pups, inbred, doubleMerleWarned, doubleMuscledCount, culledCount, grewBiggerCount } = breedPuppies(sire, dam, prev.day + 1, bloodline);
+      let next = tick(prev, 1, { [sire.id]: { cooldownSet: 10, healthDelta: 0 }, [dam.id]: { cooldownSet: 45, healthDelta: -14 } });
+      if (foundedName) {
+        next.dogs = next.dogs.map((d) => (d.id === sire.id || d.id === dam.id) ? { ...d, bloodline: foundedName } : d);
+      }
+      next.dogs = [...next.dogs, ...pups];
+      const names = pups.map((p) => p.name).join(", ");
+      let note = "";
+      if (foundedName) note += ` Founded the ${foundedName} bloodline.`;
+      if (inbred) note += " Close breeding — litter came in below par.";
+      if (doubleMerleWarned) note += " At least one double-merle pup — those carry real risk of deafness or vision problems.";
+      if (doubleMuscledCount) note += ` ${doubleMuscledCount} double-muscled (MSTN/MSTN) pup${doubleMuscledCount > 1 ? "s" : ""} — dramatic power, less endurance.`;
+      if (culledCount) note += ` ${culledCount} pup${culledCount > 1 ? "s" : ""} came out below standard — not every one in a litter makes the grade.`;
+      if (grewBiggerCount) note += ` ${grewBiggerCount} pup${grewBiggerCount > 1 ? "s" : ""} threw a growth mutation — noticeably bigger than expected.`;
+      return addLog(next, "breed", `${sire.name} × ${dam.name} whelped ${pups.length}: ${names}.${note}`);
+    });
+    setBreedPick({ sireId: null, damId: null });
+    setNewBloodline("");
+  }
+
+  function doStudService(dam, stud) {
+    const fee = studFee(stud);
+    if (state.cash < fee) return;
+    const bloodline = dam.bloodline || null;
+    update((prev) => {
+      const { pups, doubleMerleWarned, doubleMuscledCount, culledCount, grewBiggerCount } = breedPuppies(stud, dam, prev.day + 1, bloodline);
+      let next = tick(prev, 1, { [dam.id]: { cooldownSet: 45, healthDelta: -14 } });
+      next.cash = Math.round((next.cash - fee) * 100) / 100;
+      next.dogs = [...next.dogs, ...pups];
+      const names = pups.map((p) => p.name).join(", ");
+      let note = doubleMerleWarned ? " At least one double-merle pup — risk of deafness or vision problems." : "";
+      if (doubleMuscledCount) note += ` ${doubleMuscledCount} double-muscled (MSTN/MSTN) pup${doubleMuscledCount > 1 ? "s" : ""} — dramatic power, less endurance.`;
+      if (culledCount) note += ` ${culledCount} pup${culledCount > 1 ? "s" : ""} came out below standard — not every one in a litter makes the grade.`;
+      if (grewBiggerCount) note += ` ${grewBiggerCount} pup${grewBiggerCount > 1 ? "s" : ""} threw a growth mutation — noticeably bigger than expected.`;
+      return addLog(next, "breed", `${dam.name} bred to ${stud.name} out of ${stud.kennelName} (stud fee ${fmtMoney(fee)}) — whelped ${pups.length}: ${names}.${note}`);
+    });
+    setStudDamId(null);
+  }
+
+  function doRegister(dog) {
+    const fee = registrationFee(dog);
+    if (state.cash < fee) return;
+    update((prev) => {
+      const regNumber = "REG-" + String(prev.nextRegNumber).padStart(4, "0");
+      const next = {
+        ...prev, cash: Math.round((prev.cash - fee) * 100) / 100, nextRegNumber: prev.nextRegNumber + 1,
+        dogs: prev.dogs.map((d) => (d.id === dog.id ? { ...d, registered: true, regNumber } : d)),
+      };
+      return addLog(next, "money", `Papers issued for ${dog.name} — ${regNumber} (fee ${fmtMoney(fee)}).`);
+    });
+  }
+
+  function doSell(dog) {
+    const value = computeValue(dog);
+    update((prev) => addLog({ ...prev, cash: Math.round(prev.cash + value), dogs: prev.dogs.filter((d) => d.id !== dog.id) }, "money", `Sold ${dog.name} to a trader for ${fmtMoney(value)}.`));
+  }
+  function doBuy(marketDog) {
+    if (state.cash < marketDog.price) return;
+    update((prev) => {
+      const { price, listedDay, sellerName, ...dog } = marketDog;
+      let next = { ...prev, cash: Math.round((prev.cash - price) * 100) / 100, dogs: [...prev.dogs, dog], market: prev.market.filter((m) => m.id !== marketDog.id) };
+      return addLog(next, "money", `Bought ${dog.name} (${dog.breed})${sellerName ? " from " + sellerName : ""} for ${fmtMoney(price)}.`);
+    });
+  }
+  function scoutMarket() { update((prev) => addLog({ ...prev, market: [...prev.market, ...generateMarket(4, prev.day)].slice(-30) }, "info", "Scouted new dogs at the market.")); }
+  function restWeek() { update((prev) => addLog(tick(prev, 7), "info", "Rested the kennel a week. Dogs recovered condition.")); }
+  function renameKennel() { const name = nameDraft.trim(); if (name) update((prev) => ({ ...prev, kennelName: name })); setEditingName(false); }
+
+  const huntableDogs = state.dogs.filter(canHunt);
+  const breedableM = state.dogs.filter((d) => d.sex === "M" && canBreed(d));
+  const breedableF = state.dogs.filter((d) => d.sex === "F" && canBreed(d));
+  const sire = state.dogs.find((d) => d.id === breedPick.sireId);
+  const dam = state.dogs.find((d) => d.id === breedPick.damId);
+  const bothMerleCarriers = sire && dam && sire.colorGenes.merleAlleles >= 1 && dam.colorGenes.merleAlleles >= 1;
+  const canFoundBloodline = sire && dam && sire.registered && dam.registered && !sire.bloodline && !dam.bloodline;
+  const inheritedBloodline = sire && dam && (sire.bloodline || dam.bloodline);
+  const studs = collectStuds(state.aiKennels);
+  const competitors = collectCompetitors(state.aiKennels);
+  const studDam = state.dogs.find((d) => d.id === studDamId);
+
+  let shownMarket = state.market.filter((d) => {
+    if (filters.breed !== "all") { if (filters.breed === "Cross") { if (!d.breed.includes("Cross")) return false; } else if (d.breed !== filters.breed) return false; }
+    if (filters.sex !== "all" && d.sex !== filters.sex) return false;
+    if (filters.maxPrice && d.price > Number(filters.maxPrice)) return false;
+    if (filters.minStars !== "0" && starTrait(d).stars < Number(filters.minStars)) return false;
+    return true;
+  });
+  shownMarket = shownMarket.slice().sort((a, b) => {
+    if (filters.sort === "priceAsc") return a.price - b.price;
+    if (filters.sort === "priceDesc") return b.price - a.price;
+    if (filters.sort === "ratingDesc") return overallRating(b.stats) - overallRating(a.stats);
+    if (filters.sort === "rarityDesc") return computeRarity(b).mult - computeRarity(a).mult;
+    return 0;
+  });
+
+  const registeredDogs = state.dogs.filter((d) => d.registered);
+  const bloodlineGroups = {};
+  state.dogs.forEach((d) => { if (d.bloodline) { (bloodlineGroups[d.bloodline] = bloodlineGroups[d.bloodline] || []).push(d); } });
+  const netWorth = kennelNetWorth(state);
+  const topDog = state.dogs.length ? state.dogs.slice().sort((a, b) => overallRating(b.stats) - overallRating(a.stats))[0] : null;
+  const topCatch = state.catches.find((c) => c.kennelName === state.kennelName);
+  const prevNetWorth = state.netWorthHistory && state.netWorthHistory.length > 1 ? state.netWorthHistory[state.netWorthHistory.length - 2].netWorth : netWorth;
+  const netWorthDelta = netWorth - prevNetWorth;
+
+  return (
+    <div className="kg-app">
+      <header className="kg-header">
+        <div className="kg-header__title">
+          <span className="kg-header__logo">🐾</span>
+          {editingName ? (
+            <div className="kg-rename">
+              <input autoFocus value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} maxLength={28} onKeyDown={(e) => e.key === "Enter" && renameKennel()} />
+              <button className="kg-iconbtn" onClick={renameKennel} aria-label="Save">✓</button>
+            </div>
+          ) : (
+            <h1 onClick={() => { setNameDraft(state.kennelName); setEditingName(true); }}>{state.kennelName} <span className="kg-iconbtn kg-iconbtn--ghost">✎</span></h1>
+          )}
+        </div>
+        <div className="kg-header__stats">
+          <span className="kg-hstat">Day {state.day}</span>
+          <span className="kg-hstat kg-hstat--cash">${state.cash.toLocaleString("en-US")}</span>
+          <span className="kg-hstat">{state.dogs.length} dog{state.dogs.length === 1 ? "" : "s"}</span>
+          <button className="kg-btn kg-btn--ghost" onClick={restWeek}>Rest a Week</button>
+        </div>
+      </header>
+
+      {saveError && <div className="kg-savewarn">Couldn't save progress just now — keep playing, it'll retry.</div>}
+      {storageMode === "memory" && <div className="kg-notice">This browser is blocking local storage, so progress won't be saved between visits.</div>}
+      <div className="kg-notice">Eight other kennels around the county breed, hunt, and sell dogs on their own — their world moves forward whenever you hunt, breed, or rest a week.</div>
+
+      <div className="kg-layout">
+      <nav className="kg-tabs">
+        {TABS.map((t) => <button key={t.id} className={"kg-tab " + (tab === t.id ? "kg-tab--active" : "")} onClick={() => setTab(t.id)}>{t.label}</button>)}
+      </nav>
+
+      <main className="kg-main">
+        {tab === "overview" && (
+          <section>
+            <p className="kg-hint">ℹ The front page of the stud book — a running record of {state.kennelName}'s worth, and what's happening around the county.</p>
+            <div className="kg-ovstats">
+              <div className="kg-ovstat"><div className="kg-ovstat__label">Net worth</div><div className="kg-ovstat__value">{fmtMoney(netWorth)}</div></div>
+              <div className="kg-ovstat"><div className="kg-ovstat__label">Cash on hand</div><div className="kg-ovstat__value">{fmtMoney(state.cash)}</div></div>
+              <div className="kg-ovstat"><div className="kg-ovstat__label">Dogs</div><div className="kg-ovstat__value">{state.dogs.length}</div></div>
+              <div className="kg-ovstat"><div className="kg-ovstat__label">Registered</div><div className="kg-ovstat__value">{registeredDogs.length}</div></div>
+              <div className="kg-ovstat"><div className="kg-ovstat__label">Bloodlines</div><div className="kg-ovstat__value">{Object.keys(bloodlineGroups).length}</div></div>
+              <div className="kg-ovstat"><div className="kg-ovstat__label">Fame</div><div className="kg-ovstat__value" style={{ fontSize: 15 }}>{fameTier(state.fame || 0).label}</div></div>
+              <div className="kg-ovstat"><div className="kg-ovstat__label">Day</div><div className="kg-ovstat__value">{state.day}</div></div>
+            </div>
+
+            <div className="kg-ovpanel">
+              <h2 className="kg-subhead">Net worth over time</h2>
+              <Sparkline points={state.netWorthHistory} />
+              <p className="kg-note" style={{ margin: "8px 0 0" }}>
+                {netWorthDelta >= 0 ? "▲" : "▼"} {fmtMoney(Math.abs(netWorthDelta))} since the last day recorded.
+              </p>
+            </div>
+
+            {state.offers.length > 0 && (
+              <div className="kg-ovpanel">
+                <h2 className="kg-subhead">Word around the county</h2>
+                <p className="kg-hint">ℹ Offers expire after a few days if you don't act on them.</p>
+                <div className="kg-offers">
+                  {state.offers.map((o) => (
+                    <div key={o.id} className="kg-offer" style={o.type === "breeding_request" ? { flexDirection: "column", alignItems: "stretch" } : null}>
+                      {o.type === "hunt" && <p>🐗 <strong>{o.kennelName}</strong> invites you along on a hog hunt — invited hunts pay a 30% premium.</p>}
+                      {o.type === "purchase" && <p>💵 <strong>{o.buyerName}</strong> offers <strong>{fmtMoney(o.price)}</strong> for {o.dogName}.</p>}
+                      {o.type === "breeding_request" && (
+                        <div>
+                          <p style={{ marginBottom: 10 }}>💌 <strong>{o.kennelName}</strong> asks to breed their dog with your <strong>{o.targetDogName}</strong> — offering <strong>{fmtMoney(o.fee)}</strong>. Here's their dog:</p>
+                          <div className="kg-grid" style={{ marginBottom: 10 }}>
+                            <DogCard dog={o.requesterDog} />
+                          </div>
+                        </div>
+                      )}
+                      <div className="kg-offer__actions">
+                        <button className="kg-btn kg-btn--sm kg-btn--gold" onClick={() => o.type === "hunt" ? doAcceptHuntOffer(o) : o.type === "purchase" ? doAcceptPurchaseOffer(o) : doAcceptBreedingRequest(o)}>Accept</button>
+                        <button className="kg-btn kg-btn--sm kg-btn--ghost" onClick={() => doDeclineOffer(o.id)}>Decline</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {state.socialFeed && state.socialFeed.length > 0 && (
+              <div className="kg-ovpanel">
+                <h2 className="kg-subhead">📰 Media &amp; chatter — {fameTier(state.fame || 0).label}</h2>
+                <p className="kg-hint">ℹ Fame from show wins and trial wins gets you talked about more often.</p>
+                <ul className="kg-log">
+                  {state.socialFeed.slice().reverse().map((p) => (
+                    <li key={p.id} className="kg-logrow kg-logrow--catch"><span className="kg-logday">@{p.handle}</span><span>{p.text}</span></li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="kg-ovgrid">
+              <div className="kg-ovpanel">
+                <h2 className="kg-subhead">Top dog</h2>
+                {topDog ? (
+                  <DogCard dog={topDog} onView={setViewDog} />
+                ) : <p className="kg-empty">No dogs in the kennel yet.</p>}
+                {topCatch && <p className="kg-note">🐗 Best catch on record: {topCatch.dogName} the {topCatch.breed}, {topCatch.weightLbs ? topCatch.weightLbs + " lb hog" : fmtMoney(topCatch.payout)} on Day {topCatch.day}.</p>}
+              </div>
+              <div className="kg-ovpanel">
+                <h2 className="kg-subhead">Recent activity</h2>
+                {state.log.length === 0 ? <p className="kg-empty">Nothing recorded yet.</p> : (
+                  <ul className="kg-log">
+                    {state.log.slice(0, 6).map((entry, i) => (
+                      <li key={i} className={"kg-logrow kg-logrow--" + entry.type}><span className="kg-logday">Day {entry.day}</span><span>{entry.text}</span></li>
+                    ))}
+                  </ul>
+                )}
+                <div className="kg-quickactions">
+                  <button className="kg-btn kg-btn--sm" onClick={() => setTab("hunt")}>Go hunting</button>
+                  <button className="kg-btn kg-btn--sm kg-btn--ghost" onClick={() => setTab("breed")}>Breed a litter</button>
+                  <button className="kg-btn kg-btn--sm kg-btn--ghost" onClick={() => setTab("market")}>Visit market</button>
+                  <button className="kg-btn kg-btn--sm kg-btn--ghost" onClick={restWeek}>Rest a week</button>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {tab === "kennel" && (
+          <section>
+            <p className="kg-hint">ℹ Coat, height, and weight are all genetic. Register a dog to put papers on it — registered parents can found their own bloodline.</p>
+            {state.dogs.length === 0 ? <p className="kg-empty">The kennel is empty. Visit the Market to bring in stock.</p> : (
+              <>
+                <input className="kg-search" type="text" placeholder="Search your dogs by name or breed…" value={kennelSearch} onChange={(e) => setKennelSearch(e.target.value)} />
+                {(() => {
+                  const q = kennelSearch.trim().toLowerCase();
+                  const shown = q ? state.dogs.filter((d) => d.name.toLowerCase().includes(q) || d.breed.toLowerCase().includes(q)) : state.dogs;
+                  return shown.length === 0 ? <p className="kg-empty">No dogs match "{kennelSearch}".</p> : (
+                    <div className="kg-grid">
+                      {shown.map((dog) => (
+                        <DogCard key={dog.id} dog={dog} onView={setViewDog}
+                          footer={<>
+                            {!dog.registered && <button className="kg-btn kg-btn--sm kg-btn--gold" disabled={state.cash < registrationFee(dog)} onClick={() => doRegister(dog)}>Register — {fmtMoney(registrationFee(dog))}</button>}
+                            <button className="kg-btn kg-btn--sm kg-btn--danger" onClick={() => doSell(dog)}>Sell — {fmtMoney(computeValue(dog))}</button>
+                          </>} />
+                      ))}
+                    </div>
+                  );
+                })()}
+              </>
+            )}
+          </section>
+        )}
+
+        {tab === "hunt" && (
+          <section>
+            <div className="kg-hunttypes">
+              {Object.entries(HUNTS).map(([key, h]) => (
+                <button key={key} className={"kg-huntcard " + (huntPick.hunt === key ? "kg-huntcard--active" : "")} onClick={() => setHuntPick((p) => ({ ...p, hunt: key }))}>
+                  <strong>{h.label}</strong><span>{h.desc}</span>
+                  <span className="kg-huntcard__meta">Base pay {fmtMoney(h.basePay)} · risk {Math.round(h.injuryRisk * 100)}%</span>
+                </button>
+              ))}
+            </div>
+            <h2 className="kg-subhead">Send a dog</h2>
+            {huntableDogs.length === 0 ? <p className="kg-empty">No dog is fit to hunt right now — too young or too banged up. Let one heal or rest the kennel.</p> : (
+              <div className="kg-grid">
+                {huntableDogs.map((dog) => (
+                  <DogCard key={dog.id} dog={dog} onView={setViewDog}
+                    footer={<button className="kg-btn kg-btn--sm" onClick={() => { setHuntPick((p) => ({ ...p, dogId: dog.id })); doHunt(); }}>Run the {HUNTS[huntPick.hunt].label}</button>} />
+                ))}
+              </div>
+            )}
+
+            <hr className="kg-divider" />
+            <h2 className="kg-subhead">Group hog hunt</h2>
+            <p className="kg-hint">ℹ Send a pack after the same hog. More dogs means a real shot at something huge — solo hunts top out around 480 lb, but a pack of 3+ can occasionally run into 500–1,200 lb monster hogs. Every dog in the pack shares the risk.</p>
+            {huntableDogs.length < 2 ? <p className="kg-empty">Need at least 2 dogs fit to hunt for a group run.</p> : (
+              <>
+                <div className="kg-grid" style={{ marginBottom: 14 }}>
+                  {huntableDogs.map((dog) => {
+                    const picked = groupHuntPicks.includes(dog.id);
+                    return (
+                      <DogCard key={dog.id} dog={dog} onView={setViewDog}
+                        footer={<button className={"kg-btn kg-btn--sm " + (picked ? "" : "kg-btn--ghost")}
+                          onClick={() => setGroupHuntPicks((p) => picked ? p.filter((id) => id !== dog.id) : [...p, dog.id])}>
+                          {picked ? "✓ In the pack" : "Add to pack"}
+                        </button>} />
+                    );
+                  })}
+                </div>
+                <button className="kg-btn kg-btn--gold" disabled={groupHuntPicks.length < 2} onClick={() => doGroupHunt(groupHuntPicks)}>
+                  {groupHuntPicks.length < 2 ? "Pick at least 2 dogs" : `Send the pack (${groupHuntPicks.length} dogs) after a hog`}
+                </button>
+              </>
+            )}
+          </section>
+        )}
+
+        {tab === "breed" && (
+          <section>
+            <h2 className="kg-subhead">Pick a pair</h2>
+            {(breedableM.length === 0 || breedableF.length === 0) ? (
+              <p className="kg-empty">Need at least one male and one female of breeding age (10mo+), healthy, and off cooldown.</p>
+            ) : (
+              <>
+                <div className="kg-pairpick">
+                  <select value={breedPick.sireId || ""} onChange={(e) => setBreedPick((p) => ({ ...p, sireId: e.target.value }))}>
+                    <option value="">Choose sire (♂)</option>
+                    {breedableM.map((d) => <option key={d.id} value={d.id}>{d.name} — {d.breed}, {colorLabel(d.colorGenes)} ({overallRating(d.stats)}){d.registered ? " · papers" : ""}</option>)}
+                  </select>
+                  <select value={breedPick.damId || ""} onChange={(e) => setBreedPick((p) => ({ ...p, damId: e.target.value }))}>
+                    <option value="">Choose dam (♀)</option>
+                    {breedableF.map((d) => <option key={d.id} value={d.id}>{d.name} — {d.breed}, {colorLabel(d.colorGenes)} ({overallRating(d.stats)}){d.registered ? " · papers" : ""}</option>)}
+                  </select>
+                </div>
+                {sire && dam && (
+                  <div className="kg-preview">
+                    <h3>Expected litter</h3>
+                    <p className="kg-card__breed">{sire.breed === dam.breed ? sire.breed : (isBandogPair(sire.breed, dam.breed) || isBandogBreed(sire.breed) || isBandogBreed(dam.breed)) ? generateBandogName(sire, dam) : generateMixName(sire.breed, dam.breed)}</p>
+                    <p className="kg-note">Expected size: ~{Math.round((sire.heightIn + dam.heightIn) / 2)}in, ~{Math.round((sire.weightLb + dam.weightLb) / 2)}lb.</p>
+                    {isInbred(sire, dam) && <p className="kg-warn">These two share a parent — expect inbreeding depression in the litter.</p>}
+                    {bothMerleCarriers && <p className="kg-warn">⚠ Both carry the merle gene — about 1 in 4 pups will be double merle, risking deafness or vision loss.</p>}
+                    {sire && dam && (isBandogPair(sire.breed, dam.breed) || isBandogBreed(sire.breed) || isBandogBreed(dam.breed)) ? (
+                      <p className="kg-warn" style={{ color: "var(--gold)" }}>⭐ This pairing makes a {generateBandogName(sire, dam)} — bigger, stronger, and faster than either parent, with a real size and power bonus.</p>
+                    ) : sire.breed !== dam.breed && <p className="kg-note">Different breeds — pups get a hybrid-vigor bonus on a couple of stats.</p>}
+                    {inheritedBloodline && <p className="kg-note">Pups will carry the {sire.bloodline || dam.bloodline} bloodline.</p>}
+                    {canFoundBloodline && (
+                      <div style={{ margin: "10px 0" }}>
+                        <label className="kg-hint" style={{ display: "block", marginBottom: 4 }}>Both parents are papered and unbred into a line yet — found a new bloodline (optional):</label>
+                        <input type="text" placeholder="e.g. Sundown Red Line" value={newBloodline} maxLength={24} onChange={(e) => setNewBloodline(e.target.value)} style={{ width: "100%", fontFamily: "'IBM Plex Mono', monospace", fontSize: 13, padding: 8, border: "1px solid var(--border)", background: "var(--paper)" }} />
+                      </div>
+                    )}
+                    <div className="kg-card__stats">
+                      {STAT_KEYS.map((k) => <StatBar key={k} label={STAT_LABELS[k] + " (avg, will vary)"} value={Math.round((sire.stats[k] + dam.stats[k]) / 2)} />)}
+                    </div>
+                    <button className="kg-btn" onClick={doBreed}>Breed {sire.name} × {dam.name}</button>
+                  </div>
+                )}
+              </>
+            )}
+
+            <hr className="kg-divider" />
+            <h2 className="kg-subhead">Stud service — other kennels' dogs</h2>
+            <p className="kg-hint">ℹ Pay a one-time fee to breed one of your dams to a stud from another kennel. Pups keep your dam's bloodline if she has one.</p>
+            {breedableF.length === 0 ? <p className="kg-empty">You need a healthy dam of breeding age to use a stud.</p> : (
+              <div className="kg-pairpick">
+                <select value={studDamId || ""} onChange={(e) => setStudDamId(e.target.value)}>
+                  <option value="">Choose your dam (♀)</option>
+                  {breedableF.map((d) => <option key={d.id} value={d.id}>{d.name} — {d.breed}, {colorLabel(d.colorGenes)} ({overallRating(d.stats)})</option>)}
+                </select>
+              </div>
+            )}
+            {studs.length === 0 ? <p className="kg-empty">No studs available right now — check back after a day passes.</p> : (
+              <div className="kg-grid">
+                {studs.map((stud) => (
+                  <DogCard key={stud.id} dog={stud} onView={setViewDog} price={studFee(stud)} sellerName={"out of " + stud.kennelName}
+                    footer={<button className="kg-btn kg-btn--sm" disabled={!studDam || state.cash < studFee(stud)} onClick={() => doStudService(studDam, stud)}>
+                      {!studDam ? "Pick a dam first" : state.cash < studFee(stud) ? "Can't afford" : `Book stud — ${fmtMoney(studFee(stud))}`}
+                    </button>} />
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {tab === "trials" && (
+          <section>
+            <p className="kg-hint">ℹ These are real, legal dog sports — weight pulling, catch-dog course work, and treeing trials. Dogs are scored side by side, never set against each other.</p>
+            <div className="kg-hunttypes">
+              {Object.entries(TRIALS).map(([key, t]) => (
+                <button key={key} className={"kg-trialcard " + (trialPick.trial === key ? "kg-trialcard--active" : "")} onClick={() => setTrialPick((p) => ({ ...p, trial: key }))}>
+                  <strong>{t.label}</strong><span>{t.desc}</span>
+                </button>
+              ))}
+            </div>
+            <h2 className="kg-subhead">Your entrant</h2>
+            {huntableDogs.length === 0 ? <p className="kg-empty">No dog is fit to compete right now.</p> : (
+              <div className="kg-pairpick">
+                <select value={trialPick.dogId || ""} onChange={(e) => setTrialPick((p) => ({ ...p, dogId: e.target.value }))}>
+                  <option value="">Choose your dog</option>
+                  {huntableDogs.map((d) => <option key={d.id} value={d.id}>{d.name} — {d.breed} ({overallRating(d.stats)})</option>)}
+                </select>
+              </div>
+            )}
+            <h2 className="kg-subhead">Pick an opponent</h2>
+            {competitors.length === 0 ? <p className="kg-empty">No competitors available right now — check back after a day passes.</p> : (
+              <div className="kg-grid">
+                {competitors.map((opp) => {
+                  const myDog = state.dogs.find((d) => d.id === trialPick.dogId);
+                  return (
+                    <DogCard key={opp.id} dog={opp} onView={setViewDog} sellerName={"out of " + opp.kennelName}
+                      footer={<button className="kg-btn kg-btn--sm" disabled={!myDog} onClick={() => doTrial(myDog, opp)}>
+                        {!myDog ? "Pick your dog first" : `Enter ${TRIALS[trialPick.trial].label} — purse ${fmtMoney(trialPurse(myDog, opp))}`}
+                      </button>} />
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
+
+        {tab === "market" && (
+          <section>
+            <div className="kg-marketbar">
+              <h2 className="kg-subhead">Dogs for sale</h2>
+              <button className="kg-btn kg-btn--ghost kg-btn--sm" onClick={scoutMarket}>⟳ Scout New Dogs</button>
+            </div>
+            <div className="kg-filters">
+              <label>Breed
+                <select value={filters.breed} onChange={(e) => setFilters((f) => ({ ...f, breed: e.target.value }))}>
+                  <option value="all">All breeds</option>
+                  <option value="Cross">Mixed / cross only</option>
+                  {BREED_NAMES.map((b) => <option key={b} value={b}>{b}</option>)}
+                </select>
+              </label>
+              <label>Sex
+                <select value={filters.sex} onChange={(e) => setFilters((f) => ({ ...f, sex: e.target.value }))}>
+                  <option value="all">Any</option><option value="M">Male</option><option value="F">Female</option>
+                </select>
+              </label>
+              <label>Max price
+                <input type="number" min="0" placeholder="No limit" value={filters.maxPrice} onChange={(e) => setFilters((f) => ({ ...f, maxPrice: e.target.value }))} />
+              </label>
+              <label>Min star trait
+                <select value={filters.minStars} onChange={(e) => setFilters((f) => ({ ...f, minStars: e.target.value }))}>
+                  <option value="0">Any</option><option value="3">★★★+</option><option value="4">★★★★+</option><option value="5">★★★★★ only</option>
+                </select>
+              </label>
+              <label>Sort by
+                <select value={filters.sort} onChange={(e) => setFilters((f) => ({ ...f, sort: e.target.value }))}>
+                  <option value="priceAsc">Price: low to high</option><option value="priceDesc">Price: high to low</option>
+                  <option value="ratingDesc">Overall rating</option><option value="rarityDesc">Rarity</option>
+                </select>
+              </label>
+            </div>
+            {shownMarket.length === 0 ? <p className="kg-empty">Nothing matches those filters right now. Try widening them, scouting, or resting a week.</p> : (
+              <div className="kg-grid">
+                {shownMarket.map((dog) => (
+                  <DogCard key={dog.id} dog={dog} onView={setViewDog} price={dog.price} sellerName={dog.sellerName ? "from " + dog.sellerName : null}
+                    footer={<button className="kg-btn kg-btn--sm" disabled={state.cash < dog.price} onClick={() => doBuy(dog)}>{state.cash < dog.price ? "Can't afford" : "Buy"}</button>} />
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {tab === "registry" && (
+          <section>
+            <h2 className="kg-subhead">Stud book — papers on file</h2>
+            <p className="kg-hint">ℹ {registeredDogs.length} of {state.dogs.length} dogs registered. Registered parents can found a named bloodline when you breed them.</p>
+            {registeredDogs.length === 0 ? <p className="kg-empty">No dogs registered yet — register one from the Kennel tab.</p> : (
+              <ul className="kg-log" style={{ marginBottom: 28 }}>
+                {registeredDogs.map((d) => (
+                  <li key={d.id} className="kg-logrow">
+                    <span className="kg-logday">{d.regNumber}</span>
+                    <span><strong>{d.name}</strong> — {d.breed}, {colorLabel(d.colorGenes)}{d.bloodline ? " · " + d.bloodline + " Line" : ""}{d.sire ? " · out of " + d.sire + " × " + d.dam : " · foundation stock"}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <h2 className="kg-subhead">Your bloodlines</h2>
+            {Object.keys(bloodlineGroups).length === 0 ? (
+              <p className="kg-empty">No named bloodlines yet. Register two unrelated dogs, breed them, and you'll get the option to found one.</p>
+            ) : (
+              Object.entries(bloodlineGroups).map(([name, dogs]) => {
+                const avg = Math.round(dogs.reduce((s, d) => s + overallRating(d.stats), 0) / dogs.length);
+                return (
+                  <div key={name} className="kg-bloodline">
+                    <h3>{name} Line</h3>
+                    <p className="kg-note">{dogs.length} dog{dogs.length === 1 ? "" : "s"} · avg rating {avg}</p>
+                    <p className="kg-hint" style={{ margin: 0 }}>{dogs.map((d) => d.name).join(", ")}</p>
+                  </div>
+                );
+              })
+            )}
+          </section>
+        )}
+
+        {tab === "hof" && (
+          <section>
+            <h2 className="kg-subhead">Hall of Fame — biggest catches</h2>
+            <p className="kg-hint">ℹ Every kennel's hunts count, yours and the other eight. Hog weights are the headline number; other hunts rank by payout.</p>
+            <p className="kg-note">🐗 Group hog hunts — send a pack of dogs together — can bring in monster hogs up to 1,000+ lb. It's veryyyyy rare, but that's where the record-book catches come from.</p>
+            {state.catches.length === 0 ? <p className="kg-empty">No notable catches yet. Go hunting, or advance a few days.</p> : (
+              <ul className="kg-log">
+                {state.catches.map((c, i) => (
+                  <li key={c.id} className="kg-logrow kg-logrow--catch">
+                    <span className="kg-logrank">#{i + 1}</span>
+                    <span><strong>{c.kennelName === state.kennelName ? c.kennelName + " (you)" : c.kennelName}</strong> — {c.dogName} the {c.breed}, {c.huntType}, {c.tier.toLowerCase()} run{c.weightLbs ? `, ${c.weightLbs} lb hog` : `, ${fmtMoney(c.payout)}`} · Day {c.day}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
+
+        {tab === "log" && (
+          <section>
+            <h2 className="kg-subhead">Ledger</h2>
+            {state.log.length === 0 ? <p className="kg-empty">Nothing recorded yet.</p> : (
+              <ul className="kg-log">
+                {state.log.map((entry, i) => (
+                  <li key={i} className={"kg-logrow kg-logrow--" + entry.type}><span className="kg-logday">Day {entry.day}</span><span>{entry.text}</span></li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
+      </main>
+      </div>
+      <DogProfileModal dog={viewDog} onClose={() => setViewDog(null)} />
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<KennelGame />);
+</script>
+</body>
+</html>
