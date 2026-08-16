@@ -24,6 +24,48 @@ function RoleBadge({ label, value }) {
   return <span className={"kg-rolebadge kg-rolebadge--" + tone}>{label} {value}%</span>;
 }
 
+/* The staged zone map — a grid of named areas with dog markers that hop
+   between zones on each simulation tick (see stepSearch/stepTravel in
+   grouphunt.jsx). Not a free-position map: markers snap to whichever zone
+   tile they currently occupy. */
+function HuntMap({ zones, dogZones, dogsById, bayDogIds, catchDogIds, hogZoneKey }) {
+  return (
+    <div className="kg-huntmap">
+      <div className="kg-huntmap__grid">
+        {zones.map((zone) => {
+          const here = Object.entries(dogZones).filter(([, z]) => z === zone.key).map(([id]) => id);
+          return (
+            <div key={zone.key} className={"kg-zone" + (hogZoneKey === zone.key ? " kg-zone--hog" : "")}>
+              <span className="kg-zone__label">{zone.label}</span>
+              <div className="kg-zone__dogs">
+                {here.map((id) => (
+                  <span key={id} className={"kg-dogmarker " + (bayDogIds.includes(id) ? "kg-dogmarker--bay" : "kg-dogmarker--catch")} title={dogsById[id].name}>
+                    {bayDogIds.includes(id) ? "🐕" : "🐾"}
+                  </span>
+                ))}
+                {hogZoneKey === zone.key && <span className="kg-dogmarker kg-dogmarker--hog" title="Hog">🐗</span>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <ul className="kg-huntmap__status">
+        {[...bayDogIds, ...catchDogIds].map((id) => {
+          const dog = dogsById[id];
+          const zone = zones.find((z) => z.key === dogZones[id]);
+          const isBay = bayDogIds.includes(id);
+          return (
+            <li key={id}>
+              🐕 <strong>{dog.name}</strong> — {zone ? zone.label : "Camp"}
+              <span className="kg-huntmap__statustag"> · {isBay ? "Searching" : "Standing by"}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 /* Hand-inked ledger line — plots net worth over time from the kennel's own
    recorded history, no external chart library. */
 function Sparkline({ points, width = 640, height = 140 }) {

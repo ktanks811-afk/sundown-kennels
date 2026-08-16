@@ -49,6 +49,7 @@ function KennelGame() {
   const [authPassword, setAuthPassword] = useState("");
   const [authMsg, setAuthMsg] = useState("");
   const cloudTimer = useRef(null);
+  const huntTickRef = useRef(null);
 
   useEffect(() => {
     try {
@@ -91,6 +92,14 @@ function KennelGame() {
     return () => { cancelled = true; };
     // eslint-disable-next-line
   }, [session]);
+
+  useEffect(() => {
+    if (!groupHunt || groupHunt.phase !== "searching") return;
+    huntTickRef.current = setInterval(() => {
+      setGroupHunt((p) => (p && p.phase === "searching" ? stepSearch(p) : p));
+    }, SEARCH_TICK_MS);
+    return () => clearInterval(huntTickRef.current);
+  }, [groupHunt && groupHunt.phase]);
 
   const pushToCloud = useCallback((next) => {
     if (!session) return;
@@ -1467,6 +1476,13 @@ function KennelGame() {
                   </>
                 )}
               </>
+            )}
+            {groupHunt && groupHunt.phase === "searching" && (
+              <div className="kg-huntsession">
+                <p className="kg-note">🔎 Your bay dogs are working the ground — the hog's exact location is still unknown.</p>
+                <HuntMap zones={HUNT_ZONES} dogZones={groupHunt.dogZones} dogsById={groupHunt.dogsById}
+                  bayDogIds={groupHunt.bayDogIds} catchDogIds={groupHunt.catchDogIds} hogZoneKey={null} />
+              </div>
             )}
           </section>
         )}
