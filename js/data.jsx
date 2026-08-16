@@ -368,12 +368,35 @@ const NAV = [
   { id: "account",  label: "Account",  icon: "☺", group: "You",
     children: [{ id: "profile", label: "Profile" }, { id: "settings", label: "Settings" }, { id: "danger", label: "Account" }] },
 ];
+
+/* The admin screen is spliced into the Account tab's sub-tabs only once
+   unlocked, so it leaves no trace in the nav for anyone who hasn't got the code. */
+function navChildrenFor(navEntry, adminUnlocked) {
+  if (!navEntry || !navEntry.children) return null;
+  if (navEntry.id === "account" && adminUnlocked) {
+    return [...navEntry.children, { id: "admin", label: "Admin" }];
+  }
+  return navEntry.children;
+}
 function navEntryFor(tabId) {
   return NAV.find((n) => n.id === tabId || (n.children || []).some((c) => c.id === tabId));
 }
 function firstTabOf(navEntry) {
   return navEntry.children ? navEntry.children[0].id : navEntry.id;
 }
+
+/* --------------------------------- admin ---------------------------------- */
+
+/* Typed into Settings to reveal the admin panel. This is a convenience for
+   testing, not a security boundary — anyone can read it in the source or edit
+   their own save. What it must not do is quietly corrupt the shared
+   leaderboard, so any save it touches gets flagged (see ADMIN_FLAG). */
+const ADMIN_CODE = "sundown-boss";
+const ADMIN_UNLOCK_KEY = "kennel-admin";
+const ADMIN_FLAG = "adminUsed";
+
+const ADMIN_CASH_STEPS = [1000, 10000, 100000, 1000000];
+const ADMIN_DAY_STEPS = [7, 30, 90, 365];
 
 /* ------------------------------ starter goals ------------------------------ */
 

@@ -439,6 +439,12 @@ html, body { margin:0; padding:0; background:#0a0605; }
 .kg-danger--warn h3 { color: var(--tan-ink); }
 .kg-acct__textarea { width:100%; min-height:78px; resize:vertical; line-height:1.5; font-size:13.5px; }
 
+/* ---------- admin ---------- */
+.kg-subtab--admin { color: var(--tan-ink); }
+.kg-subtab--admin.kg-subtab--active { background: rgba(240,168,30,0.14); color: var(--tan-ink); border-color: rgba(240,168,30,0.38); }
+.kg-admin__row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:6px; }
+.kg-admin__row .kg-btn { width:auto; }
+
 .kg-auth__note {
   font-size:12px; color: var(--ink-soft); line-height:1.5; margin:16px 0 0;
   padding-top:14px; border-top:1px solid var(--metal);

@@ -920,6 +920,9 @@ create or replace view public.leaderboard as
   from public.kennels k
   left join public.profiles p on p.user_id = k.user_id
   where coalesce(p.show_on_leaderboard, true)
+    -- Saves edited with the admin tools are kept off the public board;
+    -- granting yourself a million dollars shouldn't outrank a real kennel.
+    and coalesce((k.state->>'adminUsed')::boolean, false) = false
   order by k.net_worth desc;
 
 grant select on public.leaderboard to anon, authenticated;

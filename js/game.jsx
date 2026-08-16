@@ -60,6 +60,11 @@ function KennelGame() {
   const [bioDraft, setBioDraft] = useState("");
   const avatarInputRef = useRef(null);
   const importInputRef = useRef(null);
+  const [adminCodeDraft, setAdminCodeDraft] = useState("");
+  const [adminUnlocked, setAdminUnlocked] = useState(() => {
+    try { return window.localStorage.getItem(ADMIN_UNLOCK_KEY) === "1"; } catch { return false; }
+  });
+  const [adminTarget, setAdminTarget] = useState("");
 
   useEffect(() => {
     try {
@@ -278,6 +283,90 @@ function KennelGame() {
     if (session) sb.from("kennels").delete().eq("user_id", session.user.id);
     window.location.reload();
   }, [session]);
+
+  /* ------------------------------- admin -------------------------------- */
+
+  /* Every admin action routes through here so the flag can't be forgotten on
+     one of them. A flagged save is excluded from the public leaderboard —
+     handing yourself a million dollars shouldn't push a real kennel down it. */
+  const adminApply = useCallback((label, fn) => {
+    update((prev) => {
+      const next = fn({ ...prev });
+      next[ADMIN_FLAG] = true;
+      return addLog(next, "info", `⚙ Admin: ${label}`);
+    });
+    setAccountMsg({ tone: "olive", text: label });
+  }, []);
+
+  const adminUnlock = useCallback(() => {
+    if (adminCodeDraft.trim().toLowerCase() !== ADMIN_CODE) {
+      setAccountMsg({ tone: "rust", text: "That code isn't right." });
+      return;
+    }
+    try { window.localStorage.setItem(ADMIN_UNLOCK_KEY, "1"); } catch {}
+    setAdminUnlocked(true);
+    setAdminCodeDraft("");
+    setAccountMsg({ tone: "olive", text: "Admin unlocked. It's in the sub-tabs above." });
+  }, [adminCodeDraft]);
+
+  const adminLock = useCallback(() => {
+    try { window.localStorage.removeItem(ADMIN_UNLOCK_KEY); } catch {}
+    setAdminUnlocked(false);
+    setTab("settings");
+  }, []);
+
+  const adminAddCash = (amount) => adminApply(`Added ${fmtMoney(amount)}.`, (s) => ({ ...s, cash: Math.round(s.cash + amount) }));
+  const adminSetFame = (fame) => adminApply(`Fame set to ${fame}.`, (s) => ({ ...s, fame }));
+  const adminAdvance = (days) => adminApply(`Skipped ${days} days.`, (s) => tick(s, days));
+
+  const adminHealAll = () => adminApply("Healed every animal.", (s) => ({
+    ...s,
+    dogs: (s.dogs || []).map((d) => ({ ...d, health: 100, injury: null })),
+    horses: (s.horses || []).map((h) => ({ ...h, health: 100, injury: null })),
+    cattle: (s.cattle || []).map((c) => ({ ...c, health: 100, injury: null })),
+  }));
+
+  const adminMaxStats = (dogId) => adminApply("Maxed that dog's stats.", (s) => ({
+    ...s,
+    dogs: s.dogs.map((d) => d.id !== dogId ? d : {
+      ...d, health: 100, injury: null,
+      stats: STAT_KEYS.reduce((acc, k) => ({ ...acc, [k]: 100 }), {}),
+    }),
+  }));
+
+  const adminSpawnDog = (elite) => adminApply(elite ? "Spawned an elite dog." : "Spawned a random dog.", (s) => {
+    const dog = generateRandomDog();
+    if (elite) {
+      STAT_KEYS.forEach((k) => { dog.stats[k] = randInt(88, 100); });
+      dog.health = 100;
+      dog.ageDays = randInt(730, 1100);   // straight into its prime
+    }
+    return { ...s, dogs: [...s.dogs, dog] };
+  });
+
+  const adminSpawnStock = (kind) => adminApply(`Spawned a ${kind}.`, (s) => {
+    const key = kind === "horse" ? "horses" : "cattle";
+    const animal = typeof generateAnimal === "function" ? generateAnimal(kind) : null;
+    if (!animal) return s;
+    return { ...s, [key]: [...(s[key] || []), animal] };
+  });
+
+  const adminUnlockAll = () => adminApply("Unlocked every kennel upgrade.", (s) => ({
+    ...s,
+    upgrades: Object.keys(UPGRADES).reduce((acc, k) => ({ ...acc, [k]: true }), { ...(s.upgrades || {}) }),
+  }));
+
+  const adminRegisterAll = () => adminApply("Registered every dog.", (s) => {
+    let n = s.nextRegNumber || 1;
+    const dogs = s.dogs.map((d) => d.registered ? d : { ...d, registered: true, regNumber: "REG-" + String(n++).padStart(4, "0") });
+    return { ...s, dogs, nextRegNumber: n };
+  });
+
+  const adminClearFlag = () => update((prev) => {
+    const next = { ...prev };
+    delete next[ADMIN_FLAG];
+    return addLog(next, "info", "⚙ Admin: cleared the admin flag — this kennel counts on the leaderboard again.");
+  });
 
   const deleteAccount = useCallback(async () => {
     setAccountBusy(true); setAccountMsg(null);
@@ -1261,15 +1350,87 @@ function KennelGame() {
       <main className="kg-main">
         {(() => {
           const entry = navEntryFor(tab);
-          if (!entry || !entry.children) return null;
+          const children = navChildrenFor(entry, adminUnlocked);
+          if (!children) return null;
           return (
             <div className="kg-subtabs">
-              {entry.children.map((c) => (
-                <button key={c.id} className={"kg-subtab " + (tab === c.id ? "kg-subtab--active" : "")} onClick={() => setTab(c.id)}>{c.label}</button>
+              {children.map((c) => (
+                <button key={c.id} className={"kg-subtab " + (tab === c.id ? "kg-subtab--active" : "") + (c.id === "admin" ? " kg-subtab--admin" : "")} onClick={() => setTab(c.id)}>{c.label}</button>
               ))}
             </div>
           );
         })()}
+        {tab === "admin" && adminUnlocked && (
+          <section>
+            <h2 className="kg-subhead">Admin</h2>
+            <p className="kg-hint">
+              Testing tools. Everything here writes straight into your save.
+            </p>
+
+            {state[ADMIN_FLAG] && (
+              <p className="kg-notice kg-notice--bad" style={{ margin: "0 0 20px" }}>
+                This kennel has been edited with admin tools, so it's kept off the public
+                leaderboard — otherwise handing yourself a million dollars would push real
+                kennels down it. Clear the flag below once you're done testing.
+              </p>
+            )}
+            {accountMsg && (
+              <p className={"kg-notice " + (accountMsg.tone === "rust" ? "kg-notice--bad" : "kg-notice--good")}
+                role="status" style={{ margin: "0 0 18px" }}>{accountMsg.text}</p>
+            )}
+
+            <h3 className="kg-subhead">Money</h3>
+            <div className="kg-admin__row">
+              {ADMIN_CASH_STEPS.map((n) => (
+                <button key={n} className="kg-btn kg-btn--sm2" onClick={() => adminAddCash(n)}>+{fmtMoney(n)}</button>
+              ))}
+              <button className="kg-btn kg-btn--sm2 kg-btn--ghost" onClick={() => adminApply("Cash reset to $2,500.", (s) => ({ ...s, cash: 2500 }))}>Reset to $2,500</button>
+            </div>
+
+            <h3 className="kg-subhead">Time</h3>
+            <div className="kg-admin__row">
+              {ADMIN_DAY_STEPS.map((d) => (
+                <button key={d} className="kg-btn kg-btn--sm2" onClick={() => adminAdvance(d)}>Skip {d} days</button>
+              ))}
+            </div>
+            <p className="kg-acct__hint">Skipping runs the real day tick, so ageing, healing, deaths, seasons and the rival kennels all move with it.</p>
+
+            <h3 className="kg-subhead">Animals</h3>
+            <div className="kg-admin__row">
+              <button className="kg-btn kg-btn--sm2" onClick={() => adminSpawnDog(false)}>Spawn a dog</button>
+              <button className="kg-btn kg-btn--sm2 kg-btn--gold" onClick={() => adminSpawnDog(true)}>Spawn an elite dog</button>
+              <button className="kg-btn kg-btn--sm2" onClick={() => adminSpawnStock("horse")}>Spawn a horse</button>
+              <button className="kg-btn kg-btn--sm2" onClick={() => adminSpawnStock("cattle")}>Spawn cattle</button>
+            </div>
+            <div className="kg-admin__row" style={{ marginTop: 10 }}>
+              <button className="kg-btn kg-btn--sm2" onClick={adminHealAll}>Heal everything</button>
+              <button className="kg-btn kg-btn--sm2" onClick={adminRegisterAll}>Register every dog</button>
+            </div>
+
+            <div className="kg-acct__row" style={{ marginTop: 14 }}>
+              <select className="kg-acct__input" value={adminTarget} onChange={(e) => setAdminTarget(e.target.value)}>
+                <option value="">Pick a dog to max out…</option>
+                {state.dogs.map((d) => <option key={d.id} value={d.id}>{d.name} — {breedShort(d.breed)} ({overallRating(d.stats)})</option>)}
+              </select>
+              <button className="kg-btn kg-btn--sm2" disabled={!adminTarget} onClick={() => adminMaxStats(adminTarget)}>Max stats</button>
+            </div>
+
+            <h3 className="kg-subhead">Progress</h3>
+            <div className="kg-admin__row">
+              <button className="kg-btn kg-btn--sm2" onClick={adminUnlockAll}>Unlock all kennel upgrades</button>
+              <button className="kg-btn kg-btn--sm2" onClick={() => adminSetFame(300)}>Max fame</button>
+              <button className="kg-btn kg-btn--sm2 kg-btn--ghost" onClick={() => adminSetFame(0)}>Reset fame</button>
+            </div>
+
+            <hr className="kg-divider" />
+
+            <div className="kg-admin__row">
+              {state[ADMIN_FLAG] && <button className="kg-btn kg-btn--sm2 kg-btn--ghost" onClick={adminClearFlag}>Clear the admin flag</button>}
+              <button className="kg-btn kg-btn--sm2 kg-btn--danger" onClick={adminLock}>Lock admin and hide this tab</button>
+            </div>
+          </section>
+        )}
+
         {(tab === "profile" || tab === "settings" || tab === "danger") && (
           <section>
             {!session ? (
@@ -1297,6 +1458,19 @@ function KennelGame() {
                     onChange={(e) => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) importSave(f); }} />
                   <button className="kg-btn kg-btn--sm2 kg-btn--ghost" onClick={() => importInputRef.current && importInputRef.current.click()}>Load a save file</button>
                 </div>
+
+                <hr className="kg-divider" />
+                <h3 className="kg-subhead">Access code</h3>
+                {adminUnlocked ? (
+                  <p className="kg-acct__hint">Admin tools are unlocked — the tab is up with Profile and Settings.</p>
+                ) : (
+                  <div className="kg-acct__row">
+                    <input className="kg-acct__input" type="password" placeholder="Enter a code"
+                      value={adminCodeDraft} onChange={(e) => setAdminCodeDraft(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && adminUnlock()} />
+                    <button className="kg-btn kg-btn--sm2" disabled={!adminCodeDraft.trim()} onClick={adminUnlock}>Unlock</button>
+                  </div>
+                )}
               </>
             ) : (
               <>
@@ -1439,6 +1613,22 @@ function KennelGame() {
                       <button className="kg-btn kg-btn--ghost" disabled={accountBusy} onClick={signOutEverywhere}>Sign out everywhere</button>
                     </div>
                     <p className="kg-acct__hint">Signing out everywhere ends your session on every device — worth doing if you've played on a shared or lost one.</p>
+
+                    <hr className="kg-divider" />
+                    <h3 className="kg-subhead">Access code</h3>
+                    {adminUnlocked ? (
+                      <p className="kg-acct__hint">Admin tools are unlocked — the tab is up with Profile and Settings.</p>
+                    ) : (
+                      <>
+                        <div className="kg-acct__row">
+                          <input className="kg-acct__input" type="password" placeholder="Enter a code"
+                            value={adminCodeDraft} onChange={(e) => setAdminCodeDraft(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && adminUnlock()} />
+                          <button className="kg-btn kg-btn--sm2" disabled={!adminCodeDraft.trim()} onClick={adminUnlock}>Unlock</button>
+                        </div>
+                        <p className="kg-acct__hint">If you've been given a code, this is where it goes.</p>
+                      </>
+                    )}
                   </>
                 )}
 
