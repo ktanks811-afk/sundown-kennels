@@ -833,6 +833,17 @@ create table if not exists public.profiles (
   constraint profiles_avatar_len   check (avatar is null or char_length(avatar) <= 400000)
 );
 
+-- Added after the table shipped, so these are separate for existing installs.
+alter table public.profiles add column if not exists bio text;
+alter table public.profiles add column if not exists show_on_leaderboard boolean not null default true;
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'profiles_bio_len') then
+    alter table public.profiles add constraint profiles_bio_len
+      check (bio is null or char_length(bio) <= 280);
+  end if;
+end $$;
+
 create unique index if not exists profiles_username_lower_idx
   on public.profiles (lower(username)) where username is not null;
 
@@ -900,3 +911,15 @@ end;
 $$;
 
 grant execute on function public.delete_my_account() to authenticated;
+
+-- Redefined after profiles shipped: players who switch themselves to hidden
+-- drop out of the public rankings. The left join keeps anyone without a
+-- profile row visible, which is the sensible default for existing players.
+create or replace view public.leaderboard as
+  select k.kennel_name, k.net_worth, k.fame, k.updated_at
+  from public.kennels k
+  left join public.profiles p on p.user_id = k.user_id
+  where coalesce(p.show_on_leaderboard, true)
+  order by k.net_worth desc;
+
+grant select on public.leaderboard to anon, authenticated;

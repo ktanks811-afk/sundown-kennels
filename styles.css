@@ -434,6 +434,10 @@ html, body { margin:0; padding:0; background:#0a0605; }
 }
 .kg-danger p { font-size:13.5px; color: var(--ink-soft); line-height:1.55; margin:0 0 16px; max-width:62ch; }
 .kg-danger .kg-acct__input { max-width:260px; }
+.kg-danger + .kg-danger { margin-top:16px; }
+.kg-danger--warn { border-color: rgba(240,168,30,0.36); background: rgba(240,168,30,0.06); }
+.kg-danger--warn h3 { color: var(--tan-ink); }
+.kg-acct__textarea { width:100%; min-height:78px; resize:vertical; line-height:1.5; font-size:13.5px; }
 
 .kg-auth__note {
   font-size:12px; color: var(--ink-soft); line-height:1.5; margin:16px 0 0;

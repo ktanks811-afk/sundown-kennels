@@ -55,8 +55,11 @@ function KennelGame() {
   const [accountMsg, setAccountMsg] = useState(null);    // { tone, text }
   const [accountBusy, setAccountBusy] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [resetConfirm, setResetConfirm] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [bioDraft, setBioDraft] = useState("");
   const avatarInputRef = useRef(null);
+  const importInputRef = useRef(null);
 
   useEffect(() => {
     try {
@@ -160,12 +163,13 @@ function KennelGame() {
   useEffect(() => {
     if (!session) { setProfile(null); return; }
     let cancelled = false;
-    sb.from("profiles").select("username, avatar").eq("user_id", session.user.id).maybeSingle()
+    sb.from("profiles").select("username, avatar, bio, show_on_leaderboard").eq("user_id", session.user.id).maybeSingle()
       .then(({ data, error }) => {
         if (cancelled || error) return;
-        const p = data || { username: null, avatar: null };
+        const p = data || { username: null, avatar: null, bio: null, show_on_leaderboard: true };
         setProfile(p);
         setUsernameDraft(p.username || "");
+        setBioDraft(p.bio || "");
       });
     return () => { cancelled = true; };
   }, [session]);
@@ -213,6 +217,62 @@ function KennelGame() {
     setNewPassword("");
     setAccountMsg(error ? { tone: "rust", text: error.message } : { tone: "olive", text: "Password changed." });
   }, [newPassword]);
+
+  /* Signing out everywhere matters if you've played on a shared or lost device —
+     the local sign-out button only clears this browser. */
+  const signOutEverywhere = useCallback(async () => {
+    setAccountBusy(true); setAccountMsg(null);
+    const { error } = await sb.auth.signOut({ scope: "global" });
+    setAccountBusy(false);
+    if (error) { setAccountMsg({ tone: "rust", text: error.message }); return; }
+    setProfile(null);
+    window.location.reload();
+  }, []);
+
+  /* A save is a plain JSON blob, so a backup is just a download. Worth having
+     before anyone touches the reset or delete buttons below it. */
+  const exportSave = useCallback(() => {
+    try {
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const stamp = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `${(state.kennelName || "kennel").replace(/[^\w-]+/g, "-").toLowerCase()}-day${state.day}-${stamp}.json`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setAccountMsg({ tone: "olive", text: "Save downloaded." });
+    } catch (err) {
+      setAccountMsg({ tone: "rust", text: "Couldn't build the download: " + err.message });
+    }
+  }, [state]);
+
+  const importSave = useCallback(async (file) => {
+    setAccountMsg(null);
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      // Cheap sanity check — better a clear refusal than a half-loaded kennel.
+      if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.dogs) || typeof parsed.day !== "number") {
+        throw new Error("That doesn't look like a Sundown Kennels save.");
+      }
+      const migrated = migrateState(parsed);
+      setState(migrated);
+      persist(migrated);
+      setAccountMsg({ tone: "olive", text: `Loaded ${migrated.kennelName || "kennel"} — day ${migrated.day}, ${migrated.dogs.length} dogs.` });
+    } catch (err) {
+      setAccountMsg({ tone: "rust", text: err.message });
+    }
+  }, [persist]);
+
+  /* Starting over used to mean deleting your whole account, which is a very
+     large hammer for "I want a fresh kennel". */
+  const resetKennel = useCallback(() => {
+    try { window.localStorage.removeItem(STORAGE_KEY); } catch {}
+    setState(null);
+    if (session) sb.from("kennels").delete().eq("user_id", session.user.id);
+    window.location.reload();
+  }, [session]);
 
   const deleteAccount = useCallback(async () => {
     setAccountBusy(true); setAccountMsg(null);
@@ -1212,6 +1272,26 @@ function KennelGame() {
                 <h2 className="kg-subhead">Your account</h2>
                 <p className="kg-hint">You're playing signed out, so this kennel lives only in this browser. Sign in and it follows you anywhere — and you get a name and face other players can see.</p>
                 <button className="kg-btn kg-btn--gold" onClick={() => setCloudPanelOpen(true)}>Sign in or create an account</button>
+
+                {accountMsg && (
+                  <p className={"kg-notice " + (accountMsg.tone === "rust" ? "kg-notice--bad" : "kg-notice--good")}
+                    role="status" style={{ margin: "18px 0 0" }}>{accountMsg.text}</p>
+                )}
+
+                <hr className="kg-divider" />
+
+                <h3 className="kg-subhead">Your save file</h3>
+                <p className="kg-acct__hint" style={{ marginBottom: 12 }}>
+                  Without an account this kennel exists only in this browser's storage — clearing
+                  your history takes it with it. Download a copy and you can load it back any time,
+                  here or on another machine.
+                </p>
+                <div className="kg-acct__row">
+                  <button className="kg-btn kg-btn--sm2" onClick={exportSave}>Download my save</button>
+                  <input ref={importInputRef} type="file" accept="application/json,.json" hidden
+                    onChange={(e) => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) importSave(f); }} />
+                  <button className="kg-btn kg-btn--sm2 kg-btn--ghost" onClick={() => importInputRef.current && importInputRef.current.click()}>Load a save file</button>
+                </div>
               </>
             ) : (
               <>
@@ -1257,6 +1337,26 @@ function KennelGame() {
                       <button className="kg-btn kg-btn--sm2" disabled={accountBusy || !usernameDraft.trim()} onClick={saveUsername}>Save</button>
                     </div>
                     <p className="kg-acct__hint">3–24 characters. Letters, numbers, spaces, dots, dashes and underscores.</p>
+
+                    <label className="kg-auth__label" htmlFor="kg-bio" style={{ marginTop: 18 }}>About your kennel</label>
+                    <textarea id="kg-bio" className="kg-acct__input kg-acct__textarea" rows={3} maxLength={280}
+                      placeholder="What you breed for, where you run, how long you've been at it…"
+                      value={bioDraft} onChange={(e) => setBioDraft(e.target.value)} />
+                    <div className="kg-acct__row" style={{ marginTop: 8 }}>
+                      <span className="kg-acct__hint" style={{ margin: 0 }}>{bioDraft.length} / 280</span>
+                      <button className="kg-btn kg-btn--sm2" disabled={accountBusy} onClick={() => saveProfile({ bio: bioDraft.trim() || null })}>Save</button>
+                    </div>
+
+                    <hr className="kg-divider" />
+
+                    <h3 className="kg-subhead">Your kennel at a glance</h3>
+                    <div className="kg-ovstats">
+                      <div className="kg-ovstat"><div className="kg-ovstat__label">Kennel</div><div className="kg-ovstat__value" style={{ fontSize: 16 }}>{state.kennelName}</div></div>
+                      <div className="kg-ovstat"><div className="kg-ovstat__label">Day</div><div className="kg-ovstat__value">{state.day}</div></div>
+                      <div className="kg-ovstat"><div className="kg-ovstat__label">Dogs</div><div className="kg-ovstat__value">{state.dogs.length}</div></div>
+                      <div className="kg-ovstat"><div className="kg-ovstat__label">Net worth</div><div className="kg-ovstat__value" style={{ fontSize: 20 }}>{fmtMoney(netWorth)}</div></div>
+                      <div className="kg-ovstat"><div className="kg-ovstat__label">Fame</div><div className="kg-ovstat__value" style={{ fontSize: 15 }}>{fameTier(state.fame || 0).label}</div></div>
+                    </div>
                   </>
                 )}
 
@@ -1291,6 +1391,19 @@ function KennelGame() {
                       </div>
                     </div>
 
+                    <div className="kg-acct__setting">
+                      <div>
+                        <strong>Show me on the leaderboard</strong>
+                        <p className="kg-acct__hint">Turn this off and your kennel stops appearing in the public rankings. You can still trade and take challenges.</p>
+                      </div>
+                      <div className="kg-acct__seg">
+                        <button className={"kg-subtab " + ((!profile || profile.show_on_leaderboard !== false) ? "kg-subtab--active" : "")}
+                          disabled={accountBusy} onClick={() => saveProfile({ show_on_leaderboard: true })}>Public</button>
+                        <button className={"kg-subtab " + ((profile && profile.show_on_leaderboard === false) ? "kg-subtab--active" : "")}
+                          disabled={accountBusy} onClick={() => saveProfile({ show_on_leaderboard: false })}>Hidden</button>
+                      </div>
+                    </div>
+
                     <hr className="kg-divider" />
 
                     <h3 className="kg-subhead">Change password</h3>
@@ -1301,14 +1414,49 @@ function KennelGame() {
                     </div>
 
                     <hr className="kg-divider" />
-                    <button className="kg-btn kg-btn--ghost" onClick={handleSignOut}>Sign out</button>
+
+                    <h3 className="kg-subhead">Your save file</h3>
+                    <p className="kg-acct__hint" style={{ marginBottom: 12 }}>
+                      A save is a plain text file. Download one before you reset or delete anything —
+                      loading it back is the only way to undo either.
+                    </p>
+                    <div className="kg-acct__row">
+                      <button className="kg-btn kg-btn--sm2" onClick={exportSave}>Download my save</button>
+                      <input ref={importInputRef} type="file" accept="application/json,.json" hidden
+                        onChange={(e) => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) importSave(f); }} />
+                      <button className="kg-btn kg-btn--sm2 kg-btn--ghost" onClick={() => importInputRef.current && importInputRef.current.click()}>Load a save file</button>
+                    </div>
+
+                    <hr className="kg-divider" />
+
+                    <div className="kg-acct__row">
+                      <button className="kg-btn kg-btn--ghost" onClick={handleSignOut}>Sign out</button>
+                      <button className="kg-btn kg-btn--ghost" disabled={accountBusy} onClick={signOutEverywhere}>Sign out everywhere</button>
+                    </div>
+                    <p className="kg-acct__hint">Signing out everywhere ends your session on every device — worth doing if you've played on a shared or lost one.</p>
                   </>
                 )}
 
                 {tab === "danger" && (
                   <>
                     <h2 className="kg-subhead">Account</h2>
-                    <p className="kg-hint">Signed in as {session.user.email}.</p>
+                    <p className="kg-hint">Signed in as {session.user.email}. Download a save first — neither of these can be undone without one.</p>
+
+                    <div className="kg-danger kg-danger--warn">
+                      <h3>Start a new kennel</h3>
+                      <p>
+                        Wipes this kennel and drops you back at the beginning with a fresh pair of
+                        dogs. Your account, username and profile picture all stay — it's only the
+                        kennel that goes.
+                      </p>
+                      <label className="kg-auth__label" htmlFor="kg-reset">Type <b>RESET</b> to confirm</label>
+                      <input id="kg-reset" className="kg-acct__input" type="text" placeholder="RESET"
+                        value={resetConfirm} onChange={(e) => setResetConfirm(e.target.value)} />
+                      <button className="kg-btn kg-btn--sm2" style={{ marginTop: 12 }}
+                        disabled={resetConfirm !== "RESET"} onClick={resetKennel}>
+                        Start over with a new kennel
+                      </button>
+                    </div>
 
                     <div className="kg-danger">
                       <h3>Delete your account</h3>
