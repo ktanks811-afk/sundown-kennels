@@ -24,3 +24,6 @@ dist/
 build/
 
 .vercel
+
+# local cache-busting copy used when testing
+_dev.html
