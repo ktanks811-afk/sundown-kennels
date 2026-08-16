@@ -25,5 +25,8 @@ build/
 
 .vercel
 
+# Isolated worktrees for subagent-driven development
+.worktrees/
+
 # local cache-busting copy used when testing
 _dev.html
