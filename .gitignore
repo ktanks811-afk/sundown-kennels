@@ -24,3 +24,6 @@ dist/
 build/
 
 .vercel
+
+# Isolated worktrees for subagent-driven development
+.worktrees/
