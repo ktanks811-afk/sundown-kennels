@@ -93,12 +93,12 @@ html, body { margin:0; padding:0; background:#0a0605; }
 .kg-header {
   position:relative; max-width: 1200px; margin: 0 auto;
   display:flex; flex-direction:column; align-items:center; text-align:center;
-  gap:14px; padding: 8px 0 22px; border-bottom: 1px solid var(--metal);
+  gap:10px; padding: 6px 0 18px; border-bottom: 1px solid var(--metal);
 }
 .kg-header__controls { position:absolute; top:0; right:0; display:flex; gap:8px; z-index:5; }
 .kg-header__logo {
-  width: clamp(180px, 26vw, 260px); height:auto; object-fit:contain; display:block;
-  filter: drop-shadow(0 10px 28px rgba(240,90,0,0.34));
+  width: clamp(88px, 11vw, 124px); height:auto; object-fit:contain; display:block;
+  filter: drop-shadow(0 6px 18px rgba(240,90,0,0.30));
 }
 .kg-header__name { margin:0; }
 .kg-header__namebtn {
@@ -636,7 +636,11 @@ html[data-theme="light"], html[data-theme="light"] body { background:#f2ebdd; }
   .kg-themetoggle { padding:8px 11px; }
   .kg-shopgrid { grid-template-columns: 1fr; }
   .kg-statrow { grid-template-columns: 70px 1fr 24px; }
-  .kg-header { padding-top: 46px; }
-  .kg-header__logo { width: min(230px, 62vw); }
+  .kg-header { padding-top: 42px; gap:8px; }
+  .kg-header__logo { width: min(104px, 32vw); }
+  /* Keep the stat chips on one line so the masthead doesn't eat the fold. */
+  .kg-header__stats { gap:6px; }
+  .kg-hstat { font-size:11.5px; padding:5px 10px; }
+  .kg-header__stats .kg-btn { padding:6px 11px; font-size:11px; }
   .kg-grid { grid-template-columns: 1fr; }
 }
