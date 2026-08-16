@@ -1,22 +1,62 @@
 # Sundown Kennels
 
-A single-file, browser-based hunting-dog breeding and management sim.
-Breed real working-dog breeds (APBT, Catahoula, Plott Hound, and more),
-track coat genetics, hunt hogs, compete in trials and shows, and build
-a bloodline over time.
+A browser-based hunting-dog breeding and management sim. Breed real working
+breeds (APBT, Catahoula, Plott Hound, and 27 more), track coat genetics, hunt
+hogs, compete in trials and shows, buy land, run a supply store and rescue
+pen, and build a bloodline over time. Signed-in players can trade dogs,
+challenge each other head to head, and climb a public leaderboard.
 
-## Running it
+Play it: https://ktanks811-afk.github.io/sundown-kennels/
 
-No build step, no dependencies to install. Just open `index.html` in
-any modern browser, or serve the folder with any static file server:
+## Running it locally
+
+**Windows:** double-click `serve.cmd`.
+**Mac/Linux:** run `./serve.sh`.
+
+Either one starts a local server and opens the game in your browser.
+
+There's no build step and nothing to install beyond Python. The one catch:
+the source is split across several files that Babel compiles in the browser,
+so it has to be served over `http://` — **opening `index.html` off disk will
+not work**, because the browser blocks those file reads. If you try, the page
+tells you so rather than sitting on a blank "Loading…".
+
+By hand, if you'd rather:
 
 ```bash
-python3 -m http.server 8000
-# then visit http://localhost:8000
+python -m http.server 8000
 ```
 
-Progress saves to your browser's local storage automatically.
+Then visit http://localhost:8000. Any static server works — `npx serve .` is
+fine too.
+
+Progress saves to local storage automatically. Sign in with Cloud Save to
+sync it to Supabase and unlock the multiplayer tabs.
+
+## Layout
+
+| File | What's in it |
+| --- | --- |
+| `index.html` | Shell only — loads the stylesheet and the source files in order |
+| `styles.css` | The whole design system, including the night and day themes |
+| `js/data.jsx` | Breeds, size and color profiles, hunts, trials, rival kennels, tabs, store catalog, upgrades, property, rescue intake |
+| `js/genetics.jsx` | Coat inheritance, hidden carriers, traits, growth mutation, grading, and the breeding roll |
+| `js/simulation.jsx` | Hunts, trials, the rival-kennel world, offers, fame, capacity, new-kennel setup, save migration |
+| `js/components.jsx` | Stat bars, badges, sparkline, coat swatches, dog cards, pedigree tree, modals |
+| `js/game.jsx` | Main component: state, day tick, player actions, multiplayer, tab screens |
+| `js/setup.jsx` | First-run onboarding |
+| `assets/` | Logo artwork |
+| `serve.cmd` / `serve.sh` | Start a local server and open the game |
+| `supabase-schema.sql` | Tables, RLS policies, grants, and the RPCs behind cloud save and multiplayer |
+
+The files share one global scope and load in dependency order — there are no
+imports. If you add a new file, add a `<script>` tag for it in `index.html`
+after whatever it depends on.
+
+`.nojekyll` disables GitHub Pages' Jekyll build. Without it, the `{{` in JSX
+inline styles is at risk of being treated as template syntax.
 
 ## Tech
 
-Single HTML file, React + Babel loaded from CDN, no build tooling.
+React 18 and Babel from a CDN, Supabase for auth, cloud saves, and
+multiplayer. No bundler, no package.json.
