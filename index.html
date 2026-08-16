@@ -332,6 +332,9 @@ const TABS = [
   { id: "breed", label: "Breed" },
   { id: "trials", label: "Trials" },
   { id: "market", label: "Market" },
+  { id: "trade", label: "Trade" },
+  { id: "rivals", label: "Rivals" },
+  { id: "leaderboard", label: "Leaderboard" },
   { id: "registry", label: "Registry" },
   { id: "hof", label: "Hall of Fame" },
   { id: "log", label: "Ledger" },
@@ -1572,6 +1575,61 @@ function KennelGame() {
 
   const handleSignOut = useCallback(() => { sb.auth.signOut(); setCloudPanelOpen(false); }, []);
 
+  const [leaderboardRows, setLeaderboardRows] = useState([]);
+  const [pvpListings, setPvpListings] = useState([]);
+  const [sellPick, setSellPick] = useState({ dogId: null, price: "" });
+  const [pvpMsg, setPvpMsg] = useState("");
+  const [openChallenges, setOpenChallenges] = useState([]);
+  const [myChallenges, setMyChallenges] = useState([]);
+  const [challengePick, setChallengePick] = useState({ dogId: null, trial: "weightpull" });
+  const [acceptPick, setAcceptPick] = useState({});
+  const [rivalsMsg, setRivalsMsg] = useState("");
+
+  // Pull our own kennel row fresh from Supabase after a cross-player action
+  // (buy, sell, challenge) changes it server-side, and keep localStorage's
+  // cache in sync too — without re-triggering another push back to cloud.
+  const refreshFromCloud = useCallback(() => {
+    if (!session) return;
+    sb.from("kennels").select("state").eq("user_id", session.user.id).maybeSingle().then(({ data }) => {
+      if (data && data.state) {
+        setState(data.state);
+        try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data.state)); } catch {}
+      }
+    });
+  }, [session]);
+
+  const loadLeaderboard = useCallback(() => {
+    sb.from("leaderboard").select("*").order("net_worth", { ascending: false }).limit(50)
+      .then(({ data }) => setLeaderboardRows(data || []));
+  }, []);
+  const loadListings = useCallback(() => {
+    sb.from("market_listings").select("*").eq("status", "active").order("created_at", { ascending: false }).limit(60)
+      .then(({ data }) => setPvpListings(data || []));
+  }, []);
+  const loadChallenges = useCallback(() => {
+    sb.from("challenges").select("*").eq("status", "open").order("created_at", { ascending: false }).limit(60)
+      .then(({ data }) => setOpenChallenges(data || []));
+    if (session) {
+      sb.from("challenges").select("*")
+        .eq("status", "completed")
+        .or(`creator_id.eq.${session.user.id},opponent_id.eq.${session.user.id}`)
+        .order("resolved_at", { ascending: false }).limit(20)
+        .then(({ data }) => setMyChallenges(data || []));
+    }
+  }, [session]);
+
+  useEffect(() => { loadLeaderboard(); loadListings(); loadChallenges(); }, [loadLeaderboard, loadListings, loadChallenges]);
+
+  // Realtime: live-refresh the marketplace and challenge boards for every
+  // connected player whenever anyone lists/buys/challenges/accepts.
+  useEffect(() => {
+    const channel = sb.channel("kennel-pvp")
+      .on("postgres_changes", { event: "*", schema: "public", table: "market_listings" }, () => { loadListings(); refreshFromCloud(); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "challenges" }, () => { loadChallenges(); refreshFromCloud(); })
+      .subscribe();
+    return () => sb.removeChannel(channel);
+  }, [loadListings, loadChallenges, refreshFromCloud]);
+
   const update = useCallback((fn) => {
     setState((prev) => {
       let next = fn(prev);
@@ -1584,6 +1642,66 @@ function KennelGame() {
       return next;
     });
   }, [persist]);
+
+  const listDogForSale = useCallback((dogId, price) => {
+    if (!session) { setPvpMsg("Sign in to list a dog."); return; }
+    const dog = state.dogs.find((d) => d.id === dogId);
+    if (!dog) return;
+    const p = Math.round(Number(price));
+    if (!p || p <= 0) { setPvpMsg("Enter a valid price."); return; }
+    update((prev) => ({ ...prev, dogs: prev.dogs.filter((d) => d.id !== dogId) }));
+    sb.from("market_listings").insert({ seller_id: session.user.id, seller_name: state.kennelName, dog, price: p })
+      .then(({ error }) => {
+        if (error) { setPvpMsg(error.message); update((prev) => ({ ...prev, dogs: [...prev.dogs, dog] })); }
+        else { setPvpMsg(`Listed ${dog.name} for ${fmtMoney(p)}.`); setSellPick({ dogId: null, price: "" }); loadListings(); }
+      });
+  }, [session, state, update, loadListings]);
+
+  const cancelListing = useCallback((listing) => {
+    sb.from("market_listings").update({ status: "cancelled" }).eq("id", listing.id).eq("seller_id", session?.user?.id)
+      .then(({ error }) => {
+        if (!error) { update((prev) => ({ ...prev, dogs: [...prev.dogs, listing.dog] })); loadListings(); }
+        else setPvpMsg(error.message);
+      });
+  }, [session, update, loadListings]);
+
+  const buyListing = useCallback((listing) => {
+    if (!session) { setPvpMsg("Sign in to buy."); return; }
+    setPvpMsg("Buying…");
+    sb.rpc("purchase_listing", { p_listing_id: listing.id }).then(({ error }) => {
+      if (error) setPvpMsg(error.message);
+      else { setPvpMsg(`Bought ${listing.dog.name}!`); refreshFromCloud(); loadListings(); }
+    });
+  }, [session, refreshFromCloud, loadListings]);
+
+  const createChallenge = useCallback((dogId, trial) => {
+    if (!session) { setRivalsMsg("Sign in to post a challenge."); return; }
+    const dog = state.dogs.find((d) => d.id === dogId);
+    if (!dog) return;
+    sb.from("challenges").insert({ creator_id: session.user.id, creator_name: state.kennelName, trial, dog })
+      .then(({ error }) => {
+        if (error) setRivalsMsg(error.message);
+        else { setRivalsMsg("Challenge posted."); setChallengePick({ dogId: null, trial }); loadChallenges(); }
+      });
+  }, [session, state, loadChallenges]);
+
+  const cancelChallenge = useCallback((challenge) => {
+    sb.from("challenges").update({ status: "cancelled" }).eq("id", challenge.id).eq("creator_id", session?.user?.id)
+      .then(({ error }) => { if (!error) loadChallenges(); else setRivalsMsg(error.message); });
+  }, [session, loadChallenges]);
+
+  const acceptChallengeAction = useCallback((challenge, dogId) => {
+    if (!session) { setRivalsMsg("Sign in to accept a challenge."); return; }
+    const dog = state.dogs.find((d) => d.id === dogId);
+    if (!dog) return;
+    setRivalsMsg("Resolving…");
+    sb.rpc("accept_challenge", { p_challenge_id: challenge.id, p_dog: dog, p_opponent_name: state.kennelName }).then(({ data, error }) => {
+      if (error) { setRivalsMsg(error.message); return; }
+      const won = data && data.winner_id === session.user.id;
+      setRivalsMsg(won ? `You won by ${Math.round(data.margin)}!` : `You lost this one — margin ${Math.round(data.margin)}.`);
+      refreshFromCloud(); loadChallenges();
+    });
+  }, [session, state, refreshFromCloud, loadChallenges]);
 
   const cloudAuthEl = (
     <CloudAuthPanel
@@ -2206,6 +2324,150 @@ function KennelGame() {
                     footer={<button className="kg-btn kg-btn--sm" disabled={state.cash < dog.price} onClick={() => doBuy(dog)}>{state.cash < dog.price ? "Can't afford" : "Buy"}</button>} />
                 ))}
               </div>
+            )}
+          </section>
+        )}
+
+        {tab === "trade" && (
+          <section>
+            <p className="kg-hint">ℹ Buy and sell dogs with other real kennels — not the AI. Listings and purchases sync live for everyone signed in.</p>
+            {!session && <p className="kg-notice">Sign in with Cloud Save (top right) to list or buy dogs here.</p>}
+            {pvpMsg && <p className="kg-note">{pvpMsg}</p>}
+            {session && (
+              <React.Fragment>
+                <h2 className="kg-subhead">List one of your dogs</h2>
+                {state.dogs.length === 0 ? <p className="kg-empty">You don't have any dogs to list.</p> : (
+                  <div className="kg-pairpick">
+                    <select value={sellPick.dogId || ""} onChange={(e) => setSellPick((p) => ({ ...p, dogId: e.target.value }))}>
+                      <option value="">Choose a dog</option>
+                      {state.dogs.map((d) => <option key={d.id} value={d.id}>{d.name} — {d.breed} ({overallRating(d.stats)})</option>)}
+                    </select>
+                    <input type="number" min="1" placeholder="Price" style={{ maxWidth: 120 }}
+                      value={sellPick.price} onChange={(e) => setSellPick((p) => ({ ...p, price: e.target.value }))} />
+                    <button className="kg-btn kg-btn--sm" disabled={!sellPick.dogId || !sellPick.price} onClick={() => listDogForSale(sellPick.dogId, sellPick.price)}>List for Sale</button>
+                  </div>
+                )}
+                {pvpListings.some((l) => l.seller_id === session.user.id) && (
+                  <React.Fragment>
+                    <h2 className="kg-subhead">Your listings</h2>
+                    <ul className="kg-log" style={{ marginBottom: 20 }}>
+                      {pvpListings.filter((l) => l.seller_id === session.user.id).map((l) => (
+                        <li key={l.id} className="kg-logrow">
+                          <span>{l.dog.name} — {fmtMoney(l.price)}</span>
+                          <button className="kg-btn kg-btn--ghost kg-btn--sm" style={{ width: "auto" }} onClick={() => cancelListing(l)}>Cancel</button>
+                        </li>
+                      ))}
+                    </ul>
+                  </React.Fragment>
+                )}
+              </React.Fragment>
+            )}
+            <h2 className="kg-subhead">On the market from other kennels</h2>
+            {pvpListings.filter((l) => l.seller_id !== session?.user?.id).length === 0 ? (
+              <p className="kg-empty">Nobody's listed a dog yet — be the first.</p>
+            ) : (
+              <div className="kg-grid">
+                {pvpListings.filter((l) => l.seller_id !== session?.user?.id).map((l) => (
+                  <DogCard key={l.id} dog={l.dog} onView={setViewDog} price={l.price} sellerName={"from " + l.seller_name}
+                    footer={<button className="kg-btn kg-btn--sm" disabled={!session || state.cash < l.price} onClick={() => buyListing(l)}>
+                      {!session ? "Sign in to buy" : state.cash < l.price ? "Can't afford" : "Buy"}
+                    </button>} />
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {tab === "rivals" && (
+          <section>
+            <p className="kg-hint">ℹ Post a dog against a trial type and wait for a real opponent, or answer someone else's challenge — results resolve instantly for both of you.</p>
+            {!session && <p className="kg-notice">Sign in with Cloud Save (top right) to challenge or be challenged.</p>}
+            {rivalsMsg && <p className="kg-note">{rivalsMsg}</p>}
+            {session && (
+              <React.Fragment>
+                <h2 className="kg-subhead">Post a challenge</h2>
+                <div className="kg-hunttypes">
+                  {Object.entries(TRIALS).map(([key, t]) => (
+                    <button key={key} className={"kg-trialcard " + (challengePick.trial === key ? "kg-trialcard--active" : "")} onClick={() => setChallengePick((p) => ({ ...p, trial: key }))}>
+                      <strong>{t.label}</strong><span>{t.desc}</span>
+                    </button>
+                  ))}
+                </div>
+                {huntableDogs.length === 0 ? <p className="kg-empty">No dog is fit to compete right now.</p> : (
+                  <div className="kg-pairpick">
+                    <select value={challengePick.dogId || ""} onChange={(e) => setChallengePick((p) => ({ ...p, dogId: e.target.value }))}>
+                      <option value="">Choose your dog</option>
+                      {huntableDogs.map((d) => <option key={d.id} value={d.id}>{d.name} — {d.breed} ({overallRating(d.stats)})</option>)}
+                    </select>
+                    <button className="kg-btn kg-btn--sm" disabled={!challengePick.dogId} onClick={() => createChallenge(challengePick.dogId, challengePick.trial)}>Post Challenge</button>
+                  </div>
+                )}
+                {openChallenges.some((c) => c.creator_id === session.user.id) && (
+                  <React.Fragment>
+                    <h2 className="kg-subhead">Your open challenges</h2>
+                    <ul className="kg-log" style={{ marginBottom: 20 }}>
+                      {openChallenges.filter((c) => c.creator_id === session.user.id).map((c) => (
+                        <li key={c.id} className="kg-logrow">
+                          <span>{TRIALS[c.trial].label} — {c.dog.name} — waiting for an opponent</span>
+                          <button className="kg-btn kg-btn--ghost kg-btn--sm" style={{ width: "auto" }} onClick={() => cancelChallenge(c)}>Cancel</button>
+                        </li>
+                      ))}
+                    </ul>
+                  </React.Fragment>
+                )}
+              </React.Fragment>
+            )}
+            <h2 className="kg-subhead">Open challenges from other kennels</h2>
+            {openChallenges.filter((c) => c.creator_id !== session?.user?.id).length === 0 ? (
+              <p className="kg-empty">No open challenges right now — post one above.</p>
+            ) : (
+              <ul className="kg-log" style={{ marginBottom: 20 }}>
+                {openChallenges.filter((c) => c.creator_id !== session?.user?.id).map((c) => (
+                  <li key={c.id} className="kg-logrow">
+                    <span>{c.creator_name} — {TRIALS[c.trial].label} — {c.dog.name} ({overallRating(c.dog.stats)} overall)</span>
+                    {session && (
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <select value={acceptPick[c.id] || ""} onChange={(e) => setAcceptPick((p) => ({ ...p, [c.id]: e.target.value }))}>
+                          <option value="">Your dog</option>
+                          {huntableDogs.map((d) => <option key={d.id} value={d.id}>{d.name} ({overallRating(d.stats)})</option>)}
+                        </select>
+                        <button className="kg-btn kg-btn--sm" disabled={!acceptPick[c.id]} onClick={() => acceptChallengeAction(c, acceptPick[c.id])}>Accept</button>
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {myChallenges.length > 0 && (
+              <React.Fragment>
+                <h2 className="kg-subhead">Recent results</h2>
+                <ul className="kg-log">
+                  {myChallenges.map((c) => {
+                    const won = c.winner_id === session?.user?.id;
+                    return (
+                      <li key={c.id} className={"kg-logrow kg-logrow--" + (won ? "money" : "injury")}>
+                        <span>{TRIALS[c.trial].label}: {c.creator_name} ({c.dog.name}) vs {c.opponent_name} ({c.opponent_dog.name}) — {won ? "you won" : "you lost"} by {Math.round(c.margin)}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </React.Fragment>
+            )}
+          </section>
+        )}
+
+        {tab === "leaderboard" && (
+          <section>
+            <p className="kg-hint">ℹ Every signed-in kennel, ranked by net worth. Public — visible whether you're signed in or not.</p>
+            {leaderboardRows.length === 0 ? <p className="kg-empty">No cloud kennels yet — sign in with Cloud Save to be the first on the board.</p> : (
+              <ul className="kg-log">
+                {leaderboardRows.map((row, i) => (
+                  <li key={row.kennel_name + i} className={"kg-logrow " + (row.kennel_name === state.kennelName ? "kg-logrow--money" : "")}>
+                    <span className="kg-logrank">#{i + 1}</span>
+                    <span><strong>{row.kennel_name}</strong>{row.kennel_name === state.kennelName ? " (you)" : ""} — {fmtMoney(row.net_worth)} · {fameTier(row.fame || 0).label}</span>
+                  </li>
+                ))}
+              </ul>
             )}
           </section>
         )}
