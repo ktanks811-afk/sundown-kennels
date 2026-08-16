@@ -669,6 +669,60 @@ function KennelGame() {
     });
   }
 
+  // Applies a finished group hunt's outcome to the real, persisted kennel
+  // state — same tick()/update()/addLog() mechanism every other hunt in the
+  // game uses, just with per-role dog overrides and a shared catch-log line.
+  function finishGroupHunt(outcome) {
+    const { caught, calledOff, bayDogs, catchDogs, hog } = outcome;
+    const payout = caught ? hogPayout(hog.weightLbs) : 0;
+    const fameGain = caught ? 4 : calledOff ? 0 : 1;
+    update((prev) => {
+      const overrides = {};
+      bayDogs.forEach((d) => { overrides[d.id] = { healthDelta: -randInt(2, 8) }; });
+      catchDogs.forEach((d) => {
+        const hurt = !calledOff && !caught && Math.random() < 0.3;
+        overrides[d.id] = { healthDelta: hurt ? -randInt(15, 35) : -randInt(5, 15), injury: hurt ? rollInjury("hog") : undefined };
+      });
+      let next = tick(prev, 1, overrides);
+      next.cash = Math.round(next.cash + payout);
+      next.fame = (prev.fame || 0) + fameGain;
+      if (caught) {
+        const bayGain = randInt(1, 3), catchGain = randInt(1, 3);
+        next.dogs = next.dogs.map((d) => {
+          if (bayDogs.some((b) => b.id === d.id)) return { ...d, stats: { ...d.stats, nose: clamp(d.stats.nose + bayGain), speed: clamp(d.stats.speed + bayGain) } };
+          if (catchDogs.some((c) => c.id === d.id)) return { ...d, stats: { ...d.stats, grip: clamp(d.stats.grip + catchGain), gameness: clamp(d.stats.gameness + catchGain) } };
+          return d;
+        });
+      }
+      const names = [...bayDogs, ...catchDogs].map((d) => d.name).join(", ");
+      if (caught) {
+        next.catches = [...next.catches, { id: genId(), day: prev.day + 1, kennelName: prev.kennelName, dogName: `${names} (group hunt)`, breed: "Group Hunt", huntType: "Hog Hunt", tier: hog.tier, weightLbs: hog.weightLbs, payout }]
+          .sort((a, b) => (b.weightLbs || b.payout) - (a.weightLbs || a.payout)).slice(0, 25);
+      }
+      const msg = calledOff
+        ? `Called the pack (${names}) off a bayed hog rather than risk it.`
+        : caught
+        ? `The pack (${names}) bayed and caught a ${hog.weightLbs}lb hog — earned ${fmtMoney(payout)}.`
+        : `The pack (${names}) had a hog bayed but it fought free before the catch dogs could finish it.`;
+      return addLog(next, caught ? "hunt" : calledOff ? "info" : "injury", msg);
+    });
+    setGroupSetup({ bayIds: [], catchIds: [] });
+  }
+
+  function doCallOffGroupHunt() {
+    const bayDogs = groupHunt.bayDogIds.map((id) => groupHunt.dogsById[id]);
+    finishGroupHunt({ caught: false, calledOff: true, bayDogs, catchDogs: [], hog: groupHunt.hog });
+    setGroupHunt((p) => (p ? { ...p, phase: "results", result: { calledOff: true } } : p));
+  }
+
+  function doReleaseCatchDogs() {
+    setGroupHunt((p) => (p ? { ...p, phase: "traveling", travelTicks: 0 } : p));
+  }
+
+  function doEndGroupHuntSession() {
+    setGroupHunt(null);
+  }
+
   function doDeclineOffer(offerId) {
     update((prev) => ({ ...prev, offers: prev.offers.filter((o) => o.id !== offerId) }));
   }
@@ -1482,6 +1536,21 @@ function KennelGame() {
                 <p className="kg-note">🔎 Your bay dogs are working the ground — the hog's exact location is still unknown.</p>
                 <HuntMap zones={HUNT_ZONES} dogZones={groupHunt.dogZones} dogsById={groupHunt.dogsById}
                   bayDogIds={groupHunt.bayDogIds} catchDogIds={groupHunt.catchDogIds} hogZoneKey={null} />
+              </div>
+            )}
+            {groupHunt && groupHunt.phase === "bayed" && (
+              <BayedEventModal hog={groupHunt.hog} bayDogs={groupHunt.bayDogIds.map((id) => groupHunt.dogsById[id])}
+                zoneLabel={(HUNT_ZONES.find((z) => z.key === groupHunt.hog.zoneKey) || {}).label}
+                onRelease={doReleaseCatchDogs} onCallOff={doCallOffGroupHunt} />
+            )}
+            {groupHunt && groupHunt.phase === "results" && (
+              <div className="kg-huntresult">
+                {groupHunt.result && groupHunt.result.calledOff ? (
+                  <p>Called the pack off. No payout, but no risk either — they're back safe.</p>
+                ) : (
+                  <p>Hunt resolved — check the day's log for how it went.</p>
+                )}
+                <button className="kg-btn" onClick={doEndGroupHuntSession}>Back to the kennel</button>
               </div>
             )}
           </section>

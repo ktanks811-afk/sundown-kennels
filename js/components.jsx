@@ -66,6 +66,25 @@ function HuntMap({ zones, dogZones, dogsById, bayDogIds, catchDogIds, hogZoneKey
   );
 }
 
+/* The bayed-hog interrupt — fires mid-search when stepSearch finds the hog.
+   Player chooses to send the catch dogs in (Task 5 drives that phase) or
+   call the whole pack off and bank nothing. */
+function BayedEventModal({ hog, bayDogs, zoneLabel, onRelease, onCallOff }) {
+  return (
+    <div className="kg-modal-backdrop">
+      <div className="kg-modal" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
+        <div className="kg-modal__head"><h2>🐗 HOG BAYED!</h2></div>
+        <p>Your bay dogs have a hog bayed at <strong>{zoneLabel}</strong>.</p>
+        <p className="kg-note">Bay dogs: {bayDogs.map((d) => d.name).join(", ")}</p>
+        <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+          <button className="kg-btn kg-btn--gold" onClick={onRelease}>Release Catch Dogs</button>
+          <button className="kg-btn kg-btn--ghost" onClick={onCallOff}>Call Off</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* Hand-inked ledger line — plots net worth over time from the kennel's own
    recorded history, no external chart library. */
 function Sparkline({ points, width = 640, height = 140 }) {

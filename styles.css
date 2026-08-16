@@ -660,3 +660,5 @@ html[data-theme="light"], html[data-theme="light"] body { background:#f2ebdd; }
 .kg-huntmap__status { list-style:none; margin:0; padding:0; font-size:13px; color: var(--ink-soft); display:flex; flex-direction:column; gap:4px; }
 .kg-huntmap__statustag { color: var(--denim); }
 @media (max-width: 640px) { .kg-huntmap__grid { grid-template-columns: 1fr 1fr; } }
+
+.kg-huntresult { background: var(--paper-dark); border:1px solid var(--border); border-radius: var(--r-md); padding:20px; margin-top:14px; }
