@@ -1,0 +1,15 @@
+{
+  "name": "sundown-kennels",
+  "private": true,
+  "type": "module",
+  "description": "CI tooling only — the game itself ships as static files with no build step (Babel compiles js/*.jsx in-browser).",
+  "scripts": {
+    "check:syntax": "node scripts/check-syntax.mjs",
+    "check:smoke": "node scripts/smoke-test.mjs"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.24.0",
+    "@babel/preset-react": "^7.24.0",
+    "playwright": "^1.45.0"
+  }
+}

@@ -59,4 +59,34 @@ inline styles is at risk of being treated as template syntax.
 ## Tech
 
 React 18 and Babel from a CDN, Supabase for auth, cloud saves, and
-multiplayer. No bundler, no package.json.
+multiplayer. No bundler for the game itself — `package.json` exists only for
+the CI tooling below, not a build step.
+
+## CI
+
+Every push and pull request runs three automated checks (`.github/workflows/ci.yml`):
+
+1. **JSX syntax check** — parses every `js/*.jsx` file with Babel.
+2. **Browser smoke test** — plays through onboarding and clicks every tab in
+   a real headless browser, and fails on any console error. This is the one
+   that actually catches cross-file bugs (a merge that leaves two files
+   disagreeing on a function's shape won't show up as a syntax error, only
+   as a runtime one).
+3. **Supabase schema check** — applies `supabase-schema.sql` to a real
+   throwaway Postgres instance (with `auth.users`/`auth.uid()`/the
+   `anon`/`authenticated` roles stubbed in, since those are Supabase-managed
+   and don't exist in plain Postgres). Catches things like a `GRANT` on a
+   function signature that doesn't match its `CREATE FUNCTION`.
+
+Run any of these locally before pushing:
+
+```bash
+npm install
+npm run check:syntax
+npx playwright install chromium   # first time only
+npm run check:smoke
+```
+
+The schema check needs a local Postgres to run outside of CI — skip it
+locally and let GitHub Actions catch schema issues, or see `.github/workflows/ci.yml`
+for the exact stub if you want to run it yourself.
