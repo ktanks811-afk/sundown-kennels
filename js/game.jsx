@@ -94,9 +94,11 @@ function KennelGame() {
   }, [session]);
 
   useEffect(() => {
-    if (!groupHunt || groupHunt.phase !== "searching") return;
+    if (!groupHunt) return;
+    if (groupHunt.phase !== "searching" && groupHunt.phase !== "traveling") return;
+    const step = groupHunt.phase === "searching" ? stepSearch : stepTravel;
     huntTickRef.current = setInterval(() => {
-      setGroupHunt((p) => (p && p.phase === "searching" ? stepSearch(p) : p));
+      setGroupHunt((p) => (p && p.phase === groupHunt.phase ? step(p) : p));
     }, SEARCH_TICK_MS);
     return () => clearInterval(huntTickRef.current);
   }, [groupHunt && groupHunt.phase]);
@@ -707,6 +709,7 @@ function KennelGame() {
       return addLog(next, caught ? "hunt" : calledOff ? "info" : "injury", msg);
     });
     setGroupSetup({ bayIds: [], catchIds: [] });
+    return payout;
   }
 
   function doCallOffGroupHunt() {
@@ -717,6 +720,17 @@ function KennelGame() {
 
   function doReleaseCatchDogs() {
     setGroupHunt((p) => (p ? { ...p, phase: "traveling", travelTicks: 0 } : p));
+  }
+
+  function doMiniGameTap(markerPct) {
+    if (!groupHunt || groupHunt.phase !== "catching") return;
+    const { outcome, next } = resolveMiniGameTap(groupHunt.miniGame, markerPct);
+    if (!outcome) { setGroupHunt((p) => ({ ...p, miniGame: next })); return; }
+    const bayDogs = groupHunt.bayDogIds.map((id) => groupHunt.dogsById[id]);
+    const catchDogs = groupHunt.catchDogIds.map((id) => groupHunt.dogsById[id]);
+    const hog = groupHunt.hog;
+    const payout = finishGroupHunt({ caught: outcome === "caught", calledOff: false, bayDogs, catchDogs, hog });
+    setGroupHunt((p) => (p ? { ...p, miniGame: next, phase: "results", result: { calledOff: false, caught: outcome === "caught", hog, bayDogs, catchDogs, meter: next.meter, payout } } : p));
   }
 
   function doEndGroupHuntSession() {
@@ -1543,12 +1557,34 @@ function KennelGame() {
                 zoneLabel={(HUNT_ZONES.find((z) => z.key === groupHunt.hog.zoneKey) || {}).label}
                 onRelease={doReleaseCatchDogs} onCallOff={doCallOffGroupHunt} />
             )}
+            {groupHunt && groupHunt.phase === "traveling" && (
+              <div className="kg-huntsession">
+                <p className="kg-note">🐾 Catch dogs are closing in on the bayed hog.</p>
+                <HuntMap zones={HUNT_ZONES} dogZones={groupHunt.dogZones} dogsById={groupHunt.dogsById}
+                  bayDogIds={groupHunt.bayDogIds} catchDogIds={groupHunt.catchDogIds} hogZoneKey={groupHunt.hog.zoneKey} />
+                <button className="kg-btn kg-btn--ghost kg-btn--sm" onClick={() => setGroupHunt((p) => (p ? { ...p, travelTicks: TRAVEL_TICKS } : p))}>Skip ahead</button>
+              </div>
+            )}
+            {groupHunt && groupHunt.phase === "catching" && (
+              <CatchMiniGame miniGame={groupHunt.miniGame} onTap={doMiniGameTap} />
+            )}
             {groupHunt && groupHunt.phase === "results" && (
               <div className="kg-huntresult">
                 {groupHunt.result && groupHunt.result.calledOff ? (
                   <p>Called the pack off. No payout, but no risk either — they're back safe.</p>
+                ) : groupHunt.result && groupHunt.result.caught ? (
+                  <>
+                    <h2 className="kg-subhead">🐗 HOG CAUGHT!</h2>
+                    <p>Hog: {groupHunt.result.hog.weightLbs}lb ({groupHunt.result.hog.tier})</p>
+                    <p className="kg-note">Bay dogs: {groupHunt.result.bayDogs.map((d) => d.name).join(", ")}</p>
+                    <p className="kg-note">Catch dogs: {groupHunt.result.catchDogs.map((d) => d.name).join(", ")}</p>
+                    <p>Reward: {fmtMoney(groupHunt.result.payout)}</p>
+                  </>
                 ) : (
-                  <p>Hunt resolved — check the day's log for how it went.</p>
+                  <>
+                    <h2 className="kg-subhead">HOG GOT AWAY!</h2>
+                    <p>The hog fought free before the catch dogs could finish it.</p>
+                  </>
                 )}
                 <button className="kg-btn" onClick={doEndGroupHuntSession}>Back to the kennel</button>
               </div>

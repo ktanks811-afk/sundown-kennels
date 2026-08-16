@@ -85,6 +85,37 @@ function BayedEventModal({ hog, bayDogs, zoneLabel, onRelease, onCallOff }) {
   );
 }
 
+/* A marker sweeps 0-100 on a repeating CSS animation; the player taps when
+   it's inside the sweet spot. onTap receives the marker's estimated
+   position at the moment of the tap. */
+function CatchMiniGame({ miniGame, onTap }) {
+  // useRef/useEffect are destructured from React once, at the top of
+  // data.jsx (the first file loaded) — every later file, this one included,
+  // uses them bare rather than as React.useRef/React.useEffect.
+  const startRef = useRef(Date.now());
+
+  useEffect(() => { startRef.current = Date.now(); }, [miniGame.round]);
+
+  function handleTap() {
+    const elapsed = (Date.now() - startRef.current) % miniGame.sweepMs;
+    const phase = elapsed / miniGame.sweepMs;                          // 0-1, sweeps back and forth
+    const pct = phase < 0.5 ? phase * 2 * 100 : (1 - phase) * 2 * 100;
+    onTap(pct);
+  }
+
+  return (
+    <div className="kg-minigame">
+      <p className="kg-note">Round {miniGame.round + 1} of {MINIGAME_MAX_ROUNDS} — tap when the marker crosses the highlighted zone.</p>
+      <div className="kg-minigame__meter"><div className="kg-minigame__meterfill" style={{ width: miniGame.meter + "%" }} /></div>
+      <div className="kg-minigame__bar">
+        <div className="kg-minigame__sweetspot" style={{ left: miniGame.sweetSpot.start + "%", width: (miniGame.sweetSpot.end - miniGame.sweetSpot.start) + "%" }} />
+        <div className="kg-minigame__marker" style={{ animationDuration: miniGame.sweepMs + "ms" }} />
+      </div>
+      <button className="kg-btn kg-btn--gold" onClick={handleTap}>Tap!</button>
+    </div>
+  );
+}
+
 /* Hand-inked ledger line — plots net worth over time from the kennel's own
    recorded history, no external chart library. */
 function Sparkline({ points, width = 640, height = 140 }) {
