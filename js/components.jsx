@@ -877,3 +877,133 @@ function LivestockPanel({ kind, state, session, pvp, patch, cloudAuthEl, setView
     </section>
   );
 }
+
+/* A moving indicator sweeps the track; click to stop it as close to the
+   marked zone as you can. Speed climbs a little each round so the last
+   barrel/furlong is genuinely harder to nail than the first. */
+const RACE_QUALITY = {
+  perfect: { label: "Perfect!", threshold: 3, timeMult: -0.4 },
+  good: { label: "Good", threshold: 10, timeMult: -0.1 },
+  ok: { label: "OK", threshold: 22, timeMult: 0 },
+  miss: { label: "Missed it", threshold: Infinity, timeMult: 0.6 },
+};
+function qualityFor(dist) {
+  if (dist <= RACE_QUALITY.perfect.threshold) return "perfect";
+  if (dist <= RACE_QUALITY.good.threshold) return "good";
+  if (dist <= RACE_QUALITY.ok.threshold) return "ok";
+  return "miss";
+}
+function TimingBar({ speed, onPick }) {
+  const [pos, setPos] = React.useState(0);
+  const posRef = React.useRef(0);
+  const dirRef = React.useRef(1);
+  const doneRef = React.useRef(false);
+  React.useEffect(() => {
+    let raf, last = performance.now();
+    function tick(now) {
+      const dt = Math.min(now - last, 48);
+      last = now;
+      posRef.current += dirRef.current * dt * speed;
+      if (posRef.current >= 100) { posRef.current = 100; dirRef.current = -1; }
+      if (posRef.current <= 0) { posRef.current = 0; dirRef.current = 1; }
+      setPos(posRef.current);
+      raf = requestAnimationFrame(tick);
+    }
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [speed]);
+  function handleClick() {
+    if (doneRef.current) return;
+    doneRef.current = true;
+    const dist = Math.abs(posRef.current - 50);
+    onPick(qualityFor(dist), dist);
+  }
+  return (
+    <div className="kg-timingbar">
+      <div className="kg-timingbar__track" onClick={handleClick}>
+        <div className="kg-timingbar__zone" />
+        <div className="kg-timingbar__zone--perfect" />
+        <div className="kg-timingbar__indicator" style={{ left: pos + "%" }} />
+      </div>
+      <p className="kg-timingbar__hint">Click the track to time it — dead center is a perfect hit.</p>
+    </div>
+  );
+}
+/* Three rounds of TimingBar feed a list of qualities back to the caller,
+   which applies them as a modifier on top of the underlying stat/condition
+   simulation (raceTime()) rather than replacing it — a great horse still
+   runs a great baseline time, good timing just shaves more off it. */
+function RaceMiniGame({ pending, onComplete, onCancel }) {
+  const [round, setRound] = React.useState(0);
+  const [results, setResults] = React.useState([]);
+  const [flash, setFlash] = React.useState(null);
+  React.useEffect(() => { setRound(0); setResults([]); setFlash(null); }, [pending && pending.animal && pending.animal.id]);
+  if (!pending) return null;
+  const { animal, ev, kind, opp, outcome } = pending;
+  const roundLabels = kind === "horse" && pending.eventKey === "barrelracing"
+    ? ["First barrel", "Second barrel", "Third barrel"]
+    : ["The break", "The stretch", "Final furlong"];
+
+  function handlePick(quality) {
+    setFlash(quality);
+    setTimeout(() => {
+      const next = [...results, quality];
+      setFlash(null);
+      if (next.length >= 3) { setResults(next); onComplete(next); }
+      else { setResults(next); setRound(round + 1); }
+    }, 850);
+  }
+
+  if (outcome) {
+    return (
+      <div className="kg-modal-backdrop" onClick={onCancel}>
+        <div className="kg-modal" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
+          <button className="kg-modal__close" onClick={onCancel} aria-label="Close">✕</button>
+          <div className="kg-racegame__final">
+            <h2>{outcome.won ? "Photo finish — you took it!" : "So close!"}</h2>
+            <p className="kg-racegame__time">{formatRaceTime(outcome.myTime)}</p>
+            <p className="kg-hint" style={{ marginBottom: 14 }}>
+              {animal.name} {outcome.won ? "beat" : "finished behind"} {opp.name} on {formatRaceTime(outcome.oppTime)}
+              {outcome.won ? ` — purse ${fmtMoney(outcome.purse)}.` : "."}
+              {outcome.isPB ? " New personal best!" : ""}
+            </p>
+            <div className="kg-racegame__rounds">
+              {results.map((q, i) => (
+                <Badge key={i} tone={q === "miss" ? "rust" : "gold"}>{RACE_QUALITY[q].label}</Badge>
+              ))}
+            </div>
+            <button className="kg-btn" style={{ marginTop: 16 }} onClick={onCancel}>Continue</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="kg-modal-backdrop" onClick={onCancel}>
+      <div className="kg-modal" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
+        <button className="kg-modal__close" onClick={onCancel} aria-label="Cancel">✕</button>
+        <div className="kg-racegame__head">
+          <h2>{animal.name} — {ev.label}</h2>
+          <p className="kg-hint" style={{ marginBottom: 0 }}>{ev.timed.blurb}</p>
+        </div>
+        <p className="kg-racegame__round">Round {round + 1} of 3</p>
+        <p className="kg-racegame__prompt">{roundLabels[round]}</p>
+        {flash ? (
+          <div className="kg-racegame__result">
+            <p className={"kg-racegame__quality kg-racegame__quality--" + flash}>{RACE_QUALITY[flash].label}</p>
+          </div>
+        ) : (
+          <TimingBar key={round} speed={0.055 + round * 0.018} onPick={handlePick} />
+        )}
+        <div className="kg-racegame__rounds">
+          {[0, 1, 2].map((i) => (
+            <Badge key={i} tone={results[i] ? (results[i] === "miss" ? "rust" : "gold") : "denim"}>
+              {results[i] ? RACE_QUALITY[results[i]].label : `Round ${i + 1}`}
+            </Badge>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}

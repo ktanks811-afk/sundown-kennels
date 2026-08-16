@@ -33,6 +33,7 @@ function KennelGame() {
   const [trialPick, setTrialPick] = useState({ dogId: null, trial: "weightpull" });
   const [breedPick, setBreedPick] = useState({ sireId: null, damId: null });
   const [pendingLitter, setPendingLitter] = useState(null);
+  const [raceGame, setRaceGame] = useState(null); // { kind, animal, eventKey, ev, opp, purse } while the timing mini-game is up
   const [selectedPupIds, setSelectedPupIds] = useState([]);
   const [newBloodline, setNewBloodline] = useState("");
   const [studDamId, setStudDamId] = useState(null);
@@ -1201,9 +1202,28 @@ function KennelGame() {
     const opp = cfg.generate(oppBreed, state.day);
     const purse = Math.round(40 + cfg.value(animal) * 0.03);
 
-    // Timed events are decided on the clock, not a judged score.
-    const myTime = raceTime(kind, animal, ev);
+    // Timed events hand control to the player via the timing mini-game
+    // before the clock gets read; judged events resolve the same way they
+    // always have.
+    if (ev.timed) {
+      setRaceGame({ kind, animal, eventKey, ev, opp, purse });
+      return;
+    }
+    resolveShow(kind, animal, eventKey, ev, opp, purse, null);
+  }
+  // Shared resolution for both judged shows and timed races. `qualities` is
+  // the array of 3 timing-round results ("perfect"/"good"/"ok"/"miss") from
+  // the mini-game, or null for judged events / if the player skipped it.
+  function resolveShow(kind, animal, eventKey, ev, opp, purse, qualities) {
+    const cfg = LIVESTOCK_CONFIG[kind];
+    let myTime = raceTime(kind, animal, ev);
     const oppTime = myTime !== null ? raceTime(kind, opp, ev) : null;
+    if (myTime !== null && qualities && qualities.length) {
+      // Average the per-round time multipliers and nudge the base sim time
+      // by it — great timing shaves real seconds off, a fumble costs them.
+      const avgMult = qualities.reduce((sum, q) => sum + RACE_QUALITY[q].timeMult, 0) / qualities.length;
+      myTime = Math.max(ev.timed.floor, myTime * (1 + avgMult));
+    }
     const won = myTime !== null
       ? myTime <= oppTime
       : statScore(animal.stats, ev.weights) + rand(-12, 12) >= statScore(opp.stats, ev.weights) + rand(-12, 12);
@@ -1240,6 +1260,15 @@ function KennelGame() {
         horse_name: animal.name, horse_breed: animal.breed, kennel_name: state.kennelName,
       }).then(() => loadRaceLeaders());
     }
+    return { myTime, oppTime, won, purse, opp, isPB };
+  }
+  function finishRaceGame(qualities) {
+    if (!raceGame) return;
+    const { kind, animal, eventKey, ev, opp, purse } = raceGame;
+    const outcome = resolveShow(kind, animal, eventKey, ev, opp, purse, qualities);
+    // Keep the modal up one more beat so the player sees what their timing
+    // actually earned them, instead of it just vanishing into the log.
+    setRaceGame((prev) => (prev ? { ...prev, outcome } : prev));
   }
   function doBuy(marketDog) {
     if (state.cash < marketDog.price) return;
@@ -2895,6 +2924,7 @@ function KennelGame() {
             if (pendingLitter && prev.length >= pendingLitter.room) return prev;
             return [...prev, id];
           })} />
+        <RaceMiniGame pending={raceGame} onComplete={finishRaceGame} onCancel={() => setRaceGame(null)} />
       </div>
     );
   }
@@ -2979,6 +3009,7 @@ function KennelGame() {
           if (pendingLitter && prev.length >= pendingLitter.room) return prev;
           return [...prev, id];
         })} />
+      <RaceMiniGame pending={raceGame} onComplete={finishRaceGame} onCancel={() => setRaceGame(null)} />
     </div>
   );
 }
