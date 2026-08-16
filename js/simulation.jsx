@@ -2,19 +2,142 @@
    that advances on its own, buyer offers, the social feed, fame tiers,
    net worth, kennel capacity, new-kennel setup, and save migration. */
 
-function resolveHunt(dog, huntKey) {
+function resolveHunt(dog, huntKey, day) {
   const hunt = HUNTS[huntKey];
-  const raw = statScore(dog.stats, hunt.weights);
-  const roll = raw + rand(-15, 15);
+  const season = seasonFor(day || 1);
+  const prime = agePrime(dog);
+
+  // Season bends scenting and wind; age bends everything. A dog past its prime
+  // still hunts, it just doesn't hunt like it did at four.
+  const seasoned = { ...dog.stats };
+  seasoned.nose = clamp(seasoned.nose * season.scent);
+  seasoned.stamina = clamp(seasoned.stamina * season.stamina);
+  STAT_KEYS.forEach((k) => { seasoned[k] = clamp(seasoned[k] * prime.mult); });
+
+  const raw = statScore(seasoned, hunt.weights);
+  const roll = raw + rand(-15, 15) + temperamentBonus(dog, "hunt");
   let tier, payMult, injMult;
   if (roll >= 85) { tier = "Excellent"; payMult = 1.6; injMult = 0.5; }
   else if (roll >= 65) { tier = "Good"; payMult = 1.1; injMult = 0.8; }
   else if (roll >= 45) { tier = "Fair"; payMult = 0.62; injMult = 1.1; }
   else { tier = "Poor"; payMult = 0.28; injMult = 1.8; }
-  const payout = Math.round(hunt.basePay * payMult * (0.85 + Math.random() * 0.3));
-  const injured = Math.random() < hunt.injuryRisk * injMult;
+  const payout = Math.round(hunt.basePay * payMult * season.pay * (0.85 + Math.random() * 0.3));
+  const injured = Math.random() < hunt.injuryRisk * injMult * season.injury * prime.injury;
   const healthLoss = injured ? randInt(18, 40) : randInt(3, 9);
-  return { tier, payout, injured, healthLoss };
+  const injury = injured ? rollInjury(huntKey) : null;
+  return { tier, payout, injured, healthLoss, injury, season: season.key };
+}
+
+/* --------------------------- age, decline, death --------------------------- */
+
+/* Dogs used to be immortal — age only ever gated minimums, so a fifteen-year-old
+   worked exactly like a two-year-old and there was never a reason to breed a
+   replacement. This is the curve everything else hangs off. */
+const AGE_PRIME_START = 730;    // 2 years
+const AGE_PRIME_END   = 1825;   // 5 years
+const AGE_VETERAN     = 2555;   // 7 years — decline begins in earnest
+const AGE_RETIRE      = 3650;   // 10 years — no longer works or breeds
+
+function agePrime(dog) {
+  const a = dog.ageDays || 0;
+  if (a < 365) return { mult: 0.82, injury: 1.25, stage: "young" };          // still filling out
+  if (a < AGE_PRIME_START) return { mult: 0.94, injury: 1.1, stage: "rising" };
+  if (a <= AGE_PRIME_END) return { mult: 1.0, injury: 1.0, stage: "prime" };
+  if (a <= AGE_VETERAN) return { mult: 0.93, injury: 1.15, stage: "seasoned" };
+  if (a <= AGE_RETIRE) {
+    const over = (a - AGE_VETERAN) / (AGE_RETIRE - AGE_VETERAN);
+    return { mult: 0.88 - over * 0.2, injury: 1.3 + over * 0.5, stage: "veteran" };
+  }
+  return { mult: 0.6, injury: 2.2, stage: "retired" };
+}
+function ageStageLabel(dog) {
+  const s = agePrime(dog).stage;
+  return { young: "Young", rising: "Coming on", prime: "In his prime", seasoned: "Seasoned", veteran: "Veteran", retired: "Retired" }[s];
+}
+function isRetired(dog) { return (dog.ageDays || 0) > AGE_RETIRE; }
+
+/* Chance of dying on a given day, rising steeply after ten. Health matters:
+   a beat-up old dog is far more fragile than a sound one. */
+function deathChancePerDay(dog) {
+  const a = dog.ageDays || 0;
+  if (a < AGE_VETERAN) return 0;
+  const years = a / 365;
+  let base = Math.pow((years - 7) / 9, 2) * 0.0016;
+  if (dog.health < 40) base *= 2.6;
+  else if (dog.health < 70) base *= 1.4;
+  return Math.min(base, 0.02);
+}
+
+/* ------------------------------- injuries --------------------------------- */
+
+const INJURIES = {
+  cutShoulder: { label: "Cut shoulder", days: 14, desc: "Laid open on a tusk. Needs stitches and rest." },
+  tornEar:     { label: "Torn ear",     days: 7,  desc: "Ugly but shallow. Heals clean." },
+  crackedTooth:{ label: "Cracked tooth",days: 10, desc: "Caught bone wrong. Sore on the bite for a while." },
+  strainedLeg: { label: "Strained leg", days: 18, desc: "Pulled up lame coming out of the thick stuff." },
+  puncture:    { label: "Puncture",     days: 21, desc: "Deep and dirty — this is the one that goes septic." },
+  brokenRib:   { label: "Cracked rib",  days: 28, desc: "Took a hit going in. Nothing to do but wait." },
+};
+const INJURY_KEYS = Object.keys(INJURIES);
+
+function rollInjury(huntKey) {
+  const heavy = huntKey === "hog";
+  const pool = heavy ? INJURY_KEYS : ["tornEar", "strainedLeg", "crackedTooth"];
+  const key = pool[randInt(0, pool.length - 1)];
+  return { key, daysLeft: INJURIES[key].days + randInt(-3, 4) };
+}
+
+/* ------------------------------- titles ----------------------------------- */
+
+/* Real registries prefix a dog's name once it's earned something. Titles make
+   achievement permanent and visible everywhere the dog appears. */
+const TITLES = [
+  { key: "CH",   label: "Champion",       wins: 3 },
+  { key: "GRCH", label: "Grand Champion", wins: 8 },
+  { key: "SUPCH",label: "Supreme Champion", wins: 16 },
+];
+function titleFor(wins) {
+  let earned = null;
+  TITLES.forEach((t) => { if (wins >= t.wins) earned = t; });
+  return earned;
+}
+function titledName(dog) {
+  const t = titleFor(dog.trialWins || 0);
+  return t ? `${t.key} ${dog.name}` : dog.name;
+}
+
+/* --------------------------- temperament traits ---------------------------- */
+
+/* Two dogs with identical stats used to play identically. Temperament is what
+   breeders actually argue about, so it belongs in the pedigree. */
+const TEMPERAMENTS = {
+  biddable:   { label: "Biddable",    desc: "Wants to please. Takes training faster than most.", train: 1.4, hunt: 0, trial: 3 },
+  hardHeaded: { label: "Hard-headed", desc: "Own mind about everything. Slow to train, hard to stop.", train: 0.6, hunt: 4, trial: -3 },
+  hotNosed:   { label: "Hot-nosed",   desc: "Opens on old sign. Busy, but covers ground.", train: 1, hunt: 2, trial: -1 },
+  coldNosed:  { label: "Cold-nosed",  desc: "Works a stale track patiently. Slow and certain.", train: 1, hunt: 3, trial: 0 },
+  gunShy:     { label: "Gun-shy",     desc: "Flinches at the shot. A real fault in a gun dog.", train: 0.8, hunt: -6, trial: -2 },
+  steady:     { label: "Steady",      desc: "Nothing rattles her. Same dog every time out.", train: 1.1, hunt: 1, trial: 4 },
+  bold:       { label: "Bold",        desc: "First to the bay and last to quit.", train: 0.9, hunt: 5, trial: 1 },
+};
+const TEMPERAMENT_KEYS = Object.keys(TEMPERAMENTS);
+function rollTemperament() {
+  const r = Math.random();
+  if (r < 0.10) return null;                       // plain dogs exist
+  return TEMPERAMENT_KEYS[randInt(0, TEMPERAMENT_KEYS.length - 1)];
+}
+function inheritTemperament(sire, dam) {
+  const pool = [sire.temperament, dam.temperament].filter(Boolean);
+  if (!pool.length || Math.random() < 0.35) return rollTemperament();
+  return pool[randInt(0, pool.length - 1)];
+}
+function temperamentBonus(dog, kind) {
+  const t = dog.temperament && TEMPERAMENTS[dog.temperament];
+  if (!t) return 0;
+  return kind === "hunt" ? t.hunt : kind === "trial" ? t.trial : 0;
+}
+function trainingMultiplier(dog) {
+  const t = dog.temperament && TEMPERAMENTS[dog.temperament];
+  return t ? t.train : 1;
 }
 function catchWeight(huntKey, tier, groupSize) {
   if (huntKey !== "hog") return null;
@@ -39,12 +162,72 @@ function catchWeight(huntKey, tier, groupSize) {
 }
 /* Bigger hog, bigger payday — this is the main hog-hunt income driver now. */
 function hogPayout(weightLbs) { return Math.round(weightLbs * rand(2.5, 3.5)); }
-function canHunt(dog) { return dog.ageDays >= 90 && dog.health >= 35; }
-function canBreed(dog) { return dog.ageDays >= 300 && dog.health >= 50 && dog.breedCooldown <= 0; }
+
+/* Upkeep used to be a flat $4/dog/day regardless of size. Now the size genetics
+   the game already simulates carry an economic consequence. */
+function feedCostPerDay(dog, upgrades) {
+  const lb = dog.weightLb || 50;
+  let cost = 2 + lb * 0.045;                  // ~$3.35 for a 30lb feist, ~$11 for a 200lb boerboel
+  if (dog.ageDays < 90) cost *= 0.6;          // pups eat less
+  if (upgrades && upgrades.feedSilo) cost *= 0.75;
+  return cost;
+}
+function kennelUpkeepPerDay(dogs, upgrades) {
+  return dogs.reduce((s, d) => s + feedCostPerDay(d, upgrades), 0);
+}
+
+/* ----------------------------- hunt reports ------------------------------- */
+
+/* The hunt is the emotional centre of the game and it used to resolve in one
+   flat sentence. This gives it a strike, a middle and an ending. */
+const HUNT_OPENERS = {
+  hog:      ["Cut loose at first grey light.", "Turned out along the creek bottom.", "Struck sign in the cutover before sunup.", "Dropped the tailgate at the edge of the thick stuff."],
+  coon:     ["Turned out under a bright moon.", "Cast off along the ridge after dark.", "Struck a track at the field edge.", "Worked the creek line by lamplight."],
+  trail:    ["Picked up the line where the blood started.", "Put on the track cold, hours behind.", "Started at the last sign and worked out."],
+  squirrel: ["Eased into the hickories after breakfast.", "Worked the timber edge with the young dogs.", "Turned out in the river oaks."],
+};
+const TIER_MIDDLE = {
+  Excellent: ["Struck early, drove hard, and never once lost the line.", "Handled it like a dog twice the experience.", "Made it look easy from the first cast."],
+  Good:      ["Worked steady and honest through the heavy cover.", "Took a check or two but sorted it out alone.", "Held the line where a lesser dog would have quit."],
+  Fair:      ["Ran hot and lost time doubling back.", "Took a while to settle, then did the job.", "Nothing pretty about it, but it got done."],
+  Poor:      ["Never really got started.", "Trailed off and came back empty.", "Couldn't get it worked out and gave up on it."],
+};
+
+function huntReport(dog, hunt, result, payout, weightLbs, day) {
+  const season = seasonFor(day || 1);
+  const key = Object.keys(HUNTS).find((k) => HUNTS[k].label === hunt.label) || "hog";
+  const open = HUNT_OPENERS[key] || HUNT_OPENERS.hog;
+  const opener = open[randInt(0, open.length - 1)];
+  const mid = TIER_MIDDLE[result.tier][randInt(0, TIER_MIDDLE[result.tier].length - 1)];
+
+  let close;
+  if (result.injured && result.injury) {
+    const inj = INJURIES[result.injury.key];
+    close = `Came out of it with a ${inj.label.toLowerCase()} — ${Math.round(result.injury.daysLeft)} days off. Paid ${fmtMoney(payout)}.`;
+  } else if (weightLbs && weightLbs >= 700) {
+    close = `Caught a ${weightLbs}lb boar — a genuine monster. ${fmtMoney(payout)} at the buyer.`;
+  } else if (weightLbs) {
+    close = `Caught at ${weightLbs}lb. ${fmtMoney(payout)} at the buyer.`;
+  } else {
+    close = `${fmtMoney(payout)} for the night's work.`;
+  }
+
+  const seasonNote = season.key === "summer" && result.injured ? " The heat did him no favours."
+    : season.key === "winter" && result.tier === "Excellent" ? " Cold ground held the scent all morning."
+    : "";
+
+  return `${dog.name} — ${opener} ${mid}${seasonNote} ${close}`;
+}
+function canHunt(dog) { return dog.ageDays >= 90 && dog.health >= 35 && !isRetired(dog) && !dog.injury; }
+function canBreed(dog) { return dog.ageDays >= 300 && dog.health >= 50 && dog.breedCooldown <= 0 && !isRetired(dog); }
 function statusOf(dog) {
+  if (dog.injury) return { label: INJURIES[dog.injury.key] ? INJURIES[dog.injury.key].label : "Injured", tone: "rust" };
   if (dog.health < 35) return { label: "Injured", tone: "rust" };
+  if (isRetired(dog)) return { label: "Retired", tone: "tan" };
   if (dog.ageDays < 90) return { label: "Pup", tone: "denim" };
+  if (dog.pregnantDaysLeft > 0) return { label: "In whelp", tone: "gold" };
   if (dog.breedCooldown > 0) return { label: "Resting", tone: "tan" };
+  if (agePrime(dog).stage === "veteran") return { label: "Veteran", tone: "tan" };
   return { label: "Ready", tone: "olive" };
 }
 function generateMarket(n, day) {
@@ -81,7 +264,7 @@ function simulateAiWorld(aiKennels, days, currentDay) {
         if (eligible.length) {
           const dog = eligible[randInt(0, eligible.length - 1)];
           const huntKey = pickWeighted({ hog: 0.55, coon: 0.2, trail: 0.1, squirrel: 0.15 });
-          const result = resolveHunt(dog, huntKey);
+          const result = resolveHunt(dog, huntKey, simDay);
           if (result.tier !== "Poor") {
             const weightLbs = catchWeight(huntKey, result.tier);
             const payout = huntKey === "hog" && weightLbs ? hogPayout(weightLbs) : result.payout;
@@ -259,10 +442,14 @@ function generateAnimalMarket(kind, n, day) {
   });
 }
 
+/* Sexes used to be rolled independently, so a run of six could come up all one
+   sex and leave a new player unable to breed at all — with nothing telling them
+   why. Three of each, shuffled, guarantees a workable pair is always on offer. */
 function generateStarterCandidates() {
   const shuffled = BREED_NAMES.slice().sort(() => Math.random() - 0.5).slice(0, 6);
-  return shuffled.map((breed) => {
-    const sex = Math.random() < 0.5 ? "M" : "F";
+  const sexes = ["M", "M", "M", "F", "F", "F"].sort(() => Math.random() - 0.5);
+  return shuffled.map((breed, i) => {
+    const sex = sexes[i];
     const dog = generateRandomDog(breed);
     dog.sex = sex;
     dog.name = randomName(sex);
@@ -321,6 +508,19 @@ function migrateState(s) {
   if (!Array.isArray(out.cattleMarket)) out.cattleMarket = generateAnimalMarket("cattle", 4, out.day || 1);
   if (!out.truck) out.truck = "none";
   if (!out.trailer) out.trailer = "none";
+  if (!Array.isArray(out.goalsDone)) out.goalsDone = [];
+
+  // Dogs predating temperament, titles, injuries and gestation. Existing dogs
+  // get a temperament rolled once so old saves aren't full of blank dogs.
+  if (Array.isArray(out.dogs)) {
+    out.dogs = out.dogs.map((d) => ({
+      ...d,
+      temperament: d.temperament === undefined ? rollTemperament() : d.temperament,
+      titles: Array.isArray(d.titles) ? d.titles : [],
+      injury: d.injury === undefined ? null : d.injury,
+      pregnantDaysLeft: typeof d.pregnantDaysLeft === "number" ? d.pregnantDaysLeft : 0,
+    }));
+  }
   return out;
 }
 

@@ -8,6 +8,8 @@ function KennelGame() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("overview");
   const [shopCat, setShopCat] = useState("feed");
+  const [propShowAll, setPropShowAll] = useState(false);
+  const [logFilter, setLogFilter] = useState("all");
   const [itemTargets, setItemTargets] = useState({});
   const [theme, setTheme] = useState(() => {
     try {
@@ -503,18 +505,47 @@ function KennelGame() {
   function tick(prev, days, overrides = {}) {
     let next = { ...prev, day: prev.day + days };
     const up = prev.upgrades || {};
-    const upkeepRate = up.feedSilo ? 3 : 4;
     const recovery = up.vetShed ? 7 : 4.5;
-    const upkeep = prev.dogs.length * upkeepRate * days;
+    const healSpeed = up.vetShed ? 1.6 : 1;
+    // Feed scales with the dog — a 200lb Boerboel does not eat like a Feist.
+    const upkeep = Math.round(prev.dogs.reduce((sum, d) => sum + feedCostPerDay(d, up), 0) * days);
     next.cash = Math.round((prev.cash - upkeep) * 100) / 100;
+
+    const deaths = [];
+    const whelped = [];
+    const healed = [];
     next.dogs = prev.dogs.map((d) => {
       const ov = overrides[d.id];
       let health = d.health + recovery * days;
       let cooldown = Math.max(0, d.breedCooldown - days);
       if (ov && typeof ov.healthDelta === "number") health = d.health + ov.healthDelta;
       if (ov && typeof ov.cooldownSet === "number") cooldown = ov.cooldownSet;
-      return { ...d, ageDays: d.ageDays + days, health: clamp(health), breedCooldown: cooldown };
-    });
+
+      // Injuries tick down on their own clock and block work until healed.
+      let injury = ov && ov.injury !== undefined ? ov.injury : d.injury;
+      if (injury && injury.daysLeft > 0) {
+        const left = injury.daysLeft - days * healSpeed;
+        if (left <= 0) { healed.push({ name: d.name, key: injury.key }); injury = null; }
+        else injury = { ...injury, daysLeft: left };
+      }
+
+      // Gestation.
+      let pregnant = d.pregnantDaysLeft;
+      if (typeof pregnant === "number" && pregnant > 0) {
+        pregnant = pregnant - days;
+        if (pregnant <= 0) { whelped.push(d.id); pregnant = 0; }
+      }
+
+      const aged = { ...d, ageDays: d.ageDays + days, health: clamp(health), breedCooldown: cooldown, injury, pregnantDaysLeft: pregnant };
+
+      // Old age. Rolled per day so a long rest doesn't dodge the odds.
+      for (let i = 0; i < days; i++) {
+        if (Math.random() < deathChancePerDay(aged)) { deaths.push(aged); return null; }
+      }
+      return aged;
+    }).filter(Boolean);
+
+    next.pendingWhelps = whelped;
     const { kennels, newListings, newCatches } = simulateAiWorld(prev.aiKennels, days, prev.day);
     next.aiKennels = kennels;
     next.market = [...prev.market, ...newListings].slice(-30);
@@ -534,27 +565,60 @@ function KennelGame() {
       next.rescue = generateRescuePool(randInt(2, 4), next.day);
       next.rescueRefreshedDay = next.day;
     }
+
+    // Anything that happened on its own while time passed gets its own line.
+    healed.forEach((h) => {
+      next = addLog(next, "info", `${h.name} is sound again — the ${(INJURIES[h.key] || {}).label || "injury"} has healed up.`);
+    });
+    deaths.forEach((d) => {
+      const yrs = Math.floor(d.ageDays / 365);
+      next = addLog(next, "injury", `${d.name} passed away at ${yrs}. ${d.sex === "M" ? "He" : "She"} left ${d.bloodline ? "the " + d.bloodline + " line" : "a mark on this yard"}.`);
+    });
+
+    // Season turnover is worth calling out — it changes how everything hunts.
+    if (seasonIndex(next.day) !== seasonIndex(prev.day)) {
+      const s = seasonFor(next.day);
+      next = addLog(next, "info", `${s.label} has come to the county. ${s.blurb}`);
+    }
+
+    // You can't feed dogs on money you don't have. Rather than let the balance
+    // run arbitrarily negative, the weakest dogs go to pet homes until the
+    // books balance — the last dog always stays.
+    while (next.cash < 0 && next.dogs.length > 1) {
+      const sorted = next.dogs.slice().sort((a, b) => computeValue(a) - computeValue(b));
+      const going = sorted[0];
+      const raised = Math.round(computeValue(going) * 0.5);
+      next.cash = Math.round(next.cash + raised);
+      next.dogs = next.dogs.filter((d) => d.id !== going.id);
+      next = addLog(next, "money", `Couldn't cover the feed bill — ${going.name} went to a pet home for ${fmtMoney(raised)}.`);
+    }
+    if (next.cash < 0) {
+      next.cash = 0;
+      next = addLog(next, "money", "The feed store carried you this week. You're broke — go hunt something.");
+    }
     return next;
   }
 
-  function doHunt() {
-    const dog = state.dogs.find((d) => d.id === huntPick.dogId);
+  // Takes the dog explicitly. It used to read huntPick.dogId, which a caller
+  // set via setState in the same tick — so the first click ran nothing and
+  // every click after it ran the *previous* dog.
+  function doHunt(dogId, huntKey) {
+    const id = dogId || huntPick.dogId;
+    const key = huntKey || huntPick.hunt;
+    const dog = state.dogs.find((d) => d.id === id);
     if (!dog) return;
-    const hunt = HUNTS[huntPick.hunt];
-    const result = resolveHunt(dog, huntPick.hunt);
-    const weightLbs = catchWeight(huntPick.hunt, result.tier);
-    const payout = huntPick.hunt === "hog" && weightLbs ? hogPayout(weightLbs) : result.payout;
+    const hunt = HUNTS[key];
+    const result = resolveHunt(dog, key, state.day);
+    const weightLbs = catchWeight(key, result.tier);
+    const payout = key === "hog" && weightLbs ? hogPayout(weightLbs) : result.payout;
     update((prev) => {
-      let next = tick(prev, 1, { [dog.id]: { healthDelta: -result.healthLoss } });
+      let next = tick(prev, 1, { [dog.id]: { healthDelta: -result.healthLoss, injury: result.injury || dog.injury || null } });
       next.cash = Math.round(next.cash + payout);
       if (result.tier !== "Poor") {
         next.catches = [...next.catches, { id: genId(), day: prev.day + 1, kennelName: prev.kennelName, dogName: dog.name, breed: dog.breed, huntType: hunt.label, tier: result.tier, weightLbs, payout }]
           .sort((a, b) => (b.weightLbs || b.payout) - (a.weightLbs || a.payout)).slice(0, 25);
       }
-      const msg = result.injured
-        ? `${dog.name} came back hurt from the ${hunt.label.toLowerCase()} — ${result.tier.toLowerCase()} run, earned ${fmtMoney(payout)}, but took a beating.`
-        : `${dog.name} put in a ${result.tier.toLowerCase()} run at the ${hunt.label.toLowerCase()}, earned ${fmtMoney(payout)}.`;
-      return addLog(next, result.injured ? "injury" : "hunt", msg);
+      return addLog(next, result.injured ? "injury" : "hunt", huntReport(dog, hunt, result, payout, weightLbs, prev.day));
     });
   }
 
@@ -563,7 +627,7 @@ function KennelGame() {
     if (dogs.length < 2) return;
     const avgStats = {};
     STAT_KEYS.forEach((k) => (avgStats[k] = dogs.reduce((s, d) => s + d.stats[k], 0) / dogs.length));
-    const result = resolveHunt({ stats: avgStats }, "hog");
+    const result = resolveHunt({ stats: avgStats, ageDays: AGE_PRIME_START + 1 }, "hog", state.day);
     const weightLbs = catchWeight("hog", result.tier, dogs.length);
     const payout = hogPayout(weightLbs);
     update((prev) => {
@@ -593,7 +657,7 @@ function KennelGame() {
     const eligible = state.dogs.filter(canHunt);
     if (eligible.length === 0) return;
     const dog = eligible.slice().sort((a, b) => overallRating(b.stats) - overallRating(a.stats))[0];
-    const result = resolveHunt(dog, "hog");
+    const result = resolveHunt(dog, "hog", state.day);
     const weightLbs = catchWeight("hog", result.tier);
     const payout = weightLbs ? Math.round(hogPayout(weightLbs) * 1.3) : Math.round(result.payout * 1.3);
     update((prev) => {
@@ -650,7 +714,11 @@ function KennelGame() {
       /* Competing builds real muscle over time — a small, permanent grip
          and conformation gain each time out, bigger on a win. */
       const gain = result.won ? randInt(2, 4) : randInt(1, 2);
-      next.dogs = next.dogs.map((d) => d.id === myDog.id ? { ...d, stats: { ...d.stats, grip: clamp(d.stats.grip + gain), conformation: clamp(d.stats.conformation + gain) } } : d);
+      const winsBefore = myDog.trialWins || 0;
+      const winsAfter = winsBefore + (result.won ? 1 : 0);
+      next.dogs = next.dogs.map((d) => d.id === myDog.id
+        ? { ...d, trialWins: winsAfter, stats: { ...d.stats, grip: clamp(d.stats.grip + gain), conformation: clamp(d.stats.conformation + gain) } }
+        : d);
       const prevTier = fameTier(prev.fame || 0);
       next.fame = (prev.fame || 0) + fameGain;
       const newTier = fameTier(next.fame);
@@ -658,6 +726,11 @@ function KennelGame() {
         ? `${myDog.name} beat ${oppDog.name} (${oppDog.kennelName}) at the ${trial.label.toLowerCase()} by ${result.margin} points — won ${fmtMoney(purse)}. Training's paying off — ${myDog.name} put on some muscle.`
         : `${myDog.name} lost to ${oppDog.name} (${oppDog.kennelName}) at the ${trial.label.toLowerCase()} by ${result.margin} points — entry fee cost ${fmtMoney(Math.round(purse * 0.3))}.`;
       next = addLog(next, result.won ? "money" : "injury", msg);
+      // A title is permanent and shows on the dog's name from here on.
+      const earnedBefore = titleFor(winsBefore), earnedAfter = titleFor(winsAfter);
+      if (earnedAfter && (!earnedBefore || earnedBefore.key !== earnedAfter.key)) {
+        next = addLog(next, "catch", `🏆 ${myDog.name} has earned the title of ${earnedAfter.label} — ${winsAfter} wins on the board. Known as ${earnedAfter.key} ${myDog.name} from here on.`);
+      }
       if (newTier.label !== prevTier.label) {
         next = addLog(next, "info", `📰 Word's spreading — ${next.kennelName} is now "${newTier.label}" around the working-dog circuit.`);
       }
@@ -964,24 +1037,36 @@ function KennelGame() {
   return (
     <div className="kg-app">
       <header className="kg-header">
-        <div className="kg-header__title">
-          <img className="kg-header__logo" src="assets/logo-mark.png" alt="Sundown Kennels" width="96" height="96" />
-          {editingName ? (
-            <div className="kg-rename">
-              <input autoFocus value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} maxLength={28} onKeyDown={(e) => e.key === "Enter" && renameKennel()} />
-              <button className="kg-iconbtn" onClick={renameKennel} aria-label="Save">✓</button>
-            </div>
-          ) : (
-            <h1 onClick={() => { setNameDraft(state.kennelName); setEditingName(true); }}>{state.kennelName} <span className="kg-iconbtn kg-iconbtn--ghost">✎</span></h1>
-          )}
+        <div className="kg-dusk" aria-hidden="true">
+          <svg className="kg-dusk__trees" viewBox="0 0 1200 60" preserveAspectRatio="none" focusable="false">
+            <path fill="currentColor" d="M0,60 L0,44 L14,30 L22,40 L34,18 L44,36 L56,26 L64,42 L78,22 L90,38 L100,28 L112,44 L126,24 L138,40 L150,32 L162,46 L176,20 L188,38 L200,30 L212,44 L226,26 L238,40 L250,34 L262,48 L276,24 L288,38 L300,28 L312,44 L326,22 L338,40 L350,30 L362,46 L376,26 L388,38 L400,32 L412,44 L426,20 L438,36 L450,28 L462,44 L476,24 L488,40 L500,30 L512,46 L526,26 L538,38 L550,34 L562,44 L576,22 L588,40 L600,28 L612,44 L626,24 L638,38 L650,32 L662,46 L676,26 L688,40 L700,30 L712,44 L726,20 L738,36 L750,30 L762,46 L776,24 L788,40 L800,28 L812,42 L826,26 L838,38 L850,34 L862,46 L876,22 L888,38 L900,30 L912,44 L926,24 L938,40 L950,28 L962,44 L976,26 L988,38 L1000,32 L1012,46 L1026,22 L1038,40 L1050,30 L1062,44 L1076,26 L1088,38 L1100,28 L1112,44 L1126,24 L1138,40 L1150,32 L1162,46 L1176,26 L1188,38 L1200,30 L1200,60 Z" />
+          </svg>
         </div>
-        <div className="kg-header__stats">
-          <span className="kg-hstat">Day {state.day}</span>
-          <span className="kg-hstat kg-hstat--cash">${state.cash.toLocaleString("en-US")}</span>
-          <span className="kg-hstat">{state.dogs.length} / {dogCapacity} dogs</span>
-          <button className="kg-btn kg-btn--ghost" onClick={restWeek}>Rest a Week</button>
+        <div className="kg-header__controls">
           {themeToggleEl}
           {cloudAuthEl}
+        </div>
+
+        <img className="kg-header__logo" src="assets/logo.png" alt="Sundown Kennels" width="400" height="400" />
+
+        {editingName ? (
+          <div className="kg-rename">
+            <input autoFocus value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} maxLength={28} onKeyDown={(e) => e.key === "Enter" && renameKennel()} />
+            <button className="kg-iconbtn" onClick={renameKennel} aria-label="Save name">✓</button>
+          </div>
+        ) : (
+          <h1 className="kg-header__name">
+            <button type="button" className="kg-header__namebtn" onClick={() => { setNameDraft(state.kennelName); setEditingName(true); }} title="Rename your kennel">
+              {state.kennelName}<span className="kg-header__pencil" aria-hidden="true">✎</span>
+            </button>
+          </h1>
+        )}
+
+        <div className="kg-header__stats">
+          <span className="kg-hstat">{seasonLabel(state.day)} · Day {state.day}</span>
+          <span className="kg-hstat kg-hstat--cash">${state.cash.toLocaleString("en-US")}</span>
+          <span className="kg-hstat">{state.dogs.length} / {dogCapacity} dogs</span>
+          <button className="kg-btn kg-btn--ghost kg-btn--sm2" onClick={restWeek}>Rest a Week</button>
         </div>
       </header>
 
@@ -991,21 +1076,61 @@ function KennelGame() {
 
       <div className="kg-layout">
       <nav className="kg-tabs">
-        {TABS.map((t, i) => (
-          <React.Fragment key={t.id}>
-            {t.group && t.group !== (TABS[i - 1] || {}).group && <p className="kg-tabgroup">{t.group}</p>}
-            <button className={"kg-tab " + (tab === t.id ? "kg-tab--active" : "")} onClick={() => setTab(t.id)}>
-              <span className="kg-tab__icon" aria-hidden="true">{t.icon}</span>
-              <span className="kg-tab__label">{t.label}</span>
-            </button>
-          </React.Fragment>
-        ))}
+        {NAV.map((n, i) => {
+          const active = n.id === tab || (n.children || []).some((c) => c.id === tab);
+          return (
+            <React.Fragment key={n.id}>
+              {n.group && n.group !== (NAV[i - 1] || {}).group && <p className="kg-tabgroup">{n.group}</p>}
+              <button className={"kg-tab " + (active ? "kg-tab--active" : "")} onClick={() => setTab(firstTabOf(n))}>
+                <span className="kg-tab__icon" aria-hidden="true">{n.icon}</span>
+                <span className="kg-tab__label">{n.label}</span>
+              </button>
+            </React.Fragment>
+          );
+        })}
       </nav>
 
       <main className="kg-main">
+        {(() => {
+          const entry = navEntryFor(tab);
+          if (!entry || !entry.children) return null;
+          return (
+            <div className="kg-subtabs">
+              {entry.children.map((c) => (
+                <button key={c.id} className={"kg-subtab " + (tab === c.id ? "kg-subtab--active" : "")} onClick={() => setTab(c.id)}>{c.label}</button>
+              ))}
+            </div>
+          );
+        })()}
         {tab === "overview" && (
           <section>
             <p className="kg-hint">ℹ The front page of the stud book — a running record of {state.kennelName}'s worth, and what's happening around the county.</p>
+
+            {(() => {
+              const done = GOALS.map((g) => ({ ...g, complete: g.done(state) }));
+              const left = done.filter((g) => !g.complete);
+              if (!left.length) return null;   // stops nagging once you know the game
+              const next = left[0];
+              return (
+                <div className="kg-goals">
+                  <div className="kg-goals__head">
+                    <h3>Getting started</h3>
+                    <span className="kg-goals__count">{done.length - left.length} of {done.length}</span>
+                  </div>
+                  <ul className="kg-goals__list">
+                    {done.map((g) => (
+                      <li key={g.id} className={"kg-goal " + (g.complete ? "kg-goal--done" : "")}>
+                        <span className="kg-goal__tick" aria-hidden="true">{g.complete ? "✓" : ""}</span>
+                        <span className="kg-goal__label">{g.label}</span>
+                        {g.id === next.id && <span className="kg-goal__hint">{g.hint}</span>}
+                        {g.id === next.id && <button className="kg-btn kg-btn--sm2" onClick={() => setTab(g.tab)}>Take me there</button>}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })()}
+
             <div className="kg-ovstats">
               <div className="kg-ovstat"><div className="kg-ovstat__label">Net worth</div><div className="kg-ovstat__value">{fmtMoney(netWorth)}</div></div>
               <div className="kg-ovstat"><div className="kg-ovstat__label">Cash on hand</div><div className="kg-ovstat__value">{fmtMoney(state.cash)}</div></div>
@@ -1126,30 +1251,85 @@ function KennelGame() {
               <p className="kg-note" style={{ margin: "4px 0 0" }}>{state.dogs.length} / {dogCapacity} dogs</p>
             </div>
             <h2 className="kg-subhead">Land &amp; houses for sale</h2>
-            <p className="kg-hint" style={{ marginBottom: 16 }}>ℹ {LAND_SIZES.length} land sizes × {HOUSE_TYPES.length} house types × {LAND_LOCATIONS.length} locations — only upgrades over your current capacity are shown.</p>
-            <div className="kg-grid">
-              {LAND_SIZES.flatMap((land, li) => HOUSE_TYPES.map((house, hi) => {
+            {(() => {
+              // Twelve land sizes x nine houses x sixteen locations produced 107
+              // listings on day one across 25 screens of scrolling. Nobody read
+              // that. Same catalogue, picked down to the choices that matter.
+              const all = LAND_SIZES.flatMap((land, li) => HOUSE_TYPES.map((house, hi) => {
                 const capacity = land.capacity + house.capacity;
                 if (capacity <= dogCapacity) return null;
                 const price = land.price + house.price;
                 const location = LAND_LOCATIONS[(li * HOUSE_TYPES.length + hi) % LAND_LOCATIONS.length];
                 const label = house.key === "none" ? `${land.label} in ${location}` : `${house.label} on a ${land.label.toLowerCase()} in ${location}`;
-                return (
-                  <div key={land.key + "-" + house.key} className="kg-card">
-                    <div className="kg-card__top"><h3 className="kg-card__name">{label}</h3></div>
-                    <p className="kg-card__meta">{land.acres} acres{house.key !== "none" ? " · " + house.label : ""}</p>
-                    <div className="kg-card__tags">
-                      <Badge tone="denim">Capacity {capacity}</Badge>
-                      <Badge tone="gold">+{capacity - dogCapacity} room</Badge>
-                    </div>
-                    <button className="kg-btn kg-btn--sm" style={{ marginTop: 10 }} disabled={state.cash < price}
-                      onClick={() => buyProperty(land.key, house.key, location)}>
-                      {state.cash < price ? "Can't afford" : `Buy — ${fmtMoney(price)}`}
-                    </button>
+                return { land, house, capacity, price, location, label, gain: capacity - dogCapacity, perDog: price / (capacity - dogCapacity) };
+              })).filter(Boolean);
+
+              if (!all.length) return <p className="kg-empty">You've got the biggest place in the county. Nothing left to buy.</p>;
+
+              const affordable = all.filter((o) => o.price <= state.cash);
+              const byValue = affordable.slice().sort((a, b) => a.perDog - b.perDog)[0];
+              const cheapest = all.slice().sort((a, b) => a.price - b.price)[0];
+              const biggest = affordable.slice().sort((a, b) => b.capacity - a.capacity)[0];
+              const dream = all.slice().sort((a, b) => b.capacity - a.capacity)[0];
+
+              const picks = [];
+              const seen = new Set();
+              const add = (o, tag, tone) => { if (o && !seen.has(o.label)) { seen.add(o.label); picks.push({ ...o, tag, tone }); } };
+              add(cheapest, "Next step up", "denim");
+              add(byValue, "Best value", "olive");
+              add(biggest, "Most room you can afford", "gold");
+              add(dream, "Something to work toward", "tan");
+
+              return (
+                <>
+                  <p className="kg-hint" style={{ marginBottom: 16 }}>
+                    ℹ {all.length} places are on the market that would give you more room. These are the ones worth looking at{propShowAll ? "" : " — open the full list if you want to browse"}.
+                  </p>
+                  <div className="kg-rows">
+                    {picks.map((o) => (
+                      <div key={o.label} className="kg-row kg-row--prop">
+                        <div className="kg-row__main">
+                          <span className="kg-row__name">{o.label}</span>
+                          <span className="kg-row__meta">{o.land.acres} acres{o.house.key !== "none" ? " · " + o.house.label : ""} · room for {o.capacity} dogs</span>
+                        </div>
+                        <Badge tone={o.tone}>{o.tag}</Badge>
+                        <span className="kg-badge kg-badge--gold">+{o.gain}</span>
+                        <div className="kg-row__right">
+                          <button className="kg-btn kg-btn--sm" disabled={state.cash < o.price} onClick={() => buyProperty(o.land.key, o.house.key, o.location)}>
+                            {state.cash < o.price ? fmtMoney(o.price) : `Buy — ${fmtMoney(o.price)}`}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                );
-              }))}
-            </div>
+
+                  <button className="kg-btn kg-btn--ghost kg-btn--sm2" style={{ marginTop: 16 }} onClick={() => setPropShowAll((v) => !v)}>
+                    {propShowAll ? "Hide the full market" : `Browse all ${all.length} listings`}
+                  </button>
+
+                  {propShowAll && (
+                    <div className="kg-tablewrap">
+                      <table className="kg-table">
+                        <thead><tr><th>Property</th><th>Acres</th><th>Room</th><th>Price</th><th></th></tr></thead>
+                        <tbody>
+                          {all.slice().sort((a, b) => a.price - b.price).map((o) => (
+                            <tr key={o.label}>
+                              <td>{o.label}</td>
+                              <td className="kg-num">{o.land.acres}</td>
+                              <td className="kg-num">{o.capacity}</td>
+                              <td className="kg-num">{fmtMoney(o.price)}</td>
+                              <td>
+                                <button className="kg-btn kg-btn--sm2" disabled={state.cash < o.price} onClick={() => buyProperty(o.land.key, o.house.key, o.location)}>Buy</button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
 
             <hr className="kg-divider" />
             <h2 className="kg-subhead">Pasture — for horses &amp; cattle</h2>
@@ -1225,7 +1405,7 @@ function KennelGame() {
               <div className="kg-grid">
                 {huntableDogs.map((dog) => (
                   <DogCard key={dog.id} dog={dog} onView={setViewDog}
-                    footer={<button className="kg-btn kg-btn--sm" onClick={() => { setHuntPick((p) => ({ ...p, dogId: dog.id })); doHunt(); }}>Run the {HUNTS[huntPick.hunt].label}</button>} />
+                    footer={<button className="kg-btn kg-btn--sm" onClick={() => { setHuntPick((p) => ({ ...p, dogId: dog.id })); doHunt(dog.id, huntPick.hunt); }}>Run the {HUNTS[huntPick.hunt].label}</button>} />
                 ))}
               </div>
             )}
@@ -1311,11 +1491,11 @@ function KennelGame() {
               </div>
             )}
             {studs.length === 0 ? <p className="kg-empty">No studs available right now — check back after a day passes.</p> : (
-              <div className="kg-grid">
+              <div className="kg-rows">
                 {studs.map((stud) => (
-                  <DogCard key={stud.id} dog={stud} onView={setViewDog} price={studFee(stud)} sellerName={"out of " + stud.kennelName}
-                    footer={<button className="kg-btn kg-btn--sm" disabled={!studDam || state.cash < studFee(stud) || kennelFull} onClick={() => doStudService(studDam, stud)}>
-                      {kennelFull ? "Kennel full" : !studDam ? "Pick a dam first" : state.cash < studFee(stud) ? "Can't afford" : `Book stud — ${fmtMoney(studFee(stud))}`}
+                  <DogRow key={stud.id} dog={stud} onView={setViewDog} sellerName={"out of " + stud.kennelName}
+                    right={<button className="kg-btn kg-btn--sm" disabled={!studDam || state.cash < studFee(stud) || kennelFull} onClick={() => doStudService(studDam, stud)}>
+                      {kennelFull ? "Kennel full" : !studDam ? "Pick a dam first" : state.cash < studFee(stud) ? "Can't afford" : `Book — ${fmtMoney(studFee(stud))}`}
                     </button>} />
                 ))}
               </div>
@@ -1430,13 +1610,13 @@ function KennelGame() {
             )}
             <h2 className="kg-subhead">Pick an opponent</h2>
             {competitors.length === 0 ? <p className="kg-empty">No competitors available right now — check back after a day passes.</p> : (
-              <div className="kg-grid">
+              <div className="kg-rows">
                 {competitors.map((opp) => {
                   const myDog = state.dogs.find((d) => d.id === trialPick.dogId);
                   return (
-                    <DogCard key={opp.id} dog={opp} onView={setViewDog} sellerName={"out of " + opp.kennelName}
-                      footer={<button className="kg-btn kg-btn--sm" disabled={!myDog} onClick={() => doTrial(myDog, opp)}>
-                        {!myDog ? "Pick your dog first" : `Enter ${TRIALS[trialPick.trial].label} — purse ${fmtMoney(trialPurse(myDog, opp))}`}
+                    <DogRow key={opp.id} dog={opp} onView={setViewDog} sellerName={"out of " + opp.kennelName}
+                      right={<button className="kg-btn kg-btn--sm" disabled={!myDog} onClick={() => doTrial(myDog, opp)}>
+                        {!myDog ? "Pick your dog first" : `Enter — ${fmtMoney(trialPurse(myDog, opp))}`}
                       </button>} />
                   );
                 })}
@@ -1888,18 +2068,50 @@ function KennelGame() {
           </section>
         )}
 
-        {tab === "log" && (
-          <section>
-            <h2 className="kg-subhead">Ledger</h2>
-            {state.log.length === 0 ? <p className="kg-empty">Nothing recorded yet.</p> : (
-              <ul className="kg-log">
-                {state.log.map((entry, i) => (
-                  <li key={i} className={"kg-logrow kg-logrow--" + entry.type}><span className="kg-logday">Day {entry.day}</span><span>{entry.text}</span></li>
+        {tab === "log" && (() => {
+          // Twenty rests in a row used to bury every real event under identical
+          // "rested the kennel" lines, and the 60-entry cap pushed them out.
+          const FILTERS = [
+            { id: "all", label: "Everything" },
+            { id: "money", label: "Money" },
+            { id: "breed", label: "Breeding" },
+            { id: "hunt", label: "Hunts" },
+            { id: "injury", label: "Injuries & losses" },
+            { id: "catch", label: "Milestones" },
+          ];
+          const filtered = logFilter === "all" ? state.log : state.log.filter((e) => e.type === logFilter);
+          const collapsed = [];
+          filtered.forEach((entry) => {
+            const last = collapsed[collapsed.length - 1];
+            if (last && last.text === entry.text) { last.count += 1; last.firstDay = entry.day; }
+            else collapsed.push({ ...entry, count: 1, firstDay: entry.day });
+          });
+          return (
+            <section>
+              <h2 className="kg-subhead">Ledger</h2>
+              <div className="kg-shopcats">
+                {FILTERS.map((f) => (
+                  <button key={f.id} className={"kg-shopcat " + (logFilter === f.id ? "kg-shopcat--active" : "")} onClick={() => setLogFilter(f.id)}>{f.label}</button>
                 ))}
-              </ul>
-            )}
-          </section>
-        )}
+              </div>
+              {collapsed.length === 0 ? <p className="kg-empty">Nothing recorded under that heading yet.</p> : (
+                <ul className="kg-log">
+                  {collapsed.map((entry, i) => (
+                    <li key={i} className={"kg-logrow kg-logrow--" + entry.type}>
+                      <span className="kg-logday">
+                        {entry.count > 1 ? `Day ${entry.firstDay}–${entry.day}` : `Day ${entry.day}`}
+                      </span>
+                      <span>
+                        {entry.text}
+                        {entry.count > 1 && <span className="kg-logcount">×{entry.count}</span>}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          );
+        })()}
       </main>
       </div>
       <DogProfileModal dog={viewDog} onClose={() => setViewDog(null)} />
