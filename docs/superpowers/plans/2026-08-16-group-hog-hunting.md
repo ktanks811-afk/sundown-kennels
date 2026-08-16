@@ -500,13 +500,14 @@ In `js/game.jsx`, in the `tab === "hunt"` section, replace where the old group-h
         <div className="kg-grid" style={{ marginBottom: 18 }}>
           {huntableDogs.map((dog) => {
             const picked = groupSetup.bayIds.includes(dog.id);
-            const disabled = !picked && groupSetup.bayIds.length >= groupHuntLimit(state.fame || 0).bay;
+            const takenByCatch = groupSetup.catchIds.includes(dog.id);
+            const disabled = !picked && (takenByCatch || groupSetup.bayIds.length >= groupHuntLimit(state.fame || 0).bay);
             return (
               <DogCard key={dog.id} dog={dog} onView={setViewDog}
                 footer={<>
                   <RoleBadge label="Bay" value={baySuitability(dog)} />
                   <button className={"kg-btn kg-btn--sm " + (picked ? "" : "kg-btn--ghost")} disabled={disabled}
-                    onClick={() => toggleBayPick(dog.id)}>{picked ? "✓ Bay dog" : "Add as bay dog"}</button>
+                    onClick={() => toggleBayPick(dog.id)}>{picked ? "✓ Bay dog" : takenByCatch ? "Already a catch dog" : "Add as bay dog"}</button>
                 </>} />
             );
           })}
@@ -515,13 +516,14 @@ In `js/game.jsx`, in the `tab === "hunt"` section, replace where the old group-h
         <div className="kg-grid" style={{ marginBottom: 18 }}>
           {huntableDogs.map((dog) => {
             const picked = groupSetup.catchIds.includes(dog.id);
-            const disabled = !picked && groupSetup.catchIds.length >= groupHuntLimit(state.fame || 0).catch;
+            const takenByBay = groupSetup.bayIds.includes(dog.id);
+            const disabled = !picked && (takenByBay || groupSetup.catchIds.length >= groupHuntLimit(state.fame || 0).catch);
             return (
               <DogCard key={dog.id} dog={dog} onView={setViewDog}
                 footer={<>
                   <RoleBadge label="Catch" value={catchSuitability(dog)} />
                   <button className={"kg-btn kg-btn--sm " + (picked ? "" : "kg-btn--ghost")} disabled={disabled}
-                    onClick={() => toggleCatchPick(dog.id)}>{picked ? "✓ Catch dog" : "Add as catch dog"}</button>
+                    onClick={() => toggleCatchPick(dog.id)}>{picked ? "✓ Catch dog" : takenByBay ? "Already a bay dog" : "Add as catch dog"}</button>
                 </>} />
             );
           })}
@@ -535,11 +537,11 @@ In `js/game.jsx`, in the `tab === "hunt"` section, replace where the old group-h
 )}
 ```
 
-A dog can only hold one role at a time — `toggleBayPick`/`toggleCatchPick` each strip the dog from the other list when picked, so `DogCard` never shows it selected in both places.
+A dog can only hold one role at a time — `toggleBayPick`/`toggleCatchPick` each strip the dog from the other list when picked, so `DogCard` never shows it selected in both places. It's also disabled and relabeled ("Already a catch dog" / "Already a bay dog") in the *other* role's grid the moment it's picked — without this, a dog picked as bay still shows a live "Add as catch dog" button next to it, and clicking it silently steals the dog into the other role with no visual cue anything happened.
 
 - [ ] **Step 7: Manual verification**
 
-Run a local server (`python -m http.server 8000` or double-click `serve.cmd`) and open `http://localhost:8000`. Get through onboarding, go to the Hunt tab, and confirm: the "Group Hunt" section renders below the solo-hunt picker; role badges show a `%` per dog; picking a dog for Bay removes it from the Catch pool and vice versa; the Add buttons disable once the fame-tier limit is hit; "Head out" is disabled until at least one dog is in each role.
+Run a local server (`python -m http.server 8000` or double-click `serve.cmd`) and open `http://localhost:8000`. Get through onboarding, go to the Hunt tab, and confirm: the "Group Hunt" section renders below the solo-hunt picker; role badges show a `%` per dog; picking a dog for Bay removes it from the Catch pool and vice versa, and its button in the other grid goes disabled with an "Already a …" label rather than staying clickable; the Add buttons disable once the fame-tier limit is hit; "Head out" is disabled until at least one dog is in each role.
 
 - [ ] **Step 8: Add CSS**
 
