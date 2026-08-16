@@ -275,12 +275,17 @@ function LitterPicker({ litter, selectedIds, onToggle, onConfirm }) {
 
 function DogProfileModal({ dog, onClose }) {
   const closeRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   // Escape to close, and park focus inside the dialog so keyboard users aren't
-  // left tabbing through the page behind it.
+  // left tabbing through the page behind it. Keyed on the dog's id rather than
+  // the object, and reading onClose through a ref, so a re-render can't re-run
+  // this and steal focus back mid-interaction.
+  const dogId = dog ? dog.id : null;
   useEffect(() => {
-    if (!dog) return;
-    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    if (!dogId) return;
+    const onKey = (e) => { if (e.key === "Escape") onCloseRef.current(); };
     const previouslyFocused = document.activeElement;
     document.addEventListener("keydown", onKey);
     if (closeRef.current) closeRef.current.focus();
@@ -288,7 +293,7 @@ function DogProfileModal({ dog, onClose }) {
       document.removeEventListener("keydown", onKey);
       if (previouslyFocused && previouslyFocused.focus) previouslyFocused.focus();
     };
-  }, [dog, onClose]);
+  }, [dogId]);
 
   if (!dog) return null;
   const rarity = computeRarity(dog);
@@ -392,17 +397,26 @@ function CloudAuthPanel(props) {
   } = props;
 
   const firstFieldRef = useRef(null);
+  const onToggleRef = useRef(onToggle);
+  onToggleRef.current = onToggle;
 
-  // This used to be a dropdown anchored under the button, which dropped straight
-  // over the masthead logo. A centred dialog can't collide with anything, and a
-  // sign-in form deserves more room than a popover.
+  // Focus the email field once, when the dialog opens — and only then.
+  // This used to also depend on onToggle, which the parent passes as an inline
+  // arrow, so it got a new identity on every render: typing a character
+  // re-ran the effect and yanked focus back out of the password field.
   useEffect(() => {
     if (!open) return;
-    const onKey = (e) => { if (e.key === "Escape") onToggle(); };
-    document.addEventListener("keydown", onKey);
     if (firstFieldRef.current) firstFieldRef.current.focus();
+  }, [open]);
+
+  // Escape closes. Reads onToggle through a ref so a changing prop identity
+  // can't re-subscribe (or re-focus) mid-typing.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => { if (e.key === "Escape") onToggleRef.current(); };
+    document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [open, onToggle]);
+  }, [open]);
 
   return (
     <div className="kg-cloud">

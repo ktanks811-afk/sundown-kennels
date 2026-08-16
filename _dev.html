@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sundown Kennels</title>
+<!-- Without these the browser requests /favicon.ico on every load, gets a 404,
+     and logs a console error — which also made the CI smoke test flaky, since
+     it fails on any console error and the request is a race against the check. -->
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/favicon-180.png">
+<meta name="theme-color" content="#120c09">
+<meta name="description" content="Breed, hunt and trial a line of working dogs. A browser-based hunting-dog breeding sim.">
+<link rel="stylesheet" href="styles.css?v=1786914646">
+</head>
+<body>
+<div id="root"><div class="kg-app kg-loading">Loading…</div></div>
+
+<script>
+  // Opened straight off disk, the browser blocks Babel from fetching js/*.jsx
+  // and the page just sits on "Loading…" with only a CORS error in the console.
+  // Say so plainly instead. Inline styles on purpose: styles.css may be
+  // blocked too, and this message has to survive that.
+  if (location.protocol === "file:") {
+    document.getElementById("root").innerHTML =
+      '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;' +
+      'background:#120c09;color:#f4ede4;font-family:system-ui,-apple-system,Segoe UI,sans-serif">' +
+        '<div style="max-width:560px">' +
+          '<h1 style="margin:0 0 14px;font-size:26px;letter-spacing:-0.02em;color:#f05a00">This needs a local server</h1>' +
+          '<p style="margin:0 0 16px;line-height:1.6;color:#a89486">' +
+            'The game source is split across several files that Babel compiles in the browser, ' +
+            'so it has to be served over <code>http://</code>. Opening the file directly makes the ' +
+            'browser block those reads &mdash; nothing is broken.' +
+          '</p>' +
+          '<p style="margin:0 0 10px;line-height:1.6;color:#a89486">' +
+            'Double-click <strong style="color:#f4ede4">serve.cmd</strong> (Windows) or run ' +
+            '<strong style="color:#f4ede4">./serve.sh</strong> (Mac/Linux) in this folder. Or by hand:' +
+          '</p>' +
+          '<pre style="margin:0 0 16px;padding:14px 16px;border-radius:10px;overflow-x:auto;' +
+            'background:#171010;border:1px solid rgba(255,186,133,0.14);color:#f5b942;font-size:13.5px">' +
+            'python -m http.server 8000</pre>' +
+          '<p style="margin:0;line-height:1.6;color:#a89486">Then open ' +
+            '<a href="http://localhost:8000" style="color:#f05a00">http://localhost:8000</a>.</p>' +
+        '</div>' +
+      '</div>';
+  }
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+  // Cloud save backend. The anon key is safe to expose client-side —
+  // Row Level Security on the `kennels` table restricts each player to
+  // reading/writing only their own row (see supabase-schema.sql).
+  const SUPABASE_URL = "https://fikdilgfjponqygiwofa.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpa2RpbGdmanBvbnF5Z2l3b2ZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4NTYwNDIsImV4cCI6MjEwMjQzMjA0Mn0.4ykPRFOpAwdn7FjhDX0vopB6Y3inT0Mb3Uc8RW6AH6o";
+  window.sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+</script>
+
+<!-- Game source, loaded in dependency order. Babel compiles these in the
+     browser, which means they must be served over http:// — opening
+     index.html straight off disk will not work. See the README. -->
+<script type="text/babel" src="js/data.jsx?v=1786914646"></script>
+<script type="text/babel" src="js/genetics.jsx?v=1786914646"></script>
+<script type="text/babel" src="js/simulation.jsx?v=1786914646"></script>
+<script type="text/babel" src="js/components.jsx?v=1786914646"></script>
+<script type="text/babel" src="js/setup.jsx?v=1786914646"></script>
+<script type="text/babel" src="js/game.jsx?v=1786914646"></script>
+</body>
+</html>
