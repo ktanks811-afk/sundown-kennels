@@ -1,0 +1,12 @@
+# Normalize text files, but pin line endings where they actually matter.
+* text=auto
+
+# A shell script checked out with CRLF fails with "bad interpreter".
+*.sh text eol=lf
+
+# Batch files want CRLF.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Don't let git touch binaries.
+*.png binary
