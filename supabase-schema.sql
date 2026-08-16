@@ -230,6 +230,224 @@ $$;
 
 grant execute on function public.accept_challenge(uuid, jsonb, text) to authenticated;
 
+-- =========================================================================
+-- Player stud board. One player posts a dog as available for stud;
+-- another player requests breeding against it using one of their dams.
+-- The stud's owner accepts (their browser generates the actual litter
+-- with the game's full genetics logic) and the litter is SPLIT between
+-- both kennels — whichever parent rates higher gets the better half —
+-- resolved atomically server-side so neither side can tamper with the split.
+-- =========================================================================
+
+create table if not exists public.stud_offers (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  owner_name text not null,
+  dog jsonb not null,
+  fee numeric not null default 0 check (fee >= 0),
+  status text not null default 'open' check (status in ('open','cancelled')),
+  created_at timestamptz not null default now()
+);
+
+alter table public.stud_offers enable row level security;
+
+drop policy if exists "Anyone can view open or own stud offers" on public.stud_offers;
+create policy "Anyone can view open or own stud offers" on public.stud_offers
+  for select using (status = 'open' or auth.uid() = owner_id);
+
+drop policy if exists "Owners can create own stud offers" on public.stud_offers;
+create policy "Owners can create own stud offers" on public.stud_offers
+  for insert with check (auth.uid() = owner_id);
+
+drop policy if exists "Owners can cancel own open stud offers" on public.stud_offers;
+create policy "Owners can cancel own open stud offers" on public.stud_offers
+  for update using (auth.uid() = owner_id and status = 'open')
+  with check (status = 'cancelled');
+
+create table if not exists public.stud_requests (
+  id uuid primary key default gen_random_uuid(),
+  offer_id uuid not null references public.stud_offers(id) on delete cascade,
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  owner_name text not null,
+  requester_id uuid not null references auth.users(id) on delete cascade,
+  requester_name text not null,
+  stud jsonb not null,
+  dam jsonb not null,
+  fee numeric not null default 0,
+  status text not null default 'pending' check (status in ('pending','accepted','declined','completed')),
+  litter_summary jsonb,
+  created_at timestamptz not null default now(),
+  resolved_at timestamptz
+);
+
+alter table public.stud_requests enable row level security;
+
+drop policy if exists "Participants can view own stud requests" on public.stud_requests;
+create policy "Participants can view own stud requests" on public.stud_requests
+  for select using (auth.uid() = owner_id or auth.uid() = requester_id);
+
+drop policy if exists "Requesters can create stud requests" on public.stud_requests;
+create policy "Requesters can create stud requests" on public.stud_requests
+  for insert with check (auth.uid() = requester_id);
+
+drop policy if exists "Owners can decline own pending requests" on public.stud_requests;
+create policy "Owners can decline own pending requests" on public.stud_requests
+  for update using (auth.uid() = owner_id and status = 'pending')
+  with check (status = 'declined');
+
+create or replace function public.overall_rating(p_stats jsonb)
+returns numeric
+language sql
+immutable
+as $$
+  select ((p_stats->>'gameness')::numeric + (p_stats->>'grip')::numeric + (p_stats->>'nose')::numeric
+        + (p_stats->>'stamina')::numeric + (p_stats->>'speed')::numeric + (p_stats->>'conformation')::numeric) / 6;
+$$;
+
+-- Places up to `p_pups` worth of a kennel's share into that kennel, capped
+-- by remaining capacity (land + house), selling any overflow at half value.
+-- Returns the cash credited from any overflow sale.
+create or replace function public.place_pups(p_user_id uuid, p_pups jsonb)
+returns numeric
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_state jsonb;
+  v_land_cap numeric; v_house_cap numeric; v_capacity numeric;
+  v_room int;
+  v_kept jsonb; v_overflow jsonb;
+  v_overflow_value numeric := 0;
+  v_i int;
+begin
+  select state into v_state from public.kennels where user_id = p_user_id for update;
+  if v_state is null then return 0; end if;
+
+  -- capacity mirrors the client's LAND_SIZES / HOUSE_TYPES capacity fields;
+  -- kept in sync manually since there's no shared source of truth here.
+  v_land_cap := case v_state->'property'->>'landKey'
+    when 'rented' then 8 when 'quarter' then 10 when 'half' then 13 when 'one' then 16
+    when 'two' then 20 when 'five' then 26 when 'ten' then 33 when 'twenty' then 42
+    when 'forty' then 53 when 'eighty' then 68 when 'onesixty' then 88 when 'section' then 120
+    else 8 end;
+  v_house_cap := case v_state->'property'->>'houseKey'
+    when 'trailer' then 1 when 'doublewide' then 2 when 'starter' then 4 when 'farmhouse' then 6
+    when 'ranch' then 9 when 'ranchkennel' then 14 when 'compound' then 22 when 'showcompound' then 32
+    else 0 end;
+  v_capacity := v_land_cap + v_house_cap;
+  v_room := greatest(0, v_capacity::int - jsonb_array_length(v_state->'dogs'));
+
+  v_kept := coalesce((select jsonb_agg(p) from (select value as p from jsonb_array_elements(p_pups) with ordinality a(value, ord) order by ord limit v_room) s), '[]'::jsonb);
+  v_overflow := coalesce((select jsonb_agg(p) from (select value as p from jsonb_array_elements(p_pups) with ordinality a(value, ord) order by ord offset v_room) s), '[]'::jsonb);
+
+  if jsonb_array_length(v_overflow) > 0 then
+    select sum(round(((p->'stats'->>'gameness')::numeric + (p->'stats'->>'grip')::numeric + (p->'stats'->>'nose')::numeric
+      + (p->'stats'->>'stamina')::numeric + (p->'stats'->>'speed')::numeric + (p->'stats'->>'conformation')::numeric) * 3))
+      into v_overflow_value from jsonb_array_elements(v_overflow) p;
+    v_overflow_value := coalesce(v_overflow_value, 0);
+  end if;
+
+  v_state := jsonb_set(v_state, '{dogs}', (v_state->'dogs') || v_kept);
+  v_state := jsonb_set(v_state, '{cash}', to_jsonb(coalesce((v_state->>'cash')::numeric, 0) + v_overflow_value));
+  update public.kennels set state = v_state where user_id = p_user_id;
+  return v_overflow_value;
+end;
+$$;
+
+create or replace function public.accept_stud_request(p_request_id uuid, p_pups jsonb)
+returns public.stud_requests
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_req record;
+  v_caller uuid := auth.uid();
+  v_owner_rating numeric; v_requester_rating numeric;
+  v_sorted jsonb;
+  v_n int;
+  v_owner_share jsonb; v_requester_share jsonb;
+  v_owner_first boolean;
+  v_owner_overflow numeric; v_requester_overflow numeric;
+  v_fee numeric;
+  v_owner_cash jsonb;
+  v_result public.stud_requests;
+begin
+  if v_caller is null then raise exception 'Not authenticated'; end if;
+
+  select * into v_req from public.stud_requests where id = p_request_id for update;
+  if not found then raise exception 'Request not found'; end if;
+  if v_req.status <> 'pending' then raise exception 'Request already resolved'; end if;
+  if v_req.owner_id <> v_caller then raise exception 'Only the stud owner can accept'; end if;
+
+  v_n := jsonb_array_length(p_pups);
+  if v_n = 0 then raise exception 'No pups to place'; end if;
+
+  v_owner_rating := public.overall_rating(v_req.stud->'stats');
+  v_requester_rating := public.overall_rating(v_req.dam->'stats');
+  v_owner_first := v_owner_rating >= v_requester_rating;
+
+  select jsonb_agg(p order by public.overall_rating(p->'stats') desc)
+    into v_sorted from jsonb_array_elements(p_pups) p;
+
+  if v_owner_first then
+    v_owner_share := (select jsonb_agg(p) from (select value as p from jsonb_array_elements(v_sorted) with ordinality a(value, ord) order by ord limit ceil(v_n / 2.0)) s);
+    v_requester_share := (select jsonb_agg(p) from (select value as p from jsonb_array_elements(v_sorted) with ordinality a(value, ord) order by ord offset ceil(v_n / 2.0)) s);
+  else
+    v_requester_share := (select jsonb_agg(p) from (select value as p from jsonb_array_elements(v_sorted) with ordinality a(value, ord) order by ord limit ceil(v_n / 2.0)) s);
+    v_owner_share := (select jsonb_agg(p) from (select value as p from jsonb_array_elements(v_sorted) with ordinality a(value, ord) order by ord offset ceil(v_n / 2.0)) s);
+  end if;
+
+  -- Put the requester's dam on the same cooldown a normal litter would —
+  -- otherwise the same dam could be spammed across many stud offers for
+  -- unlimited free litters.
+  declare
+    v_dam_idx int;
+  begin
+    select ord - 1 into v_dam_idx from public.kennels k, jsonb_array_elements(k.state->'dogs') with ordinality e(val, ord)
+      where k.user_id = v_req.requester_id and val->>'id' = v_req.dam->>'id' limit 1;
+    if v_dam_idx is not null then
+      update public.kennels set state = jsonb_set(
+        jsonb_set(state, array['dogs', v_dam_idx::text, 'breedCooldown'], to_jsonb(45)),
+        array['dogs', v_dam_idx::text, 'health'],
+        to_jsonb(greatest(0, (state->'dogs'->v_dam_idx->>'health')::numeric - 14))
+      ) where user_id = v_req.requester_id;
+    end if;
+  end;
+
+  v_owner_overflow := public.place_pups(v_req.owner_id, coalesce(v_owner_share, '[]'::jsonb));
+  v_requester_overflow := public.place_pups(v_req.requester_id, coalesce(v_requester_share, '[]'::jsonb));
+
+  -- stud fee: requester pays owner, if any
+  v_fee := coalesce(v_req.fee, 0);
+  if v_fee > 0 then
+    update public.kennels set state = jsonb_set(state, '{cash}', to_jsonb(greatest(0, coalesce((state->>'cash')::numeric,0) - v_fee))) where user_id = v_req.requester_id;
+    update public.kennels set state = jsonb_set(state, '{cash}', to_jsonb(coalesce((state->>'cash')::numeric,0) + v_fee)) where user_id = v_req.owner_id;
+  end if;
+
+  update public.stud_requests set
+    status = 'completed',
+    resolved_at = now(),
+    litter_summary = jsonb_build_object(
+      'total', v_n,
+      'ownerGotBetterHalf', v_owner_first,
+      'ownerKept', jsonb_array_length(coalesce(v_owner_share,'[]'::jsonb)),
+      'requesterKept', jsonb_array_length(coalesce(v_requester_share,'[]'::jsonb)),
+      'ownerOverflowValue', v_owner_overflow,
+      'requesterOverflowValue', v_requester_overflow
+    )
+  where id = p_request_id
+  returning * into v_result;
+
+  return v_result;
+end;
+$$;
+
+grant execute on function public.overall_rating(jsonb) to authenticated, anon;
+grant execute on function public.place_pups(uuid, jsonb) to authenticated;
+grant execute on function public.accept_stud_request(uuid, jsonb) to authenticated;
+
 -- Base table grants. RLS policies only take effect once the role already
 -- has these — without them Postgres blocks access before policies are
 -- even consulted.
@@ -239,6 +457,10 @@ grant select on public.market_listings to anon, authenticated;
 grant insert, update on public.market_listings to authenticated;
 grant select on public.challenges to anon, authenticated;
 grant insert, update on public.challenges to authenticated;
+grant select on public.stud_offers to anon, authenticated;
+grant insert, update on public.stud_offers to authenticated;
+grant select on public.stud_requests to authenticated;
+grant insert, update on public.stud_requests to authenticated;
 
 -- Realtime: let the client subscribe to live changes on these tables.
 -- (wrapped so re-running this script doesn't error if already added)
@@ -251,5 +473,17 @@ end $$;
 do $$
 begin
   alter publication supabase_realtime add table public.challenges;
+exception when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.stud_offers;
+exception when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.stud_requests;
 exception when duplicate_object then null;
 end $$;

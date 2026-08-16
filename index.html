@@ -406,12 +406,66 @@ const AI_KENNEL_DEFS = [
   { id: "ai-cordoba", name: "Cordoba Dogo Ranch", focusBreed: "Dogo Argentino" },
 ];
 
+/* --------------------------------- property --------------------------------- */
+/* Kennel space is a real constraint: every property has a dog-capacity cap.
+   Land size and house type each contribute capacity, and combine with a
+   pool of location names for flavor — 12 land sizes x 9 house types x 16
+   locations is 1,728 distinct listings, though the shop only surfaces the
+   land x house price/capacity tiers (location is re-rolled for flavor) so
+   it stays browsable. */
+const LAND_SIZES = [
+  { key: "rented", label: "Rented Lot", acres: 0, capacity: 8, price: 0 },
+  { key: "quarter", label: "Quarter Acre Lot", acres: 0.25, capacity: 10, price: 3000 },
+  { key: "half", label: "Half Acre Lot", acres: 0.5, capacity: 13, price: 6500 },
+  { key: "one", label: "One Acre Lot", acres: 1, capacity: 16, price: 11000 },
+  { key: "two", label: "Two Acre Lot", acres: 2, capacity: 20, price: 18000 },
+  { key: "five", label: "Five Acre Homestead", acres: 5, capacity: 26, price: 32000 },
+  { key: "ten", label: "Ten Acre Homestead", acres: 10, capacity: 33, price: 52000 },
+  { key: "twenty", label: "Twenty Acre Spread", acres: 20, capacity: 42, price: 84000 },
+  { key: "forty", label: "Forty Acre Spread", acres: 40, capacity: 53, price: 130000 },
+  { key: "eighty", label: "Eighty Acre Ranch", acres: 80, capacity: 68, price: 210000 },
+  { key: "onesixty", label: "160 Acre Ranch", acres: 160, capacity: 88, price: 340000 },
+  { key: "section", label: "Full Section Ranch", acres: 640, capacity: 120, price: 620000 },
+];
+const HOUSE_TYPES = [
+  { key: "none", label: "Bare Land, No House", capacity: 0, price: 0 },
+  { key: "trailer", label: "Single-Wide", capacity: 1, price: 1200 },
+  { key: "doublewide", label: "Double-Wide", capacity: 2, price: 3500 },
+  { key: "starter", label: "Starter Farmhouse", capacity: 4, price: 9000 },
+  { key: "farmhouse", label: "Farmhouse", capacity: 6, price: 18000 },
+  { key: "ranch", label: "Ranch House", capacity: 9, price: 32000 },
+  { key: "ranchkennel", label: "Ranch House w/ Kennel Wing", capacity: 14, price: 55000 },
+  { key: "compound", label: "Custom Kennel Compound", capacity: 22, price: 95000 },
+  { key: "showcompound", label: "Show Kennel Estate", capacity: 32, price: 160000 },
+];
+const LAND_LOCATIONS = [
+  "Sundown Hollow", "Redclay Flats", "Cypress Bend", "Piney Ridge", "Copperhead Creek",
+  "Briar Hollow", "Stonegate Pass", "Bayou Ridge", "Ironwood Flats", "Cordoba Draw",
+  "Lacy Run", "Hog Wallow", "Blackjack Ridge", "Sawmill Bend", "Muddy Fork", "Cane Break",
+];
+const STARTER_PROPERTY = { landKey: "rented", houseKey: "none", location: "Sundown Hollow" };
+function propertyCapacity(property) {
+  const p = property || STARTER_PROPERTY;
+  const land = LAND_SIZES.find((l) => l.key === p.landKey) || LAND_SIZES[0];
+  const house = HOUSE_TYPES.find((h) => h.key === p.houseKey) || HOUSE_TYPES[0];
+  return land.capacity + house.capacity;
+}
+function propertyLabel(property) {
+  const p = property || STARTER_PROPERTY;
+  const land = LAND_SIZES.find((l) => l.key === p.landKey) || LAND_SIZES[0];
+  const house = HOUSE_TYPES.find((h) => h.key === p.houseKey) || HOUSE_TYPES[0];
+  if (land.key === "rented") return "Rented lot in " + p.location;
+  return house.key === "none" ? `${land.label} in ${p.location}` : `${house.label} on a ${land.label.toLowerCase()} in ${p.location}`;
+}
+function kennelCapacity(state) { return propertyCapacity(state.property); }
+
 const NAMES_M = ["Diesel", "Cutter", "Duke", "Bo", "Ranger", "Scout", "Bull", "Tank", "Gunner", "Trapper", "Colt", "Reb", "Zeke", "Bandit", "Ridge", "Sarge", "Rowdy", "Ox", "Copperhead", "Dozer"];
 const NAMES_F = ["Ruby", "Bella", "Trix", "Dixie", "Roxy", "Sadie", "Belle", "Piper", "Blaze", "Honey", "Willow", "Delta", "Sage", "Marlow", "Cricket", "Josie", "Rowan", "Huckleberry", "Fern", "Scrappy"];
 
 const TABS = [
   { id: "overview", label: "Overview" },
   { id: "kennel", label: "Kennel" },
+  { id: "property", label: "Property" },
   { id: "hunt", label: "Hunt" },
   { id: "breed", label: "Breed" },
   { id: "trials", label: "Trials" },
@@ -1155,6 +1209,7 @@ function initKennel(kennelName, starterDogs) {
   const name = (kennelName && kennelName.trim()) || "Sundown Kennels";
   const base = {
     kennelName: name, day, cash: 2500, dogs: starters,
+    property: STARTER_PROPERTY,
     market: generateMarket(4, day),
     aiKennels: initAiKennels(),
     catches: [],
@@ -1352,6 +1407,46 @@ function FamilyTree({ dog }) {
       <div className="kg-pedroot">{dog.sex === "M" ? "♂" : "♀"} {dog.name} — Gen {dog.generation}</div>
       <PedigreeBranch role="Sire" entry={dog.pedigree.sire} depth={1} maxDepth={4} />
       <PedigreeBranch role="Dam" entry={dog.pedigree.dam} depth={1} maxDepth={4} />
+    </div>
+  );
+}
+
+/* Shown right after a litter is whelped — the player picks which pups to
+   keep (capped by remaining kennel space). Anything not picked goes to a
+   pet home for half its value rather than vanishing outright. */
+function LitterPicker({ litter, selectedIds, onToggle, onConfirm }) {
+  if (!litter) return null;
+  const { pups, room, note, label } = litter;
+  const atLimit = selectedIds.length >= room;
+  return (
+    <div className="kg-modal-backdrop">
+      <div className="kg-modal" style={{ maxWidth: 760 }} onClick={(e) => e.stopPropagation()}>
+        <div className="kg-modal__head">
+          <h2>🐾 New litter — {label}</h2>
+          <p className="kg-hint">
+            {room === 0
+              ? "Your kennel's full — every pup here will go to a pet home for half value."
+              : `Pick up to ${room} pup${room === 1 ? "" : "s"} to keep (your kennel has room for ${room} more). The rest go to pet homes at half value.`}
+          </p>
+          {note && <p className="kg-note">{note}</p>}
+        </div>
+        <div className="kg-grid">
+          {pups.map((p) => {
+            const picked = selectedIds.includes(p.id);
+            return (
+              <DogCard key={p.id} dog={p}
+                footer={room === 0 ? <span className="kg-empty">Pet home — {fmtMoney(Math.round(computeValue(p) * 0.5))}</span> : (
+                  <button className={"kg-btn kg-btn--sm " + (picked ? "" : "kg-btn--ghost")} disabled={!picked && atLimit} onClick={() => onToggle(p.id)}>
+                    {picked ? "✓ Keeping" : atLimit ? "No room left" : "Keep this pup"}
+                  </button>
+                )} />
+            );
+          })}
+        </div>
+        <button className="kg-btn kg-btn--gold" style={{ marginTop: 16, width: "auto" }} onClick={onConfirm}>
+          {room === 0 ? "Continue" : `Confirm — keep ${selectedIds.length}`}
+        </button>
+      </div>
     </div>
   );
 }
@@ -1572,6 +1667,8 @@ function KennelGame() {
   const [viewDog, setViewDog] = useState(null);
   const [trialPick, setTrialPick] = useState({ dogId: null, trial: "weightpull" });
   const [breedPick, setBreedPick] = useState({ sireId: null, damId: null });
+  const [pendingLitter, setPendingLitter] = useState(null);
+  const [selectedPupIds, setSelectedPupIds] = useState([]);
   const [newBloodline, setNewBloodline] = useState("");
   const [studDamId, setStudDamId] = useState(null);
   const [editingName, setEditingName] = useState(false);
@@ -1668,6 +1765,12 @@ function KennelGame() {
   const [challengePick, setChallengePick] = useState({ dogId: null, trial: "weightpull" });
   const [acceptPick, setAcceptPick] = useState({});
   const [rivalsMsg, setRivalsMsg] = useState("");
+  const [studOffers, setStudOffers] = useState([]);
+  const [myStudRequests, setMyStudRequests] = useState([]);
+  const [incomingStudRequests, setIncomingStudRequests] = useState([]);
+  const [studPick, setStudPick] = useState({ dogId: null, fee: "" });
+  const [requestDamPick, setRequestDamPick] = useState({});
+  const [studMsg, setStudMsg] = useState("");
 
   // Pull our own kennel row fresh from Supabase after a cross-player action
   // (buy, sell, challenge) changes it server-side, and keep localStorage's
@@ -1702,7 +1805,20 @@ function KennelGame() {
     }
   }, [session]);
 
-  useEffect(() => { loadLeaderboard(); loadListings(); loadChallenges(); }, [loadLeaderboard, loadListings, loadChallenges]);
+  const loadStudBoard = useCallback(() => {
+    sb.from("stud_offers").select("*").eq("status", "open").order("created_at", { ascending: false }).limit(60)
+      .then(({ data }) => setStudOffers(data || []));
+    if (session) {
+      sb.from("stud_requests").select("*").eq("requester_id", session.user.id)
+        .order("created_at", { ascending: false }).limit(20)
+        .then(({ data }) => setMyStudRequests(data || []));
+      sb.from("stud_requests").select("*").eq("owner_id", session.user.id).eq("status", "pending")
+        .order("created_at", { ascending: false }).limit(20)
+        .then(({ data }) => setIncomingStudRequests(data || []));
+    }
+  }, [session]);
+
+  useEffect(() => { loadLeaderboard(); loadListings(); loadChallenges(); loadStudBoard(); }, [loadLeaderboard, loadListings, loadChallenges, loadStudBoard]);
 
   // Realtime: live-refresh the marketplace and challenge boards for every
   // connected player whenever anyone lists/buys/challenges/accepts.
@@ -1710,9 +1826,11 @@ function KennelGame() {
     const channel = sb.channel("kennel-pvp")
       .on("postgres_changes", { event: "*", schema: "public", table: "market_listings" }, () => { loadListings(); refreshFromCloud(); })
       .on("postgres_changes", { event: "*", schema: "public", table: "challenges" }, () => { loadChallenges(); refreshFromCloud(); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "stud_offers" }, () => loadStudBoard())
+      .on("postgres_changes", { event: "*", schema: "public", table: "stud_requests" }, () => { loadStudBoard(); refreshFromCloud(); })
       .subscribe();
     return () => sb.removeChannel(channel);
-  }, [loadListings, loadChallenges, refreshFromCloud]);
+  }, [loadListings, loadChallenges, loadStudBoard, refreshFromCloud]);
 
   const update = useCallback((fn) => {
     setState((prev) => {
@@ -1751,6 +1869,7 @@ function KennelGame() {
 
   const buyListing = useCallback((listing) => {
     if (!session) { setPvpMsg("Sign in to buy."); return; }
+    if (state.dogs.length >= kennelCapacity(state)) { setPvpMsg("Your kennel is full — buy more land in the Property tab."); return; }
     setPvpMsg("Buying…");
     sb.rpc("purchase_listing", { p_listing_id: listing.id }).then(({ error }) => {
       if (error) setPvpMsg(error.message);
@@ -1786,6 +1905,54 @@ function KennelGame() {
       refreshFromCloud(); loadChallenges();
     });
   }, [session, state, refreshFromCloud, loadChallenges]);
+
+  const postStudOffer = useCallback((dogId, fee) => {
+    if (!session) { setStudMsg("Sign in to offer a stud."); return; }
+    const dog = state.dogs.find((d) => d.id === dogId);
+    if (!dog) return;
+    sb.from("stud_offers").insert({ owner_id: session.user.id, owner_name: state.kennelName, dog, fee: Math.max(0, Math.round(Number(fee) || 0)) })
+      .then(({ error }) => {
+        if (error) setStudMsg(error.message);
+        else { setStudMsg(`${dog.name} listed for stud.`); setStudPick({ dogId: null, fee: "" }); loadStudBoard(); }
+      });
+  }, [session, state, loadStudBoard]);
+
+  const cancelStudOffer = useCallback((offer) => {
+    sb.from("stud_offers").update({ status: "cancelled" }).eq("id", offer.id).eq("owner_id", session?.user?.id)
+      .then(({ error }) => { if (!error) loadStudBoard(); else setStudMsg(error.message); });
+  }, [session, loadStudBoard]);
+
+  const requestStud = useCallback((offer, damId) => {
+    if (!session) { setStudMsg("Sign in to request a breeding."); return; }
+    const dam = state.dogs.find((d) => d.id === damId);
+    if (!dam) return;
+    sb.from("stud_requests").insert({
+      offer_id: offer.id, owner_id: offer.owner_id, owner_name: offer.owner_name,
+      requester_id: session.user.id, requester_name: state.kennelName,
+      stud: offer.dog, dam, fee: offer.fee,
+    }).then(({ error }) => {
+      if (error) setStudMsg(error.message);
+      else { setStudMsg(`Sent a breeding request to ${offer.owner_name}.`); loadStudBoard(); }
+    });
+  }, [session, state, loadStudBoard]);
+
+  const declineStudRequest = useCallback((request) => {
+    sb.from("stud_requests").update({ status: "declined" }).eq("id", request.id).eq("owner_id", session?.user?.id)
+      .then(({ error }) => { if (!error) loadStudBoard(); else setStudMsg(error.message); });
+  }, [session, loadStudBoard]);
+
+  const acceptStudRequestAction = useCallback((request) => {
+    if (!session) return;
+    const bloodline = request.dam.bloodline || null;
+    const litter = breedPuppies(request.stud, request.dam, state.day + 1, bloodline);
+    setStudMsg("Whelping and splitting the litter…");
+    sb.rpc("accept_stud_request", { p_request_id: request.id, p_pups: litter.pups }).then(({ data, error }) => {
+      if (error) { setStudMsg(error.message); return; }
+      const s = data.litter_summary;
+      setStudMsg(`Litter of ${s.total} split: you kept ${s.ownerKept}, ${request.requester_name} kept ${s.requesterKept}.`);
+      refreshFromCloud(); loadStudBoard();
+    });
+  }, [session, state, refreshFromCloud, loadStudBoard]);
 
   const cloudAuthEl = (
     <CloudAuthPanel
@@ -1967,23 +2134,24 @@ function KennelGame() {
     if (!sire || !dam) return;
     const foundedName = newBloodline.trim();
     const bloodline = foundedName || sire.bloodline || dam.bloodline || null;
+    const litter = breedPuppies(sire, dam, state.day + 1, bloodline);
+    const room = Math.max(0, dogCapacity - state.dogs.length);
     update((prev) => {
-      const { pups, inbred, doubleMerleWarned, doubleMuscledCount, culledCount, grewBiggerCount } = breedPuppies(sire, dam, prev.day + 1, bloodline);
       let next = tick(prev, 1, { [sire.id]: { cooldownSet: 10, healthDelta: 0 }, [dam.id]: { cooldownSet: 45, healthDelta: -14 } });
       if (foundedName) {
         next.dogs = next.dogs.map((d) => (d.id === sire.id || d.id === dam.id) ? { ...d, bloodline: foundedName } : d);
       }
-      next.dogs = [...next.dogs, ...pups];
-      const names = pups.map((p) => p.name).join(", ");
-      let note = "";
-      if (foundedName) note += ` Founded the ${foundedName} bloodline.`;
-      if (inbred) note += " Close breeding — litter came in below par.";
-      if (doubleMerleWarned) note += " At least one double-merle pup — those carry real risk of deafness or vision problems.";
-      if (doubleMuscledCount) note += ` ${doubleMuscledCount} double-muscled (MSTN/MSTN) pup${doubleMuscledCount > 1 ? "s" : ""} — dramatic power, less endurance.`;
-      if (culledCount) note += ` ${culledCount} pup${culledCount > 1 ? "s" : ""} came out below standard — not every one in a litter makes the grade.`;
-      if (grewBiggerCount) note += ` ${grewBiggerCount} pup${grewBiggerCount > 1 ? "s" : ""} threw a growth mutation — noticeably bigger than expected.`;
-      return addLog(next, "breed", `${sire.name} × ${dam.name} whelped ${pups.length}: ${names}.${note}`);
+      return next;
     });
+    let note = "";
+    if (foundedName) note += ` Founded the ${foundedName} bloodline.`;
+    if (litter.inbred) note += " Close breeding — litter came in below par.";
+    if (litter.doubleMerleWarned) note += " At least one double-merle pup — those carry real risk of deafness or vision problems.";
+    if (litter.doubleMuscledCount) note += ` ${litter.doubleMuscledCount} double-muscled (MSTN/MSTN) pup${litter.doubleMuscledCount > 1 ? "s" : ""} — dramatic power, less endurance.`;
+    if (litter.culledCount) note += ` ${litter.culledCount} pup${litter.culledCount > 1 ? "s" : ""} came out below standard — not every one in a litter makes the grade.`;
+    if (litter.grewBiggerCount) note += ` ${litter.grewBiggerCount} pup${litter.grewBiggerCount > 1 ? "s" : ""} threw a growth mutation — noticeably bigger than expected.`;
+    setPendingLitter({ pups: litter.pups, room, note, label: `${sire.name} × ${dam.name}` });
+    setSelectedPupIds(litter.pups.slice(0, room).map((p) => p.id));
     setBreedPick({ sireId: null, damId: null });
     setNewBloodline("");
   }
@@ -1992,19 +2160,38 @@ function KennelGame() {
     const fee = studFee(stud);
     if (state.cash < fee) return;
     const bloodline = dam.bloodline || null;
+    const litter = breedPuppies(stud, dam, state.day + 1, bloodline);
+    const room = Math.max(0, dogCapacity - state.dogs.length);
     update((prev) => {
-      const { pups, doubleMerleWarned, doubleMuscledCount, culledCount, grewBiggerCount } = breedPuppies(stud, dam, prev.day + 1, bloodline);
       let next = tick(prev, 1, { [dam.id]: { cooldownSet: 45, healthDelta: -14 } });
       next.cash = Math.round((next.cash - fee) * 100) / 100;
-      next.dogs = [...next.dogs, ...pups];
-      const names = pups.map((p) => p.name).join(", ");
-      let note = doubleMerleWarned ? " At least one double-merle pup — risk of deafness or vision problems." : "";
-      if (doubleMuscledCount) note += ` ${doubleMuscledCount} double-muscled (MSTN/MSTN) pup${doubleMuscledCount > 1 ? "s" : ""} — dramatic power, less endurance.`;
-      if (culledCount) note += ` ${culledCount} pup${culledCount > 1 ? "s" : ""} came out below standard — not every one in a litter makes the grade.`;
-      if (grewBiggerCount) note += ` ${grewBiggerCount} pup${grewBiggerCount > 1 ? "s" : ""} threw a growth mutation — noticeably bigger than expected.`;
-      return addLog(next, "breed", `${dam.name} bred to ${stud.name} out of ${stud.kennelName} (stud fee ${fmtMoney(fee)}) — whelped ${pups.length}: ${names}.${note}`);
+      return next;
     });
+    let note = litter.doubleMerleWarned ? " At least one double-merle pup — risk of deafness or vision problems." : "";
+    if (litter.doubleMuscledCount) note += ` ${litter.doubleMuscledCount} double-muscled (MSTN/MSTN) pup${litter.doubleMuscledCount > 1 ? "s" : ""} — dramatic power, less endurance.`;
+    if (litter.culledCount) note += ` ${litter.culledCount} pup${litter.culledCount > 1 ? "s" : ""} came out below standard — not every one in a litter makes the grade.`;
+    if (litter.grewBiggerCount) note += ` ${litter.grewBiggerCount} pup${litter.grewBiggerCount > 1 ? "s" : ""} threw a growth mutation — noticeably bigger than expected.`;
+    setPendingLitter({ pups: litter.pups, room, note, label: `${dam.name} × ${stud.name} out of ${stud.kennelName} (stud fee ${fmtMoney(fee)})` });
+    setSelectedPupIds(litter.pups.slice(0, room).map((p) => p.id));
     setStudDamId(null);
+  }
+
+  function confirmLitter() {
+    if (!pendingLitter) return;
+    const { pups, room, note, label } = pendingLitter;
+    const keepIds = selectedPupIds.slice(0, room);
+    update((prev) => {
+      const kept = pups.filter((p) => keepIds.includes(p.id));
+      const overflow = pups.filter((p) => !keepIds.includes(p.id));
+      const overflowValue = overflow.reduce((s, p) => s + Math.round(computeValue(p) * 0.5), 0);
+      let next = { ...prev, dogs: [...prev.dogs, ...kept], cash: Math.round((prev.cash + overflowValue) * 100) / 100 };
+      const names = pups.map((p) => p.name).join(", ");
+      let fullNote = note;
+      if (overflow.length) fullNote += ` ${overflow.length} pup${overflow.length > 1 ? "s" : ""} not kept — placed in pet homes for ${fmtMoney(overflowValue)}.`;
+      return addLog(next, "breed", `${label} whelped ${pups.length}: ${names}.${fullNote}`);
+    });
+    setPendingLitter(null);
+    setSelectedPupIds([]);
   }
 
   function doRegister(dog) {
@@ -2024,8 +2211,22 @@ function KennelGame() {
     const value = computeValue(dog);
     update((prev) => addLog({ ...prev, cash: Math.round(prev.cash + value), dogs: prev.dogs.filter((d) => d.id !== dog.id) }, "money", `Sold ${dog.name} to a trader for ${fmtMoney(value)}.`));
   }
+  function buyProperty(landKey, houseKey, location) {
+    const land = LAND_SIZES.find((l) => l.key === landKey);
+    const house = HOUSE_TYPES.find((h) => h.key === houseKey);
+    if (!land || !house) return;
+    const price = land.price + house.price;
+    if (state.cash < price) return;
+    const property = { landKey, houseKey, location };
+    if (propertyCapacity(property) <= dogCapacity) return;
+    update((prev) => {
+      const next = { ...prev, cash: Math.round((prev.cash - price) * 100) / 100, property };
+      return addLog(next, "money", `Moved to ${propertyLabel(property)} — kennel capacity is now ${propertyCapacity(property)} dogs (paid ${fmtMoney(price)}).`);
+    });
+  }
   function doBuy(marketDog) {
     if (state.cash < marketDog.price) return;
+    if (state.dogs.length >= kennelCapacity(state)) return;
     update((prev) => {
       const { price, listedDay, sellerName, ...dog } = marketDog;
       let next = { ...prev, cash: Math.round((prev.cash - price) * 100) / 100, dogs: [...prev.dogs, dog], market: prev.market.filter((m) => m.id !== marketDog.id) };
@@ -2036,6 +2237,8 @@ function KennelGame() {
   function restWeek() { update((prev) => addLog(tick(prev, 7), "info", "Rested the kennel a week. Dogs recovered condition.")); }
   function renameKennel() { const name = nameDraft.trim(); if (name) update((prev) => ({ ...prev, kennelName: name })); setEditingName(false); }
 
+  const dogCapacity = kennelCapacity(state);
+  const kennelFull = state.dogs.length >= dogCapacity;
   const huntableDogs = state.dogs.filter(canHunt);
   const breedableM = state.dogs.filter((d) => d.sex === "M" && canBreed(d));
   const breedableF = state.dogs.filter((d) => d.sex === "F" && canBreed(d));
@@ -2089,7 +2292,7 @@ function KennelGame() {
         <div className="kg-header__stats">
           <span className="kg-hstat">Day {state.day}</span>
           <span className="kg-hstat kg-hstat--cash">${state.cash.toLocaleString("en-US")}</span>
-          <span className="kg-hstat">{state.dogs.length} dog{state.dogs.length === 1 ? "" : "s"}</span>
+          <span className="kg-hstat">{state.dogs.length} / {dogCapacity} dogs</span>
           <button className="kg-btn kg-btn--ghost" onClick={restWeek}>Rest a Week</button>
           {cloudAuthEl}
         </div>
@@ -2219,6 +2422,42 @@ function KennelGame() {
           </section>
         )}
 
+        {tab === "property" && (
+          <section>
+            <p className="kg-hint">ℹ Your kennel has room for {dogCapacity} dogs — {state.dogs.length} right now. Buy land and a house to grow; a litter that outgrows your space places the extra pups in pet homes for half value instead of losing them outright.</p>
+            <div className="kg-ovstat" style={{ maxWidth: 340, marginBottom: 24 }}>
+              <div className="kg-ovstat__label">Current property</div>
+              <div className="kg-ovstat__value" style={{ fontSize: 17 }}>{propertyLabel(state.property)}</div>
+              <p className="kg-note" style={{ margin: "4px 0 0" }}>{state.dogs.length} / {dogCapacity} dogs</p>
+            </div>
+            <h2 className="kg-subhead">Land &amp; houses for sale</h2>
+            <p className="kg-hint" style={{ marginBottom: 16 }}>ℹ {LAND_SIZES.length} land sizes × {HOUSE_TYPES.length} house types × {LAND_LOCATIONS.length} locations — only upgrades over your current capacity are shown.</p>
+            <div className="kg-grid">
+              {LAND_SIZES.flatMap((land, li) => HOUSE_TYPES.map((house, hi) => {
+                const capacity = land.capacity + house.capacity;
+                if (capacity <= dogCapacity) return null;
+                const price = land.price + house.price;
+                const location = LAND_LOCATIONS[(li * HOUSE_TYPES.length + hi) % LAND_LOCATIONS.length];
+                const label = house.key === "none" ? `${land.label} in ${location}` : `${house.label} on a ${land.label.toLowerCase()} in ${location}`;
+                return (
+                  <div key={land.key + "-" + house.key} className="kg-card">
+                    <div className="kg-card__top"><h3 className="kg-card__name">{label}</h3></div>
+                    <p className="kg-card__meta">{land.acres} acres{house.key !== "none" ? " · " + house.label : ""}</p>
+                    <div className="kg-card__tags">
+                      <Badge tone="denim">Capacity {capacity}</Badge>
+                      <Badge tone="gold">+{capacity - dogCapacity} room</Badge>
+                    </div>
+                    <button className="kg-btn kg-btn--sm" style={{ marginTop: 10 }} disabled={state.cash < price}
+                      onClick={() => buyProperty(land.key, house.key, location)}>
+                      {state.cash < price ? "Can't afford" : `Buy — ${fmtMoney(price)}`}
+                    </button>
+                  </div>
+                );
+              }))}
+            </div>
+          </section>
+        )}
+
         {tab === "hunt" && (
           <section>
             <div className="kg-hunttypes">
@@ -2301,7 +2540,8 @@ function KennelGame() {
                     <div className="kg-card__stats">
                       {STAT_KEYS.map((k) => <StatBar key={k} label={STAT_LABELS[k] + " (avg, will vary)"} value={Math.round((sire.stats[k] + dam.stats[k]) / 2)} />)}
                     </div>
-                    <button className="kg-btn" onClick={doBreed}>Breed {sire.name} × {dam.name}</button>
+                    {kennelFull && <p className="kg-notice">Kennel's full ({state.dogs.length}/{dogCapacity}) — any pups would go straight to pet homes at half value. Buy more land in the Property tab first.</p>}
+                    <button className="kg-btn" disabled={kennelFull} onClick={doBreed}>Breed {sire.name} × {dam.name}</button>
                   </div>
                 )}
               </>
@@ -2322,11 +2562,97 @@ function KennelGame() {
               <div className="kg-grid">
                 {studs.map((stud) => (
                   <DogCard key={stud.id} dog={stud} onView={setViewDog} price={studFee(stud)} sellerName={"out of " + stud.kennelName}
-                    footer={<button className="kg-btn kg-btn--sm" disabled={!studDam || state.cash < studFee(stud)} onClick={() => doStudService(studDam, stud)}>
-                      {!studDam ? "Pick a dam first" : state.cash < studFee(stud) ? "Can't afford" : `Book stud — ${fmtMoney(studFee(stud))}`}
+                    footer={<button className="kg-btn kg-btn--sm" disabled={!studDam || state.cash < studFee(stud) || kennelFull} onClick={() => doStudService(studDam, stud)}>
+                      {kennelFull ? "Kennel full" : !studDam ? "Pick a dam first" : state.cash < studFee(stud) ? "Can't afford" : `Book stud — ${fmtMoney(studFee(stud))}`}
                     </button>} />
                 ))}
               </div>
+            )}
+
+            <hr className="kg-divider" />
+            <h2 className="kg-subhead">Player stud board — real kennels, split litters</h2>
+            <p className="kg-hint">ℹ Offer one of your males for stud, or request a breeding against another kennel's. The litter is split between both kennels — whichever parent rates higher gets the better half of the pups.</p>
+            {!session && <p className="kg-notice">Sign in with Cloud Save (top right) to use the stud board.</p>}
+            {studMsg && <p className="kg-note">{studMsg}</p>}
+            {session && (
+              <React.Fragment>
+                <h3 className="kg-subhead" style={{ fontSize: 14 }}>Offer a stud</h3>
+                {breedableM.length === 0 ? <p className="kg-empty">No male fit for stud right now.</p> : (
+                  <div className="kg-pairpick">
+                    <select value={studPick.dogId || ""} onChange={(e) => setStudPick((p) => ({ ...p, dogId: e.target.value }))}>
+                      <option value="">Choose your male</option>
+                      {breedableM.map((d) => <option key={d.id} value={d.id}>{d.name} — {d.breed} ({overallRating(d.stats)})</option>)}
+                    </select>
+                    <input type="number" min="0" placeholder="Stud fee (optional)" style={{ maxWidth: 160 }}
+                      value={studPick.fee} onChange={(e) => setStudPick((p) => ({ ...p, fee: e.target.value }))} />
+                    <button className="kg-btn kg-btn--sm" disabled={!studPick.dogId} onClick={() => postStudOffer(studPick.dogId, studPick.fee)}>List for Stud</button>
+                  </div>
+                )}
+                {studOffers.some((o) => o.owner_id === session.user.id) && (
+                  <ul className="kg-log" style={{ marginBottom: 16 }}>
+                    {studOffers.filter((o) => o.owner_id === session.user.id).map((o) => (
+                      <li key={o.id} className="kg-logrow">
+                        <span>{o.dog.name} — stud fee {fmtMoney(o.fee)}</span>
+                        <button className="kg-btn kg-btn--ghost kg-btn--sm" style={{ width: "auto" }} onClick={() => cancelStudOffer(o)}>Cancel</button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                {incomingStudRequests.length > 0 && (
+                  <React.Fragment>
+                    <h3 className="kg-subhead" style={{ fontSize: 14 }}>Incoming requests on your studs</h3>
+                    <ul className="kg-log" style={{ marginBottom: 16 }}>
+                      {incomingStudRequests.map((r) => (
+                        <li key={r.id} className="kg-logrow">
+                          <span>{r.requester_name} wants {r.stud.name} × their {r.dam.name} ({overallRating(r.dam.stats)} overall)</span>
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <button className="kg-btn kg-btn--sm" onClick={() => acceptStudRequestAction(r)}>Accept &amp; Whelp</button>
+                            <button className="kg-btn kg-btn--ghost kg-btn--sm" style={{ width: "auto" }} onClick={() => declineStudRequest(r)}>Decline</button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </React.Fragment>
+                )}
+
+                <h3 className="kg-subhead" style={{ fontSize: 14 }}>Studs from other kennels</h3>
+                {studOffers.filter((o) => o.owner_id !== session.user.id).length === 0 ? (
+                  <p className="kg-empty">No player studs listed right now.</p>
+                ) : (
+                  <div className="kg-grid">
+                    {studOffers.filter((o) => o.owner_id !== session.user.id).map((o) => (
+                      <DogCard key={o.id} dog={o.dog} onView={setViewDog} price={o.fee} sellerName={"out of " + o.owner_name}
+                        footer={breedableF.length === 0 ? <span className="kg-empty">Need a breedable dam</span> : (
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <select value={requestDamPick[o.id] || ""} onChange={(e) => setRequestDamPick((p) => ({ ...p, [o.id]: e.target.value }))}>
+                              <option value="">Your dam</option>
+                              {breedableF.map((d) => <option key={d.id} value={d.id}>{d.name} ({overallRating(d.stats)})</option>)}
+                            </select>
+                            <button className="kg-btn kg-btn--sm" disabled={!requestDamPick[o.id] || state.cash < o.fee} onClick={() => requestStud(o, requestDamPick[o.id])}>Request</button>
+                          </div>
+                        )} />
+                    ))}
+                  </div>
+                )}
+
+                {myStudRequests.length > 0 && (
+                  <React.Fragment>
+                    <h3 className="kg-subhead" style={{ fontSize: 14 }}>Your requests</h3>
+                    <ul className="kg-log">
+                      {myStudRequests.map((r) => (
+                        <li key={r.id} className="kg-logrow">
+                          <span>
+                            {r.dam.name} × {r.stud.name} out of {r.owner_name} —{" "}
+                            {r.status === "pending" ? "waiting on owner" : r.status === "declined" ? "declined" :
+                              `done — you kept ${r.litter_summary?.requesterKept ?? "?"} of ${r.litter_summary?.total ?? "?"}`}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </React.Fragment>
+                )}
+              </React.Fragment>
             )}
           </section>
         )}
@@ -2405,7 +2731,7 @@ function KennelGame() {
               <div className="kg-grid">
                 {shownMarket.map((dog) => (
                   <DogCard key={dog.id} dog={dog} onView={setViewDog} price={dog.price} sellerName={dog.sellerName ? "from " + dog.sellerName : null}
-                    footer={<button className="kg-btn kg-btn--sm" disabled={state.cash < dog.price} onClick={() => doBuy(dog)}>{state.cash < dog.price ? "Can't afford" : "Buy"}</button>} />
+                    footer={<button className="kg-btn kg-btn--sm" disabled={state.cash < dog.price || kennelFull} onClick={() => doBuy(dog)}>{kennelFull ? "Kennel full" : state.cash < dog.price ? "Can't afford" : "Buy"}</button>} />
                 ))}
               </div>
             )}
@@ -2453,8 +2779,8 @@ function KennelGame() {
               <div className="kg-grid">
                 {pvpListings.filter((l) => l.seller_id !== session?.user?.id).map((l) => (
                   <DogCard key={l.id} dog={l.dog} onView={setViewDog} price={l.price} sellerName={"from " + l.seller_name}
-                    footer={<button className="kg-btn kg-btn--sm" disabled={!session || state.cash < l.price} onClick={() => buyListing(l)}>
-                      {!session ? "Sign in to buy" : state.cash < l.price ? "Can't afford" : "Buy"}
+                    footer={<button className="kg-btn kg-btn--sm" disabled={!session || state.cash < l.price || kennelFull} onClick={() => buyListing(l)}>
+                      {!session ? "Sign in to buy" : kennelFull ? "Kennel full" : state.cash < l.price ? "Can't afford" : "Buy"}
                     </button>} />
                 ))}
               </div>
@@ -2621,6 +2947,12 @@ function KennelGame() {
       </main>
       </div>
       <DogProfileModal dog={viewDog} onClose={() => setViewDog(null)} />
+      <LitterPicker litter={pendingLitter} selectedIds={selectedPupIds} onConfirm={confirmLitter}
+        onToggle={(id) => setSelectedPupIds((prev) => {
+          if (prev.includes(id)) return prev.filter((x) => x !== id);
+          if (pendingLitter && prev.length >= pendingLitter.room) return prev;
+          return [...prev, id];
+        })} />
     </div>
   );
 }
