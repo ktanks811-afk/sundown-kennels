@@ -430,6 +430,12 @@ function KennelGame() {
     sb.from("leaderboard").select("*").order("net_worth", { ascending: false }).limit(50)
       .then(({ data }) => setLeaderboardRows(data || []));
   }, []);
+  const [raceLeaders, setRaceLeaders] = useState([]);
+  const loadRaceLeaders = useCallback(() => {
+    sb.from("race_leaders").select("*")
+      .then(({ data }) => setRaceLeaders(data || []));
+  }, []);
+
   const loadListings = useCallback(() => {
     sb.from("market_listings").select("*").eq("status", "active").eq("kind", "dog").order("created_at", { ascending: false }).limit(60)
       .then(({ data }) => setPvpListings(data || []));
@@ -1186,16 +1192,47 @@ function KennelGame() {
     const ev = cfg.events[eventKey];
     const oppBreed = cfg.breedNames[randInt(0, cfg.breedNames.length - 1)];
     const opp = cfg.generate(oppBreed, state.day);
-    const scoreMe = statScore(animal.stats, ev.weights) + rand(-12, 12);
-    const scoreOpp = statScore(opp.stats, ev.weights) + rand(-12, 12);
-    const won = scoreMe >= scoreOpp;
     const purse = Math.round(40 + cfg.value(animal) * 0.03);
+
+    // Timed events are decided on the clock, not a judged score.
+    const myTime = raceTime(kind, animal, ev);
+    const oppTime = myTime !== null ? raceTime(kind, opp, ev) : null;
+    const won = myTime !== null
+      ? myTime <= oppTime
+      : statScore(animal.stats, ev.weights) + rand(-12, 12) >= statScore(opp.stats, ev.weights) + rand(-12, 12);
+
+    const oldBest = myTime !== null ? personalBest(state, eventKey) : null;
+    const isPB = myTime !== null && (!oldBest || myTime < oldBest.seconds);
+
     update((prev) => {
       let next = { ...prev, fame: prev.fame + (won ? 3 : 1) };
       if (won) next.cash = Math.round((next.cash + purse) * 100) / 100;
-      return addLog(next, won ? "money" : "info",
-        `${animal.name} ${won ? "won" : "placed behind"} ${opp.name} the ${opp.breed} at the ${ev.label}${won ? ` — purse ${fmtMoney(purse)}` : ""}.`);
+
+      if (myTime !== null) {
+        if (isPB) {
+          next = withPersonalBest(next, eventKey, {
+            seconds: myTime, horseName: animal.name, breed: animal.breed, day: prev.day,
+          });
+        }
+        next = addLog(next, won ? "money" : "info",
+          `${animal.name} ran ${formatRaceTime(myTime)} at the ${ev.label.toLowerCase()} — ${won ? "beat" : "behind"} ${opp.name} on ${formatRaceTime(oppTime)}${won ? `, purse ${fmtMoney(purse)}` : ""}.`);
+        if (isPB) {
+          next = addLog(next, "catch", `⏱ Personal best — ${animal.name} took ${formatRaceTime(myTime)} at the ${ev.label.toLowerCase()}${oldBest ? `, off ${formatRaceTime(oldBest.seconds)}` : ""}.`);
+        }
+      } else {
+        next = addLog(next, won ? "money" : "info",
+          `${animal.name} ${won ? "won" : "placed behind"} ${opp.name} the ${opp.breed} at the ${ev.label}${won ? ` — purse ${fmtMoney(purse)}` : ""}.`);
+      }
+      return next;
     });
+
+    // Only a personal best is worth the round trip to the shared board.
+    if (isPB && session) {
+      sb.from("race_records").insert({
+        user_id: session.user.id, event: eventKey, seconds: myTime,
+        horse_name: animal.name, horse_breed: animal.breed, kennel_name: state.kennelName,
+      }).then(() => loadRaceLeaders());
+    }
   }
   function doBuy(marketDog) {
     if (state.cash < marketDog.price) return;
@@ -1380,6 +1417,75 @@ function KennelGame() {
             </div>
           );
         })()}
+        {tab === "racerecords" && (() => {
+          const timedEvents = Object.entries(HORSE_SHOWS).filter(([, ev]) => ev.timed);
+          const leaderFor = (key) => raceLeaders.find((r) => r.event === key);
+          return (
+            <section>
+              <h2 className="kg-subhead">Race records</h2>
+              <p className="kg-hint">
+                Timed events are run against the clock. The fastest run anyone has posted holds the
+                record, with their name on it — beat it and it's yours.
+              </p>
+              {!session && <p className="kg-notice">Sign in (top right) to have your times counted on the board.</p>}
+
+              {timedEvents.map(([key, ev]) => {
+                const leader = leaderFor(key);
+                const mine = personalBest(state, key);
+                const iHoldIt = leader && mine && Math.abs(Number(leader.seconds) - mine.seconds) < 0.005;
+                return (
+                  <div key={key} className="kg-recordcard">
+                    <div className="kg-recordcard__head">
+                      <h3>{ev.label}</h3>
+                      <span className="kg-recordcard__blurb">{ev.timed.blurb}</span>
+                    </div>
+
+                    <div className="kg-recordcard__body">
+                      <div className="kg-recordslot">
+                        <span className="kg-recordslot__label">World record</span>
+                        {leader ? (
+                          <>
+                            <span className="kg-recordslot__time">{formatRaceTime(Number(leader.seconds))}</span>
+                            <span className="kg-recordslot__who">
+                              {leader.horse_name}{leader.horse_breed ? ` · ${leader.horse_breed}` : ""}
+                            </span>
+                            <span className="kg-recordslot__holder">held by <strong>{leader.holder}</strong></span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="kg-recordslot__time kg-recordslot__time--empty">—</span>
+                            <span className="kg-recordslot__who">Nobody's posted a time yet. First one takes it.</span>
+                          </>
+                        )}
+                      </div>
+
+                      <div className={"kg-recordslot " + (iHoldIt ? "kg-recordslot--mine" : "")}>
+                        <span className="kg-recordslot__label">Your best</span>
+                        {mine ? (
+                          <>
+                            <span className="kg-recordslot__time">{formatRaceTime(mine.seconds)}</span>
+                            <span className="kg-recordslot__who">{mine.horseName} · {mine.breed}</span>
+                            <span className="kg-recordslot__holder">
+                              {iHoldIt ? "You hold the record." : leader ? `${(mine.seconds - Number(leader.seconds)).toFixed(2)}s off the record` : "Sign in to post it"}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="kg-recordslot__time kg-recordslot__time--empty">—</span>
+                            <span className="kg-recordslot__who">Enter a horse in the {ev.label.toLowerCase()} to set one.</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              <button className="kg-btn kg-btn--ghost kg-btn--sm2" style={{ marginTop: 4 }} onClick={loadRaceLeaders}>Refresh the board</button>
+            </section>
+          );
+        })()}
+
         {tab === "admin" && adminUnlocked && (
           <section>
             <h2 className="kg-subhead">Admin</h2>
