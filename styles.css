@@ -85,7 +85,10 @@ html, body { margin:0; padding:0; background:#0a0605; }
     radial-gradient(120% 90% at 50% 105%, rgba(255,160,50,0.26), transparent 62%),
     linear-gradient(180deg, rgba(191,69,3,0.09) 0%, rgba(240,120,0,0.07) 45%, transparent 100%);
 }
-.kg-header > *:not(.kg-dusk) { position:relative; z-index:1; }
+/* Specificity note: this selector is (0,2,0) and was beating .kg-header__controls
+   (0,1,0), stamping z-index:1 onto the controls — so the logo, later in the DOM
+   at the same level, painted straight over the open sign-in panel. */
+.kg-header > *:not(.kg-dusk):not(.kg-header__controls) { position:relative; z-index:1; }
 
 /* ---------- header: centred masthead ---------- */
 /* The logo used to sit at 46px off to the left where you couldn't read it.
@@ -93,12 +96,12 @@ html, body { margin:0; padding:0; background:#0a0605; }
 .kg-header {
   position:relative; max-width: 1200px; margin: 0 auto;
   display:flex; flex-direction:column; align-items:center; text-align:center;
-  gap:14px; padding: 8px 0 22px; border-bottom: 1px solid var(--metal);
+  gap:10px; padding: 6px 0 18px; border-bottom: 1px solid var(--metal);
 }
 .kg-header__controls { position:absolute; top:0; right:0; display:flex; gap:8px; z-index:5; }
 .kg-header__logo {
-  width: clamp(180px, 26vw, 260px); height:auto; object-fit:contain; display:block;
-  filter: drop-shadow(0 10px 28px rgba(240,90,0,0.34));
+  width: clamp(88px, 11vw, 124px); height:auto; object-fit:contain; display:block;
+  filter: drop-shadow(0 6px 18px rgba(240,90,0,0.30));
 }
 .kg-header__name { margin:0; }
 .kg-header__namebtn {
@@ -354,6 +357,31 @@ html, body { margin:0; padding:0; background:#0a0605; }
 
 /* ---------- cloud save ---------- */
 .kg-cloud { position:relative; }
+
+/* ---------- sign-in dialog ---------- */
+.kg-modal--auth { max-width: 420px; }
+.kg-auth__title {
+  font-family:'Space Grotesk','Inter',sans-serif; font-weight:600; font-size:21px;
+  letter-spacing:-0.025em; margin:2px 0 8px;
+}
+.kg-auth__lede { font-size:13.5px; color: var(--ink-soft); line-height:1.55; margin:0 0 18px; }
+.kg-auth__lede strong { color: var(--ink); font-weight:600; }
+.kg-auth__label {
+  display:block; font-size:10.5px; text-transform:uppercase; letter-spacing:0.1em;
+  font-weight:700; color: var(--ink-soft); margin:0 0 5px;
+}
+.kg-modal--auth input {
+  width:100%; font-family:inherit; font-size:14px; padding:11px 13px; margin-bottom:14px;
+  color: var(--ink); background: var(--paper-dark); border:1px solid var(--border); border-radius: var(--r-sm);
+}
+.kg-modal--auth input:focus {
+  outline:none; border-color: var(--accent-line); box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.kg-modal--auth .kg-cloud__row .kg-btn { width:100%; }
+.kg-auth__note {
+  font-size:12px; color: var(--ink-soft); line-height:1.5; margin:16px 0 0;
+  padding-top:14px; border-top:1px solid var(--metal);
+}
 .kg-cloud__panel { position:absolute; top: calc(100% + 10px); right:0; z-index:20; width:280px; background: #241a15; color: var(--ink); border: 1px solid var(--border); box-shadow: var(--shadow-lg); padding:18px; border-radius: var(--r-md); }
 .kg-cloud__panel h3 { margin:0 0 5px; font-family:'Space Grotesk','Inter',sans-serif; font-weight:600; font-size:16px; letter-spacing:-0.02em; }
 .kg-cloud__panel p { margin:0 0 12px; font-size:12.5px; color: var(--ink-soft); line-height:1.5; }
@@ -636,7 +664,11 @@ html[data-theme="light"], html[data-theme="light"] body { background:#f2ebdd; }
   .kg-themetoggle { padding:8px 11px; }
   .kg-shopgrid { grid-template-columns: 1fr; }
   .kg-statrow { grid-template-columns: 70px 1fr 24px; }
-  .kg-header { padding-top: 46px; }
-  .kg-header__logo { width: min(230px, 62vw); }
+  .kg-header { padding-top: 42px; gap:8px; }
+  .kg-header__logo { width: min(104px, 32vw); }
+  /* Keep the stat chips on one line so the masthead doesn't eat the fold. */
+  .kg-header__stats { gap:6px; }
+  .kg-hstat { font-size:11.5px; padding:5px 10px; }
+  .kg-header__stats .kg-btn { padding:6px 11px; font-size:11px; }
   .kg-grid { grid-template-columns: 1fr; }
 }

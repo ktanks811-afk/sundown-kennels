@@ -39,7 +39,10 @@ function KennelSetup({ onComplete, cloudAuth, themeToggle }) {
           <div className="kg-title__actions">
             <button className="kg-btn kg-btn--gold kg-btn--lg" onClick={() => setStep(1)}>Start a kennel</button>
           </div>
-          <p className="kg-title__note">Already have one? Use <b>Cloud Save</b> above to sign in and load it.</p>
+          <p className="kg-title__note">
+            Already have a kennel? Hit <b>Sign in</b> at the top right — your dogs, bloodlines
+            and cash are saved to your account and will load straight back in.
+          </p>
         </div>
       </div>
     );

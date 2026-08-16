@@ -1504,7 +1504,7 @@ function KennelGame() {
             <hr className="kg-divider" />
             <h2 className="kg-subhead">Player stud board — real kennels, split litters</h2>
             <p className="kg-hint">ℹ Offer one of your males for stud, or request a breeding against another kennel's. The litter is split between both kennels — whichever parent rates higher gets the better half of the pups.</p>
-            {!session && <p className="kg-notice">Sign in with Cloud Save (top right) to use the stud board.</p>}
+            {!session && <p className="kg-notice">Sign in (top right) to use the stud board.</p>}
             {studMsg && <p className="kg-note">{studMsg}</p>}
             {session && (
               <React.Fragment>
@@ -1877,7 +1877,7 @@ function KennelGame() {
         {tab === "trade" && (
           <section>
             <p className="kg-hint">ℹ Buy and sell dogs with other real kennels — not the AI. Listings and purchases sync live for everyone signed in.</p>
-            {!session && <p className="kg-notice">Sign in with Cloud Save (top right) to list or buy dogs here.</p>}
+            {!session && <p className="kg-notice">Sign in (top right) to list or buy dogs here.</p>}
             {pvpMsg && <p className="kg-note">{pvpMsg}</p>}
             {session && (
               <React.Fragment>
@@ -1927,7 +1927,7 @@ function KennelGame() {
         {tab === "rivals" && (
           <section>
             <p className="kg-hint">ℹ Post a dog against a trial type and wait for a real opponent, or answer someone else's challenge — results resolve instantly for both of you.</p>
-            {!session && <p className="kg-notice">Sign in with Cloud Save (top right) to challenge or be challenged.</p>}
+            {!session && <p className="kg-notice">Sign in (top right) to challenge or be challenged.</p>}
             {rivalsMsg && <p className="kg-note">{rivalsMsg}</p>}
             {session && (
               <React.Fragment>
@@ -2005,7 +2005,7 @@ function KennelGame() {
         {tab === "leaderboard" && (
           <section>
             <p className="kg-hint">ℹ Every signed-in kennel, ranked by net worth. Public — visible whether you're signed in or not.</p>
-            {leaderboardRows.length === 0 ? <p className="kg-empty">No cloud kennels yet — sign in with Cloud Save to be the first on the board.</p> : (
+            {leaderboardRows.length === 0 ? <p className="kg-empty">No cloud kennels yet — sign in to be the first on the board.</p> : (
               <ul className="kg-log">
                 {leaderboardRows.map((row, i) => (
                   <li key={row.kennel_name + i} className={"kg-logrow " + (row.kennel_name === state.kennelName ? "kg-logrow--money" : "")}>

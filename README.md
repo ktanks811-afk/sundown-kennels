@@ -30,7 +30,7 @@ python -m http.server 8000
 Then visit http://localhost:8000. Any static server works — `npx serve .` is
 fine too.
 
-Progress saves to local storage automatically. Sign in with Cloud Save to
+Progress saves to local storage automatically. Sign in to
 sync it to Supabase and unlock the multiplayer tabs.
 
 ## Layout
