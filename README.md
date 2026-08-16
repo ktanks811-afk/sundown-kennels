@@ -10,18 +10,25 @@ Play it: https://ktanks811-afk.github.io/sundown-kennels/
 
 ## Running it locally
 
-There's still no build step and nothing to install — but the source is split
-across several files that Babel compiles in the browser, so it has to be
-served over `http://`. **Opening `index.html` off disk will not work** (the
-browser blocks the file reads).
+**Windows:** double-click `serve.cmd`.
+**Mac/Linux:** run `./serve.sh`.
 
-Any static server does it:
+Either one starts a local server and opens the game in your browser.
+
+There's no build step and nothing to install beyond Python. The one catch:
+the source is split across several files that Babel compiles in the browser,
+so it has to be served over `http://` — **opening `index.html` off disk will
+not work**, because the browser blocks those file reads. If you try, the page
+tells you so rather than sitting on a blank "Loading…".
+
+By hand, if you'd rather:
 
 ```bash
 python -m http.server 8000
 ```
 
-Then visit http://localhost:8000.
+Then visit http://localhost:8000. Any static server works — `npx serve .` is
+fine too.
 
 Progress saves to local storage automatically. Sign in with Cloud Save to
 sync it to Supabase and unlock the multiplayer tabs.
@@ -39,6 +46,7 @@ sync it to Supabase and unlock the multiplayer tabs.
 | `js/game.jsx` | Main component: state, day tick, player actions, multiplayer, tab screens |
 | `js/setup.jsx` | First-run onboarding |
 | `assets/` | Logo artwork |
+| `serve.cmd` / `serve.sh` | Start a local server and open the game |
 | `supabase-schema.sql` | Tables, RLS policies, grants, and the RPCs behind cloud save and multiplayer |
 
 The files share one global scope and load in dependency order — there are no

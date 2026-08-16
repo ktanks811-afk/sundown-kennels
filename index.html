@@ -9,6 +9,36 @@
 <body>
 <div id="root"><div class="kg-app kg-loading">Loading…</div></div>
 
+<script>
+  // Opened straight off disk, the browser blocks Babel from fetching js/*.jsx
+  // and the page just sits on "Loading…" with only a CORS error in the console.
+  // Say so plainly instead. Inline styles on purpose: styles.css may be
+  // blocked too, and this message has to survive that.
+  if (location.protocol === "file:") {
+    document.getElementById("root").innerHTML =
+      '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;' +
+      'background:#120c09;color:#f4ede4;font-family:system-ui,-apple-system,Segoe UI,sans-serif">' +
+        '<div style="max-width:560px">' +
+          '<h1 style="margin:0 0 14px;font-size:26px;letter-spacing:-0.02em;color:#f05a00">This needs a local server</h1>' +
+          '<p style="margin:0 0 16px;line-height:1.6;color:#a89486">' +
+            'The game source is split across several files that Babel compiles in the browser, ' +
+            'so it has to be served over <code>http://</code>. Opening the file directly makes the ' +
+            'browser block those reads &mdash; nothing is broken.' +
+          '</p>' +
+          '<p style="margin:0 0 10px;line-height:1.6;color:#a89486">' +
+            'Double-click <strong style="color:#f4ede4">serve.cmd</strong> (Windows) or run ' +
+            '<strong style="color:#f4ede4">./serve.sh</strong> (Mac/Linux) in this folder. Or by hand:' +
+          '</p>' +
+          '<pre style="margin:0 0 16px;padding:14px 16px;border-radius:10px;overflow-x:auto;' +
+            'background:#171010;border:1px solid rgba(255,186,133,0.14);color:#f5b942;font-size:13.5px">' +
+            'python -m http.server 8000</pre>' +
+          '<p style="margin:0;line-height:1.6;color:#a89486">Then open ' +
+            '<a href="http://localhost:8000" style="color:#f05a00">http://localhost:8000</a>.</p>' +
+        '</div>' +
+      '</div>';
+  }
+</script>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
