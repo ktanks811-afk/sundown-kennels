@@ -218,6 +218,43 @@ function initialsFor(nameOrEmail) {
   return s.slice(0, 2).toUpperCase();
 }
 
+/* ----------------------------- timed events -------------------------------- */
+
+/* Barrel racing and flat racing are run against a clock in real life, and the
+   game was resolving both as a plain win/lose with no time at all — so there
+   was nothing to hold a record with. Ability pulls the clock down towards a
+   floor nobody beats; age and condition push it back up. */
+function raceTime(kind, animal, ev) {
+  if (!ev || !ev.timed) return null;
+  const t = ev.timed;
+  const ability = clamp(statScore(animal.stats, ev.weights));       // 0-100
+  const prime = animalPrime(kind, animal);
+  const condition = clamp(animal.health) / 100;
+
+  // A perfect animal in its prime approaches the floor but never quite reaches it.
+  let secs = t.par - (t.par - t.floor) * (ability / 100);
+  secs += (1 - prime.mult) * t.spread * 0.9;      // out of its prime costs real time
+  secs += (1 - condition) * t.spread * 0.55;      // so does being sore
+  secs += rand(-0.35, 0.9);                       // the day itself
+  if (animal.injury) secs += t.spread * 0.4;
+
+  return Math.max(t.floor, Math.round(secs * 100) / 100);
+}
+function formatRaceTime(secs) {
+  return typeof secs === "number" ? secs.toFixed(2) + "s" : "—";
+}
+/* Personal bests live in the save so they survive signed out. */
+function personalBest(state, eventKey) {
+  const pb = (state.raceBests || {})[eventKey];
+  return pb || null;
+}
+function withPersonalBest(state, eventKey, entry) {
+  const bests = { ...(state.raceBests || {}) };
+  const current = bests[eventKey];
+  if (!current || entry.seconds < current.seconds) bests[eventKey] = entry;
+  return { ...state, raceBests: bests };
+}
+
 /* ------------------------------- titles ----------------------------------- */
 
 /* Real registries prefix a dog's name once it's earned something. Titles make

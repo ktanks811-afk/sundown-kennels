@@ -277,9 +277,11 @@ const HORSE_BREED_NAMES = Object.keys(HORSE_BREEDS);
 
 /* Real equine competitions, each rewarding a different mix of stats. */
 const HORSE_SHOWS = {
-  barrelracing: { label: "Barrel Racing", desc: "Cloverleaf pattern against the clock. Rewards speed and agility.", weights: { speed: 0.45, agility: 0.35, temperament: 0.2 } },
+  barrelracing: { label: "Barrel Racing", desc: "Cloverleaf pattern against the clock. Rewards speed and agility.", weights: { speed: 0.45, agility: 0.35, temperament: 0.2 },
+    timed: { par: 17.4, spread: 4.6, floor: 12.8, unit: "s", blurb: "Cloverleaf, three barrels. A good run is under 15 seconds." } },
   reining: { label: "Reining", desc: "Spins, sliding stops, precise patterns. Rewards agility and temperament.", weights: { agility: 0.4, temperament: 0.35, conformation: 0.25 } },
-  racing: { label: "Flat Racing", desc: "Straight-up speed over distance. Rewards speed and stamina.", weights: { speed: 0.55, stamina: 0.45 } },
+  racing: { label: "Flat Racing", desc: "Straight-up speed over a quarter mile. Rewards speed and stamina.", weights: { speed: 0.55, stamina: 0.45 },
+    timed: { par: 24.2, spread: 5.2, floor: 20.1, unit: "s", blurb: "440 yards from a standing start. Anything under 21 is track-record pace." } },
   halter: { label: "Halter / Conformation", desc: "Judged standing, structure and breed type only.", weights: { conformation: 1.0 } },
   jumping: { label: "Show Jumping", desc: "Clear a course of fences. Rewards agility and conformation.", weights: { agility: 0.45, conformation: 0.3, temperament: 0.25 } },
   pulling: { label: "Pulling Competition", desc: "Draft strength event — drag a weighted sled.", weights: { strength: 0.6, stamina: 0.4 } },
@@ -364,7 +366,7 @@ const NAV = [
   { id: "online",   label: "Online",   icon: "⇄", group: "Trade",
     children: [{ id: "trade", label: "Dog market" }, { id: "rivals", label: "Challenges" }, { id: "leaderboard", label: "Leaderboard" }] },
   { id: "records",  label: "Records",  icon: "§", group: "Records",
-    children: [{ id: "registry", label: "Stud book" }, { id: "rankings", label: "County ranks" }, { id: "hof", label: "Hall of Fame" }, { id: "log", label: "Ledger" }] },
+    children: [{ id: "registry", label: "Stud book" }, { id: "rankings", label: "County ranks" }, { id: "hof", label: "Hall of Fame" }, { id: "racerecords", label: "Race records" }, { id: "log", label: "Ledger" }] },
   { id: "account",  label: "Account",  icon: "☺", group: "You",
     children: [{ id: "profile", label: "Profile" }, { id: "settings", label: "Settings" }, { id: "danger", label: "Account" }] },
 ];
