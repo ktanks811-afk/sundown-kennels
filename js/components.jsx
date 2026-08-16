@@ -164,6 +164,43 @@ function DogCard({ dog, price, sellerName, footer, onView }) {
    at breeding time, so it goes back exactly as many generations as you've
    bred toward, and stops honestly at "Unknown" for bought/scouted/founder
    stock rather than making anything up. */
+/* A one-line dog. The full card is ~520px tall and was being used to pick an
+   opponent or a stud — contexts that only need name, breed, rating and the
+   stat that matters. This is that, at about a tenth the height. */
+function DogRow({ dog, sellerName, meta, right, selected, onSelect, onView, disabled }) {
+  const st = statusOf(dog);
+  const star = starTrait(dog);
+  const rating = overallRating(dog.stats);
+  const tone = rating >= 80 ? "gold" : rating >= 65 ? "olive" : rating >= 45 ? "denim" : "rust";
+  return (
+    <div className={"kg-row " + (selected ? "kg-row--on " : "") + (disabled ? "kg-row--off " : "")}>
+      {onSelect && (
+        <button type="button" className="kg-row__pick" onClick={() => onSelect(dog)} disabled={disabled}
+          aria-pressed={!!selected} aria-label={`Choose ${dog.name}`}>
+          <span className="kg-row__tick">{selected ? "✓" : ""}</span>
+        </button>
+      )}
+      <span className={"kg-row__rating kg-row__rating--" + tone}>{rating}</span>
+      <span className="kg-row__coat" style={{ background: COLOR_HEX[dog.colorGenes.base] || "#888" }} title={colorLabel(dog.colorGenes)} />
+      <div className="kg-row__main">
+        <span className="kg-row__name">
+          {onView
+            ? <button type="button" className="kg-card__namebtn" onClick={() => onView(dog)}>{dog.sex === "M" ? "♂" : "♀"} {titledName(dog)}</button>
+            : <>{dog.sex === "M" ? "♂" : "♀"} {titledName(dog)}</>}
+        </span>
+        <span className="kg-row__meta">
+          {breedShort(dog.breed)} · {ageLabel(dog.ageDays)}
+          {star ? <> · {star.stars}★ {STAT_LABELS[star.key]}</> : null}
+          {sellerName ? <> · {sellerName}</> : null}
+          {meta ? <> · {meta}</> : null}
+        </span>
+      </div>
+      <span className={"kg-badge kg-badge--" + st.tone + " kg-row__status"}>{st.label}</span>
+      {right ? <div className="kg-row__right">{right}</div> : null}
+    </div>
+  );
+}
+
 function PedigreeBranch({ role, entry, depth, maxDepth }) {
   return (
     <div className="kg-pednode">

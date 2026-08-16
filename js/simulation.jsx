@@ -87,6 +87,25 @@ function rollInjury(huntKey) {
   return { key, daysLeft: INJURIES[key].days + randInt(-3, 4) };
 }
 
+/* ------------------------------- titles ----------------------------------- */
+
+/* Real registries prefix a dog's name once it's earned something. Titles make
+   achievement permanent and visible everywhere the dog appears. */
+const TITLES = [
+  { key: "CH",   label: "Champion",       wins: 3 },
+  { key: "GRCH", label: "Grand Champion", wins: 8 },
+  { key: "SUPCH",label: "Supreme Champion", wins: 16 },
+];
+function titleFor(wins) {
+  let earned = null;
+  TITLES.forEach((t) => { if (wins >= t.wins) earned = t; });
+  return earned;
+}
+function titledName(dog) {
+  const t = titleFor(dog.trialWins || 0);
+  return t ? `${t.key} ${dog.name}` : dog.name;
+}
+
 /* --------------------------- temperament traits ---------------------------- */
 
 /* Two dogs with identical stats used to play identically. Temperament is what

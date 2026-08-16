@@ -8,6 +8,8 @@ function KennelGame() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("overview");
   const [shopCat, setShopCat] = useState("feed");
+  const [propShowAll, setPropShowAll] = useState(false);
+  const [logFilter, setLogFilter] = useState("all");
   const [itemTargets, setItemTargets] = useState({});
   const [theme, setTheme] = useState(() => {
     try {
@@ -559,7 +561,11 @@ function KennelGame() {
       /* Competing builds real muscle over time — a small, permanent grip
          and conformation gain each time out, bigger on a win. */
       const gain = result.won ? randInt(2, 4) : randInt(1, 2);
-      next.dogs = next.dogs.map((d) => d.id === myDog.id ? { ...d, stats: { ...d.stats, grip: clamp(d.stats.grip + gain), conformation: clamp(d.stats.conformation + gain) } } : d);
+      const winsBefore = myDog.trialWins || 0;
+      const winsAfter = winsBefore + (result.won ? 1 : 0);
+      next.dogs = next.dogs.map((d) => d.id === myDog.id
+        ? { ...d, trialWins: winsAfter, stats: { ...d.stats, grip: clamp(d.stats.grip + gain), conformation: clamp(d.stats.conformation + gain) } }
+        : d);
       const prevTier = fameTier(prev.fame || 0);
       next.fame = (prev.fame || 0) + fameGain;
       const newTier = fameTier(next.fame);
@@ -567,6 +573,11 @@ function KennelGame() {
         ? `${myDog.name} beat ${oppDog.name} (${oppDog.kennelName}) at the ${trial.label.toLowerCase()} by ${result.margin} points — won ${fmtMoney(purse)}. Training's paying off — ${myDog.name} put on some muscle.`
         : `${myDog.name} lost to ${oppDog.name} (${oppDog.kennelName}) at the ${trial.label.toLowerCase()} by ${result.margin} points — entry fee cost ${fmtMoney(Math.round(purse * 0.3))}.`;
       next = addLog(next, result.won ? "money" : "injury", msg);
+      // A title is permanent and shows on the dog's name from here on.
+      const earnedBefore = titleFor(winsBefore), earnedAfter = titleFor(winsAfter);
+      if (earnedAfter && (!earnedBefore || earnedBefore.key !== earnedAfter.key)) {
+        next = addLog(next, "catch", `🏆 ${myDog.name} has earned the title of ${earnedAfter.label} — ${winsAfter} wins on the board. Known as ${earnedAfter.key} ${myDog.name} from here on.`);
+      }
       if (newTier.label !== prevTier.label) {
         next = addLog(next, "info", `📰 Word's spreading — ${next.kennelName} is now "${newTier.label}" around the working-dog circuit.`);
       }
@@ -821,18 +832,32 @@ function KennelGame() {
 
       <div className="kg-layout">
       <nav className="kg-tabs">
-        {TABS.map((t, i) => (
-          <React.Fragment key={t.id}>
-            {t.group && t.group !== (TABS[i - 1] || {}).group && <p className="kg-tabgroup">{t.group}</p>}
-            <button className={"kg-tab " + (tab === t.id ? "kg-tab--active" : "")} onClick={() => setTab(t.id)}>
-              <span className="kg-tab__icon" aria-hidden="true">{t.icon}</span>
-              <span className="kg-tab__label">{t.label}</span>
-            </button>
-          </React.Fragment>
-        ))}
+        {NAV.map((n, i) => {
+          const active = n.id === tab || (n.children || []).some((c) => c.id === tab);
+          return (
+            <React.Fragment key={n.id}>
+              {n.group && n.group !== (NAV[i - 1] || {}).group && <p className="kg-tabgroup">{n.group}</p>}
+              <button className={"kg-tab " + (active ? "kg-tab--active" : "")} onClick={() => setTab(firstTabOf(n))}>
+                <span className="kg-tab__icon" aria-hidden="true">{n.icon}</span>
+                <span className="kg-tab__label">{n.label}</span>
+              </button>
+            </React.Fragment>
+          );
+        })}
       </nav>
 
       <main className="kg-main">
+        {(() => {
+          const entry = navEntryFor(tab);
+          if (!entry || !entry.children) return null;
+          return (
+            <div className="kg-subtabs">
+              {entry.children.map((c) => (
+                <button key={c.id} className={"kg-subtab " + (tab === c.id ? "kg-subtab--active" : "")} onClick={() => setTab(c.id)}>{c.label}</button>
+              ))}
+            </div>
+          );
+        })()}
         {tab === "overview" && (
           <section>
             <p className="kg-hint">ℹ The front page of the stud book — a running record of {state.kennelName}'s worth, and what's happening around the county.</p>
@@ -956,30 +981,85 @@ function KennelGame() {
               <p className="kg-note" style={{ margin: "4px 0 0" }}>{state.dogs.length} / {dogCapacity} dogs</p>
             </div>
             <h2 className="kg-subhead">Land &amp; houses for sale</h2>
-            <p className="kg-hint" style={{ marginBottom: 16 }}>ℹ {LAND_SIZES.length} land sizes × {HOUSE_TYPES.length} house types × {LAND_LOCATIONS.length} locations — only upgrades over your current capacity are shown.</p>
-            <div className="kg-grid">
-              {LAND_SIZES.flatMap((land, li) => HOUSE_TYPES.map((house, hi) => {
+            {(() => {
+              // Twelve land sizes x nine houses x sixteen locations produced 107
+              // listings on day one across 25 screens of scrolling. Nobody read
+              // that. Same catalogue, picked down to the choices that matter.
+              const all = LAND_SIZES.flatMap((land, li) => HOUSE_TYPES.map((house, hi) => {
                 const capacity = land.capacity + house.capacity;
                 if (capacity <= dogCapacity) return null;
                 const price = land.price + house.price;
                 const location = LAND_LOCATIONS[(li * HOUSE_TYPES.length + hi) % LAND_LOCATIONS.length];
                 const label = house.key === "none" ? `${land.label} in ${location}` : `${house.label} on a ${land.label.toLowerCase()} in ${location}`;
-                return (
-                  <div key={land.key + "-" + house.key} className="kg-card">
-                    <div className="kg-card__top"><h3 className="kg-card__name">{label}</h3></div>
-                    <p className="kg-card__meta">{land.acres} acres{house.key !== "none" ? " · " + house.label : ""}</p>
-                    <div className="kg-card__tags">
-                      <Badge tone="denim">Capacity {capacity}</Badge>
-                      <Badge tone="gold">+{capacity - dogCapacity} room</Badge>
-                    </div>
-                    <button className="kg-btn kg-btn--sm" style={{ marginTop: 10 }} disabled={state.cash < price}
-                      onClick={() => buyProperty(land.key, house.key, location)}>
-                      {state.cash < price ? "Can't afford" : `Buy — ${fmtMoney(price)}`}
-                    </button>
+                return { land, house, capacity, price, location, label, gain: capacity - dogCapacity, perDog: price / (capacity - dogCapacity) };
+              })).filter(Boolean);
+
+              if (!all.length) return <p className="kg-empty">You've got the biggest place in the county. Nothing left to buy.</p>;
+
+              const affordable = all.filter((o) => o.price <= state.cash);
+              const byValue = affordable.slice().sort((a, b) => a.perDog - b.perDog)[0];
+              const cheapest = all.slice().sort((a, b) => a.price - b.price)[0];
+              const biggest = affordable.slice().sort((a, b) => b.capacity - a.capacity)[0];
+              const dream = all.slice().sort((a, b) => b.capacity - a.capacity)[0];
+
+              const picks = [];
+              const seen = new Set();
+              const add = (o, tag, tone) => { if (o && !seen.has(o.label)) { seen.add(o.label); picks.push({ ...o, tag, tone }); } };
+              add(cheapest, "Next step up", "denim");
+              add(byValue, "Best value", "olive");
+              add(biggest, "Most room you can afford", "gold");
+              add(dream, "Something to work toward", "tan");
+
+              return (
+                <>
+                  <p className="kg-hint" style={{ marginBottom: 16 }}>
+                    ℹ {all.length} places are on the market that would give you more room. These are the ones worth looking at{propShowAll ? "" : " — open the full list if you want to browse"}.
+                  </p>
+                  <div className="kg-rows">
+                    {picks.map((o) => (
+                      <div key={o.label} className="kg-row kg-row--prop">
+                        <div className="kg-row__main">
+                          <span className="kg-row__name">{o.label}</span>
+                          <span className="kg-row__meta">{o.land.acres} acres{o.house.key !== "none" ? " · " + o.house.label : ""} · room for {o.capacity} dogs</span>
+                        </div>
+                        <Badge tone={o.tone}>{o.tag}</Badge>
+                        <span className="kg-badge kg-badge--gold">+{o.gain}</span>
+                        <div className="kg-row__right">
+                          <button className="kg-btn kg-btn--sm" disabled={state.cash < o.price} onClick={() => buyProperty(o.land.key, o.house.key, o.location)}>
+                            {state.cash < o.price ? fmtMoney(o.price) : `Buy — ${fmtMoney(o.price)}`}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                );
-              }))}
-            </div>
+
+                  <button className="kg-btn kg-btn--ghost kg-btn--sm2" style={{ marginTop: 16 }} onClick={() => setPropShowAll((v) => !v)}>
+                    {propShowAll ? "Hide the full market" : `Browse all ${all.length} listings`}
+                  </button>
+
+                  {propShowAll && (
+                    <div className="kg-tablewrap">
+                      <table className="kg-table">
+                        <thead><tr><th>Property</th><th>Acres</th><th>Room</th><th>Price</th><th></th></tr></thead>
+                        <tbody>
+                          {all.slice().sort((a, b) => a.price - b.price).map((o) => (
+                            <tr key={o.label}>
+                              <td>{o.label}</td>
+                              <td className="kg-num">{o.land.acres}</td>
+                              <td className="kg-num">{o.capacity}</td>
+                              <td className="kg-num">{fmtMoney(o.price)}</td>
+                              <td>
+                                <button className="kg-btn kg-btn--sm2" disabled={state.cash < o.price} onClick={() => buyProperty(o.land.key, o.house.key, o.location)}>Buy</button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </section>
         )}
 
@@ -1084,11 +1164,11 @@ function KennelGame() {
               </div>
             )}
             {studs.length === 0 ? <p className="kg-empty">No studs available right now — check back after a day passes.</p> : (
-              <div className="kg-grid">
+              <div className="kg-rows">
                 {studs.map((stud) => (
-                  <DogCard key={stud.id} dog={stud} onView={setViewDog} price={studFee(stud)} sellerName={"out of " + stud.kennelName}
-                    footer={<button className="kg-btn kg-btn--sm" disabled={!studDam || state.cash < studFee(stud) || kennelFull} onClick={() => doStudService(studDam, stud)}>
-                      {kennelFull ? "Kennel full" : !studDam ? "Pick a dam first" : state.cash < studFee(stud) ? "Can't afford" : `Book stud — ${fmtMoney(studFee(stud))}`}
+                  <DogRow key={stud.id} dog={stud} onView={setViewDog} sellerName={"out of " + stud.kennelName}
+                    right={<button className="kg-btn kg-btn--sm" disabled={!studDam || state.cash < studFee(stud) || kennelFull} onClick={() => doStudService(studDam, stud)}>
+                      {kennelFull ? "Kennel full" : !studDam ? "Pick a dam first" : state.cash < studFee(stud) ? "Can't afford" : `Book — ${fmtMoney(studFee(stud))}`}
                     </button>} />
                 ))}
               </div>
@@ -1203,13 +1283,13 @@ function KennelGame() {
             )}
             <h2 className="kg-subhead">Pick an opponent</h2>
             {competitors.length === 0 ? <p className="kg-empty">No competitors available right now — check back after a day passes.</p> : (
-              <div className="kg-grid">
+              <div className="kg-rows">
                 {competitors.map((opp) => {
                   const myDog = state.dogs.find((d) => d.id === trialPick.dogId);
                   return (
-                    <DogCard key={opp.id} dog={opp} onView={setViewDog} sellerName={"out of " + opp.kennelName}
-                      footer={<button className="kg-btn kg-btn--sm" disabled={!myDog} onClick={() => doTrial(myDog, opp)}>
-                        {!myDog ? "Pick your dog first" : `Enter ${TRIALS[trialPick.trial].label} — purse ${fmtMoney(trialPurse(myDog, opp))}`}
+                    <DogRow key={opp.id} dog={opp} onView={setViewDog} sellerName={"out of " + opp.kennelName}
+                      right={<button className="kg-btn kg-btn--sm" disabled={!myDog} onClick={() => doTrial(myDog, opp)}>
+                        {!myDog ? "Pick your dog first" : `Enter — ${fmtMoney(trialPurse(myDog, opp))}`}
                       </button>} />
                   );
                 })}
@@ -1643,18 +1723,50 @@ function KennelGame() {
           </section>
         )}
 
-        {tab === "log" && (
-          <section>
-            <h2 className="kg-subhead">Ledger</h2>
-            {state.log.length === 0 ? <p className="kg-empty">Nothing recorded yet.</p> : (
-              <ul className="kg-log">
-                {state.log.map((entry, i) => (
-                  <li key={i} className={"kg-logrow kg-logrow--" + entry.type}><span className="kg-logday">Day {entry.day}</span><span>{entry.text}</span></li>
+        {tab === "log" && (() => {
+          // Twenty rests in a row used to bury every real event under identical
+          // "rested the kennel" lines, and the 60-entry cap pushed them out.
+          const FILTERS = [
+            { id: "all", label: "Everything" },
+            { id: "money", label: "Money" },
+            { id: "breed", label: "Breeding" },
+            { id: "hunt", label: "Hunts" },
+            { id: "injury", label: "Injuries & losses" },
+            { id: "catch", label: "Milestones" },
+          ];
+          const filtered = logFilter === "all" ? state.log : state.log.filter((e) => e.type === logFilter);
+          const collapsed = [];
+          filtered.forEach((entry) => {
+            const last = collapsed[collapsed.length - 1];
+            if (last && last.text === entry.text) { last.count += 1; last.firstDay = entry.day; }
+            else collapsed.push({ ...entry, count: 1, firstDay: entry.day });
+          });
+          return (
+            <section>
+              <h2 className="kg-subhead">Ledger</h2>
+              <div className="kg-shopcats">
+                {FILTERS.map((f) => (
+                  <button key={f.id} className={"kg-shopcat " + (logFilter === f.id ? "kg-shopcat--active" : "")} onClick={() => setLogFilter(f.id)}>{f.label}</button>
                 ))}
-              </ul>
-            )}
-          </section>
-        )}
+              </div>
+              {collapsed.length === 0 ? <p className="kg-empty">Nothing recorded under that heading yet.</p> : (
+                <ul className="kg-log">
+                  {collapsed.map((entry, i) => (
+                    <li key={i} className={"kg-logrow kg-logrow--" + entry.type}>
+                      <span className="kg-logday">
+                        {entry.count > 1 ? `Day ${entry.firstDay}–${entry.day}` : `Day ${entry.day}`}
+                      </span>
+                      <span>
+                        {entry.text}
+                        {entry.count > 1 && <span className="kg-logcount">×{entry.count}</span>}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          );
+        })()}
       </main>
       </div>
       <DogProfileModal dog={viewDog} onClose={() => setViewDog(null)} />

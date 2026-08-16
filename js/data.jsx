@@ -216,6 +216,32 @@ const TABS = [
   { id: "log", label: "Ledger", icon: "≡", group: "Records" },
 ];
 
+/* Seventeen destinations hid 1,610px of tabs off-screen in the mobile strip —
+   Rescue, Trade and Rivals were effectively undiscoverable. The screens are
+   unchanged; several now sit behind one nav entry with sub-tabs. */
+const NAV = [
+  { id: "overview", label: "Overview", icon: "◆", group: "Kennel" },
+  { id: "kennel",   label: "Kennel",   icon: "⌂", group: "Kennel" },
+  { id: "property", label: "Property", icon: "⬒", group: "Kennel" },
+  { id: "hunt",     label: "Hunt",     icon: "✦", group: "Work" },
+  { id: "breed",    label: "Breed",    icon: "❖", group: "Work" },
+  { id: "trials",   label: "Trials",   icon: "▲", group: "Work" },
+  { id: "market",   label: "Market",   icon: "$", group: "Trade" },
+  { id: "store",    label: "Store",    icon: "▤", group: "Trade",
+    children: [{ id: "shop", label: "Buy supplies" }, { id: "inventory", label: "What you own" }] },
+  { id: "rescue",   label: "Rescue",   icon: "♥", group: "Trade" },
+  { id: "online",   label: "Online",   icon: "⇄", group: "Trade",
+    children: [{ id: "trade", label: "Dog market" }, { id: "rivals", label: "Challenges" }, { id: "leaderboard", label: "Leaderboard" }] },
+  { id: "records",  label: "Records",  icon: "§", group: "Records",
+    children: [{ id: "registry", label: "Stud book" }, { id: "rankings", label: "County ranks" }, { id: "hof", label: "Hall of Fame" }, { id: "log", label: "Ledger" }] },
+];
+function navEntryFor(tabId) {
+  return NAV.find((n) => n.id === tabId || (n.children || []).some((c) => c.id === tabId));
+}
+function firstTabOf(navEntry) {
+  return navEntry.children ? navEntry.children[0].id : navEntry.id;
+}
+
 /* -------------------------------- seasons --------------------------------- */
 
 /* A 240-day year, 60 days a season, so the cycle turns at a playable pace.

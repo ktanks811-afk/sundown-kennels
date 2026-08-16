@@ -101,6 +101,81 @@ html, body { margin:0; padding:0; background:#0a0605; }
   text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px;
 }
 .kg-card__namebtn:hover { color: var(--accent); }
+
+/* ---------- compact dog row ---------- */
+.kg-rows { display:flex; flex-direction:column; gap:7px; }
+.kg-row {
+  display:flex; align-items:center; gap:12px; padding:11px 14px;
+  background: var(--paper-dark); border:1px solid var(--border); border-radius: var(--r-sm);
+  transition: border-color 0.15s, background 0.15s;
+}
+.kg-row:hover { border-color: rgba(255,186,133,0.24); }
+.kg-row--on { border-color: var(--accent-line); background: var(--accent-soft); }
+.kg-row--off { opacity:0.5; }
+.kg-row__pick {
+  flex:0 0 auto; width:22px; height:22px; border-radius:6px; cursor:pointer;
+  border:1.5px solid var(--border); background: var(--paper); color: var(--accent);
+  display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700;
+}
+.kg-row--on .kg-row__pick { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); }
+.kg-row__rating {
+  flex:0 0 auto; min-width:32px; text-align:center; font-weight:700; font-size:14px;
+  font-variant-numeric: tabular-nums; border-radius:6px; padding:3px 6px; border:1px solid;
+}
+.kg-row__rating--gold  { color: var(--gold);  border-color: rgba(245,185,66,0.4);  background: rgba(245,185,66,0.11); }
+.kg-row__rating--olive { color: var(--olive); border-color: rgba(70,179,122,0.4);  background: rgba(70,179,122,0.11); }
+.kg-row__rating--denim { color: var(--denim); border-color: rgba(134,176,209,0.4); background: rgba(134,176,209,0.11); }
+.kg-row__rating--rust  { color: var(--rust);  border-color: rgba(224,72,74,0.4);   background: rgba(224,72,74,0.11); }
+.kg-row__coat { flex:0 0 auto; width:12px; height:26px; border-radius:3px; border:1px solid var(--border); }
+.kg-row__main { flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+.kg-row__name {
+  font-family:'Space Grotesk','Inter',sans-serif; font-weight:600; font-size:14.5px;
+  letter-spacing:-0.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.kg-row__meta { font-size:11.5px; color: var(--ink-soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.kg-row__status { flex:0 0 auto; }
+.kg-row__right { flex:0 0 auto; display:flex; gap:7px; }
+.kg-row__right .kg-btn { width:auto; }
+.kg-row--prop .kg-row__name { white-space:normal; }
+
+@media (max-width: 640px) {
+  .kg-row { flex-wrap:wrap; gap:9px; }
+  .kg-row__main { flex-basis:100%; order:2; }
+  .kg-row__right { flex-basis:100%; order:3; }
+  .kg-row__right .kg-btn { width:100%; }
+  .kg-row__status { order:1; margin-left:auto; }
+}
+
+/* ---------- sub-tabs ---------- */
+.kg-subtabs {
+  display:flex; flex-wrap:wrap; gap:4px; margin: -4px 0 20px;
+  padding-bottom:14px; border-bottom:1px solid var(--metal);
+}
+.kg-subtab {
+  font-family:inherit; font-size:13px; font-weight:500; padding:8px 14px; cursor:pointer;
+  color: var(--ink-soft); background:transparent; border:1px solid transparent; border-radius:999px;
+  transition: background 0.15s, color 0.15s;
+}
+.kg-subtab:hover { background: rgba(255,186,133,0.07); color: var(--ink); }
+.kg-subtab--active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-line); font-weight:600; }
+[data-theme="light"] .kg-subtab:hover { background: rgba(74,45,26,0.06); }
+
+.kg-logcount {
+  display:inline-block; margin-left:8px; font-size:10.5px; font-weight:700;
+  color: var(--accent); background: var(--accent-soft); border:1px solid var(--accent-line);
+  border-radius:999px; padding:1px 7px; vertical-align:1px;
+}
+
+/* ---------- data table ---------- */
+.kg-tablewrap { overflow-x:auto; margin-top:16px; border:1px solid var(--border); border-radius: var(--r-md); }
+.kg-table { width:100%; border-collapse:collapse; font-size:13px; background: var(--paper-dark); }
+.kg-table th, .kg-table td { text-align:left; padding:9px 13px; border-bottom:1px solid var(--metal); white-space:nowrap; }
+.kg-table th {
+  font-size:10.5px; letter-spacing:0.09em; text-transform:uppercase; font-weight:700;
+  color: var(--ink-soft); background: var(--raise);
+}
+.kg-table tr:last-child td { border-bottom:none; }
+.kg-num { font-variant-numeric: tabular-nums; }
 .kg-onboard__warn { margin: 0 0 14px; }
 .kg-hstat { font-size: 12.5px; color: var(--ink-soft); font-weight:500; font-variant-numeric: tabular-nums; background: var(--paper); border:1px solid var(--border); border-radius: 999px; padding: 6px 13px; }
 .kg-hstat--cash { color: var(--gold); border-color: rgba(245,185,66,0.28); background: rgba(245,185,66,0.09); font-weight:600; }
