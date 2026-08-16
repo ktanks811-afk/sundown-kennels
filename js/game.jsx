@@ -29,6 +29,7 @@ function KennelGame() {
   const [huntPick, setHuntPick] = useState({ dogId: null, hunt: "hog" });
   const [groupHuntPicks, setGroupHuntPicks] = useState([]);
   const [viewDog, setViewDog] = useState(null);
+  const [viewAnimal, setViewAnimal] = useState(null);
   const [trialPick, setTrialPick] = useState({ dogId: null, trial: "weightpull" });
   const [breedPick, setBreedPick] = useState({ sireId: null, damId: null });
   const [pendingLitter, setPendingLitter] = useState(null);
@@ -344,11 +345,16 @@ function KennelGame() {
     return { ...s, dogs: [...s.dogs, dog] };
   });
 
-  const adminSpawnStock = (kind) => adminApply(`Spawned a ${kind}.`, (s) => {
-    const key = kind === "horse" ? "horses" : "cattle";
-    const animal = typeof generateAnimal === "function" ? generateAnimal(kind) : null;
+  const adminSpawnStock = (kind) => adminApply(`Spawned a ${kind === "horse" ? "horse" : "cow"}.`, (s) => {
+    const cfg = LIVESTOCK_CONFIG[kind];
+    if (!cfg || typeof cfg.generate !== "function") return s;
+    // The generators require a real breed name — they index straight into the
+    // breed table, so passing undefined throws rather than picking at random.
+    const names = kind === "horse" ? HORSE_BREED_NAMES : CATTLE_BREED_NAMES;
+    const breed = names[randInt(0, names.length - 1)];
+    const animal = cfg.generate(breed, s.day);
     if (!animal) return s;
-    return { ...s, [key]: [...(s[key] || []), animal] };
+    return { ...s, [cfg.arrayKey]: [...(s[cfg.arrayKey] || []), animal] };
   });
 
   const adminUnlockAll = () => adminApply("Unlocked every kennel upgrade.", (s) => ({
@@ -803,6 +809,16 @@ function KennelGame() {
     }).filter(Boolean);
 
     next.pendingWhelps = whelped;
+
+    // Livestock ages on the same clock as the dogs.
+    const horseAged = ageLivestock(prev.horses, "horse", days, recovery);
+    const cattleAged = ageLivestock(prev.cattle, "cattle", days, recovery);
+    next.horses = horseAged.survivors;
+    next.cattle = cattleAged.survivors;
+    const stockDeaths = [
+      ...horseAged.deaths.map((a) => ({ ...a, kind: "horse" })),
+      ...cattleAged.deaths.map((a) => ({ ...a, kind: "cattle" })),
+    ];
     const { kennels, newListings, newCatches } = simulateAiWorld(prev.aiKennels, days, prev.day);
     next.aiKennels = kennels;
     next.market = [...prev.market, ...newListings].slice(-30);
@@ -830,6 +846,10 @@ function KennelGame() {
     deaths.forEach((d) => {
       const yrs = Math.floor(d.ageDays / 365);
       next = addLog(next, "injury", `${d.name} passed away at ${yrs}. ${d.sex === "M" ? "He" : "She"} left ${d.bloodline ? "the " + d.bloodline + " line" : "a mark on this yard"}.`);
+    });
+    stockDeaths.forEach((a) => {
+      const yrs = Math.floor((a.ageDays || 0) / 365);
+      next = addLog(next, "injury", `${a.name} — the ${a.breed} ${a.kind === "horse" ? "horse" : "cow"} — died of old age at ${yrs}.`);
     });
 
     // Season turnover is worth calling out — it changes how everything hunts.
@@ -2199,7 +2219,7 @@ function KennelGame() {
         )}
 
         {tab === "horses" && (
-          <LivestockPanel kind="horse" state={state} session={session} pvp={pvp2.horse} patch={(p) => patchPvp2("horse", p)} cloudAuthEl={cloudAuthEl}
+          <LivestockPanel kind="horse" state={state} session={session} pvp={pvp2.horse} patch={(p) => patchPvp2("horse", p)} cloudAuthEl={cloudAuthEl} setViewAnimal={setViewAnimal}
             doBuyAnimal={doBuyAnimal} scoutAnimalMarket={scoutAnimalMarket} doSellAnimal={doSellAnimal} doBreedAnimal={doBreedAnimal} doEnterShow={doEnterShow}
             listAnimalForSale={listAnimalForSale} cancelAnimalListing={cancelAnimalListing} buyAnimalListing={buyAnimalListing}
             createAnimalChallenge={createAnimalChallenge} cancelAnimalChallenge={cancelAnimalChallenge} acceptAnimalChallenge={acceptAnimalChallenge}
@@ -2208,7 +2228,7 @@ function KennelGame() {
         )}
 
         {tab === "cattle" && (
-          <LivestockPanel kind="cattle" state={state} session={session} pvp={pvp2.cattle} patch={(p) => patchPvp2("cattle", p)} cloudAuthEl={cloudAuthEl}
+          <LivestockPanel kind="cattle" state={state} session={session} pvp={pvp2.cattle} patch={(p) => patchPvp2("cattle", p)} cloudAuthEl={cloudAuthEl} setViewAnimal={setViewAnimal}
             doBuyAnimal={doBuyAnimal} scoutAnimalMarket={scoutAnimalMarket} doSellAnimal={doSellAnimal} doBreedAnimal={doBreedAnimal} doEnterShow={doEnterShow}
             listAnimalForSale={listAnimalForSale} cancelAnimalListing={cancelAnimalListing} buyAnimalListing={buyAnimalListing}
             createAnimalChallenge={createAnimalChallenge} cancelAnimalChallenge={cancelAnimalChallenge} acceptAnimalChallenge={acceptAnimalChallenge}
@@ -2688,6 +2708,7 @@ function KennelGame() {
       </main>
       </div>
       <DogProfileModal dog={viewDog} onClose={() => setViewDog(null)} />
+      <AnimalProfileModal target={viewAnimal} onClose={() => setViewAnimal(null)} />
       <LitterPicker litter={pendingLitter} selectedIds={selectedPupIds} onConfirm={confirmLitter}
         onToggle={(id) => setSelectedPupIds((prev) => {
           if (prev.includes(id)) return prev.filter((x) => x !== id);
