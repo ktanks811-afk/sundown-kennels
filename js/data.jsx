@@ -216,6 +216,28 @@ const TABS = [
   { id: "log", label: "Ledger", icon: "≡", group: "Records" },
 ];
 
+/* -------------------------------- seasons --------------------------------- */
+
+/* A 240-day year, 60 days a season, so the cycle turns at a playable pace.
+   Each season bends the hunt maths a different way — the same four hunts
+   should not feel identical in July and January. */
+const SEASON_LENGTH = 60;
+const SEASONS = [
+  { key: "spring", label: "Spring", blurb: "Whelping season. Litters run bigger and the woods are easy on a dog.",
+    scent: 1.0, stamina: 1.0, injury: 0.9, pay: 0.95, litterBonus: 1 },
+  { key: "summer", label: "Summer", blurb: "Heat and snakes. Dogs tire fast and get hurt more — hunt early or rest.",
+    scent: 0.85, stamina: 0.85, injury: 1.35, pay: 1.0, litterBonus: 0 },
+  { key: "fall",   label: "Fall",   blurb: "Prime season. Cool ground, good scenting, and buyers paying top dollar.",
+    scent: 1.15, stamina: 1.1, injury: 1.0, pay: 1.2, litterBonus: 0 },
+  { key: "winter", label: "Winter", blurb: "Cold scenting conditions favour a good nose, but the days are hard.",
+    scent: 1.25, stamina: 0.95, injury: 1.1, pay: 1.05, litterBonus: 0 },
+];
+function seasonIndex(day) { return Math.floor((((day - 1) % (SEASON_LENGTH * 4)) + SEASON_LENGTH * 4) % (SEASON_LENGTH * 4) / SEASON_LENGTH); }
+function seasonFor(day) { return SEASONS[seasonIndex(day)]; }
+function seasonLabel(day) { return seasonFor(day).label; }
+function yearOf(day) { return 1 + Math.floor((day - 1) / (SEASON_LENGTH * 4)); }
+function dayOfSeason(day) { return ((day - 1) % SEASON_LENGTH) + 1; }
+
 /* ------------------------------ supply store ------------------------------ */
 
 const ITEM_CATEGORIES = [

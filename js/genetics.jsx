@@ -392,6 +392,7 @@ function generateRandomDog(breedName) {
     heightIn, weightLb,
     registered: false, regNumber: null, bloodline: null,
     health: randInt(80, 100), ageDays: randInt(220, 950),
+    temperament: rollTemperament(), titles: [], injury: null, pregnantDaysLeft: 0,
     sire: null, dam: null, pedigree: null, generation: 1, breedCooldown: 0, bornDay: null,
   };
 }
@@ -481,6 +482,7 @@ function breedPuppies(sire, dam, day, bloodline) {
       hiddenColor, hiddenPattern, traits, hiddenTraits, mstnAlleles, grewBigger, culled,
       heightIn, weightLb, registered: false, regNumber: null, bloodline: bloodline || null,
       health, ageDays: 0, sire: sire.name, dam: dam.name,
+      temperament: inheritTemperament(sire, dam), titles: [], injury: null, pregnantDaysLeft: 0,
       pedigree: {
         sire: { name: sire.name, breed: sire.breed, colorGenes: sire.colorGenes, bloodline: sire.bloodline || null, regNumber: sire.regNumber || null, pedigree: sire.pedigree || null },
         dam: { name: dam.name, breed: dam.breed, colorGenes: dam.colorGenes, bloodline: dam.bloodline || null, regNumber: dam.regNumber || null, pedigree: dam.pedigree || null },

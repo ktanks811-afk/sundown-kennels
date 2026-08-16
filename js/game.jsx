@@ -350,18 +350,47 @@ function KennelGame() {
   function tick(prev, days, overrides = {}) {
     let next = { ...prev, day: prev.day + days };
     const up = prev.upgrades || {};
-    const upkeepRate = up.feedSilo ? 3 : 4;
     const recovery = up.vetShed ? 7 : 4.5;
-    const upkeep = prev.dogs.length * upkeepRate * days;
+    const healSpeed = up.vetShed ? 1.6 : 1;
+    // Feed scales with the dog — a 200lb Boerboel does not eat like a Feist.
+    const upkeep = Math.round(prev.dogs.reduce((sum, d) => sum + feedCostPerDay(d, up), 0) * days);
     next.cash = Math.round((prev.cash - upkeep) * 100) / 100;
+
+    const deaths = [];
+    const whelped = [];
+    const healed = [];
     next.dogs = prev.dogs.map((d) => {
       const ov = overrides[d.id];
       let health = d.health + recovery * days;
       let cooldown = Math.max(0, d.breedCooldown - days);
       if (ov && typeof ov.healthDelta === "number") health = d.health + ov.healthDelta;
       if (ov && typeof ov.cooldownSet === "number") cooldown = ov.cooldownSet;
-      return { ...d, ageDays: d.ageDays + days, health: clamp(health), breedCooldown: cooldown };
-    });
+
+      // Injuries tick down on their own clock and block work until healed.
+      let injury = ov && ov.injury !== undefined ? ov.injury : d.injury;
+      if (injury && injury.daysLeft > 0) {
+        const left = injury.daysLeft - days * healSpeed;
+        if (left <= 0) { healed.push({ name: d.name, key: injury.key }); injury = null; }
+        else injury = { ...injury, daysLeft: left };
+      }
+
+      // Gestation.
+      let pregnant = d.pregnantDaysLeft;
+      if (typeof pregnant === "number" && pregnant > 0) {
+        pregnant = pregnant - days;
+        if (pregnant <= 0) { whelped.push(d.id); pregnant = 0; }
+      }
+
+      const aged = { ...d, ageDays: d.ageDays + days, health: clamp(health), breedCooldown: cooldown, injury, pregnantDaysLeft: pregnant };
+
+      // Old age. Rolled per day so a long rest doesn't dodge the odds.
+      for (let i = 0; i < days; i++) {
+        if (Math.random() < deathChancePerDay(aged)) { deaths.push(aged); return null; }
+      }
+      return aged;
+    }).filter(Boolean);
+
+    next.pendingWhelps = whelped;
     const { kennels, newListings, newCatches } = simulateAiWorld(prev.aiKennels, days, prev.day);
     next.aiKennels = kennels;
     next.market = [...prev.market, ...newListings].slice(-30);
@@ -381,27 +410,60 @@ function KennelGame() {
       next.rescue = generateRescuePool(randInt(2, 4), next.day);
       next.rescueRefreshedDay = next.day;
     }
+
+    // Anything that happened on its own while time passed gets its own line.
+    healed.forEach((h) => {
+      next = addLog(next, "info", `${h.name} is sound again — the ${(INJURIES[h.key] || {}).label || "injury"} has healed up.`);
+    });
+    deaths.forEach((d) => {
+      const yrs = Math.floor(d.ageDays / 365);
+      next = addLog(next, "injury", `${d.name} passed away at ${yrs}. ${d.sex === "M" ? "He" : "She"} left ${d.bloodline ? "the " + d.bloodline + " line" : "a mark on this yard"}.`);
+    });
+
+    // Season turnover is worth calling out — it changes how everything hunts.
+    if (seasonIndex(next.day) !== seasonIndex(prev.day)) {
+      const s = seasonFor(next.day);
+      next = addLog(next, "info", `${s.label} has come to the county. ${s.blurb}`);
+    }
+
+    // You can't feed dogs on money you don't have. Rather than let the balance
+    // run arbitrarily negative, the weakest dogs go to pet homes until the
+    // books balance — the last dog always stays.
+    while (next.cash < 0 && next.dogs.length > 1) {
+      const sorted = next.dogs.slice().sort((a, b) => computeValue(a) - computeValue(b));
+      const going = sorted[0];
+      const raised = Math.round(computeValue(going) * 0.5);
+      next.cash = Math.round(next.cash + raised);
+      next.dogs = next.dogs.filter((d) => d.id !== going.id);
+      next = addLog(next, "money", `Couldn't cover the feed bill — ${going.name} went to a pet home for ${fmtMoney(raised)}.`);
+    }
+    if (next.cash < 0) {
+      next.cash = 0;
+      next = addLog(next, "money", "The feed store carried you this week. You're broke — go hunt something.");
+    }
     return next;
   }
 
-  function doHunt() {
-    const dog = state.dogs.find((d) => d.id === huntPick.dogId);
+  // Takes the dog explicitly. It used to read huntPick.dogId, which a caller
+  // set via setState in the same tick — so the first click ran nothing and
+  // every click after it ran the *previous* dog.
+  function doHunt(dogId, huntKey) {
+    const id = dogId || huntPick.dogId;
+    const key = huntKey || huntPick.hunt;
+    const dog = state.dogs.find((d) => d.id === id);
     if (!dog) return;
-    const hunt = HUNTS[huntPick.hunt];
-    const result = resolveHunt(dog, huntPick.hunt);
-    const weightLbs = catchWeight(huntPick.hunt, result.tier);
-    const payout = huntPick.hunt === "hog" && weightLbs ? hogPayout(weightLbs) : result.payout;
+    const hunt = HUNTS[key];
+    const result = resolveHunt(dog, key, state.day);
+    const weightLbs = catchWeight(key, result.tier);
+    const payout = key === "hog" && weightLbs ? hogPayout(weightLbs) : result.payout;
     update((prev) => {
-      let next = tick(prev, 1, { [dog.id]: { healthDelta: -result.healthLoss } });
+      let next = tick(prev, 1, { [dog.id]: { healthDelta: -result.healthLoss, injury: result.injury || dog.injury || null } });
       next.cash = Math.round(next.cash + payout);
       if (result.tier !== "Poor") {
         next.catches = [...next.catches, { id: genId(), day: prev.day + 1, kennelName: prev.kennelName, dogName: dog.name, breed: dog.breed, huntType: hunt.label, tier: result.tier, weightLbs, payout }]
           .sort((a, b) => (b.weightLbs || b.payout) - (a.weightLbs || a.payout)).slice(0, 25);
       }
-      const msg = result.injured
-        ? `${dog.name} came back hurt from the ${hunt.label.toLowerCase()} — ${result.tier.toLowerCase()} run, earned ${fmtMoney(payout)}, but took a beating.`
-        : `${dog.name} put in a ${result.tier.toLowerCase()} run at the ${hunt.label.toLowerCase()}, earned ${fmtMoney(payout)}.`;
-      return addLog(next, result.injured ? "injury" : "hunt", msg);
+      return addLog(next, result.injured ? "injury" : "hunt", huntReport(dog, hunt, result, payout, weightLbs, prev.day));
     });
   }
 
@@ -410,7 +472,7 @@ function KennelGame() {
     if (dogs.length < 2) return;
     const avgStats = {};
     STAT_KEYS.forEach((k) => (avgStats[k] = dogs.reduce((s, d) => s + d.stats[k], 0) / dogs.length));
-    const result = resolveHunt({ stats: avgStats }, "hog");
+    const result = resolveHunt({ stats: avgStats, ageDays: AGE_PRIME_START + 1 }, "hog", state.day);
     const weightLbs = catchWeight("hog", result.tier, dogs.length);
     const payout = hogPayout(weightLbs);
     update((prev) => {
@@ -440,7 +502,7 @@ function KennelGame() {
     const eligible = state.dogs.filter(canHunt);
     if (eligible.length === 0) return;
     const dog = eligible.slice().sort((a, b) => overallRating(b.stats) - overallRating(a.stats))[0];
-    const result = resolveHunt(dog, "hog");
+    const result = resolveHunt(dog, "hog", state.day);
     const weightLbs = catchWeight("hog", result.tier);
     const payout = weightLbs ? Math.round(hogPayout(weightLbs) * 1.3) : Math.round(result.payout * 1.3);
     update((prev) => {
@@ -725,24 +787,31 @@ function KennelGame() {
   return (
     <div className="kg-app">
       <header className="kg-header">
-        <div className="kg-header__title">
-          <img className="kg-header__logo" src="assets/logo-mark.png" alt="Sundown Kennels" width="96" height="96" />
-          {editingName ? (
-            <div className="kg-rename">
-              <input autoFocus value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} maxLength={28} onKeyDown={(e) => e.key === "Enter" && renameKennel()} />
-              <button className="kg-iconbtn" onClick={renameKennel} aria-label="Save">✓</button>
-            </div>
-          ) : (
-            <h1 onClick={() => { setNameDraft(state.kennelName); setEditingName(true); }}>{state.kennelName} <span className="kg-iconbtn kg-iconbtn--ghost">✎</span></h1>
-          )}
-        </div>
-        <div className="kg-header__stats">
-          <span className="kg-hstat">Day {state.day}</span>
-          <span className="kg-hstat kg-hstat--cash">${state.cash.toLocaleString("en-US")}</span>
-          <span className="kg-hstat">{state.dogs.length} / {dogCapacity} dogs</span>
-          <button className="kg-btn kg-btn--ghost" onClick={restWeek}>Rest a Week</button>
+        <div className="kg-header__controls">
           {themeToggleEl}
           {cloudAuthEl}
+        </div>
+
+        <img className="kg-header__logo" src="assets/logo.png" alt="Sundown Kennels" width="400" height="400" />
+
+        {editingName ? (
+          <div className="kg-rename">
+            <input autoFocus value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} maxLength={28} onKeyDown={(e) => e.key === "Enter" && renameKennel()} />
+            <button className="kg-iconbtn" onClick={renameKennel} aria-label="Save name">✓</button>
+          </div>
+        ) : (
+          <h1 className="kg-header__name">
+            <button type="button" className="kg-header__namebtn" onClick={() => { setNameDraft(state.kennelName); setEditingName(true); }} title="Rename your kennel">
+              {state.kennelName}<span className="kg-header__pencil" aria-hidden="true">✎</span>
+            </button>
+          </h1>
+        )}
+
+        <div className="kg-header__stats">
+          <span className="kg-hstat">{seasonLabel(state.day)} · Day {state.day}</span>
+          <span className="kg-hstat kg-hstat--cash">${state.cash.toLocaleString("en-US")}</span>
+          <span className="kg-hstat">{state.dogs.length} / {dogCapacity} dogs</span>
+          <button className="kg-btn kg-btn--ghost kg-btn--sm2" onClick={restWeek}>Rest a Week</button>
         </div>
       </header>
 
@@ -929,7 +998,7 @@ function KennelGame() {
               <div className="kg-grid">
                 {huntableDogs.map((dog) => (
                   <DogCard key={dog.id} dog={dog} onView={setViewDog}
-                    footer={<button className="kg-btn kg-btn--sm" onClick={() => { setHuntPick((p) => ({ ...p, dogId: dog.id })); doHunt(); }}>Run the {HUNTS[huntPick.hunt].label}</button>} />
+                    footer={<button className="kg-btn kg-btn--sm" onClick={() => { setHuntPick((p) => ({ ...p, dogId: dog.id })); doHunt(dog.id, huntPick.hunt); }}>Run the {HUNTS[huntPick.hunt].label}</button>} />
                 ))}
               </div>
             )}

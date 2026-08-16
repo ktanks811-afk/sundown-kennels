@@ -109,8 +109,14 @@ function DogCard({ dog, price, sellerName, footer, onView }) {
         {dog.collar && <span className="kg-card__collar" style={{ background: dog.collar }} title={dog.collarName || "Collar"} />}
       </div>
       <div className="kg-card__top">
-        <h3 className="kg-card__name" style={onView ? { cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted" } : null} onClick={onView ? () => onView(dog) : undefined}>
-          {dog.sex === "M" ? "♂" : "♀"} {dog.name}
+        <h3 className="kg-card__name">
+          {onView ? (
+            <button type="button" className="kg-card__namebtn" onClick={() => onView(dog)}>
+              {dog.sex === "M" ? "♂" : "♀"} {dog.name}
+            </button>
+          ) : (
+            <span>{dog.sex === "M" ? "♂" : "♀"} {dog.name}</span>
+          )}
         </h3>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <RatingSeal rating={overallRating(dog.stats)} />
@@ -231,6 +237,22 @@ function LitterPicker({ litter, selectedIds, onToggle, onConfirm }) {
 }
 
 function DogProfileModal({ dog, onClose }) {
+  const closeRef = useRef(null);
+
+  // Escape to close, and park focus inside the dialog so keyboard users aren't
+  // left tabbing through the page behind it.
+  useEffect(() => {
+    if (!dog) return;
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    const previouslyFocused = document.activeElement;
+    document.addEventListener("keydown", onKey);
+    if (closeRef.current) closeRef.current.focus();
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      if (previouslyFocused && previouslyFocused.focus) previouslyFocused.focus();
+    };
+  }, [dog, onClose]);
+
   if (!dog) return null;
   const rarity = computeRarity(dog);
   const star = starTrait(dog);
@@ -239,8 +261,8 @@ function DogProfileModal({ dog, onClose }) {
   const grade = conformationGrade(dog);
   return (
     <div className="kg-modal-backdrop" onClick={onClose}>
-      <div className="kg-modal" onClick={(e) => e.stopPropagation()}>
-        <button className="kg-modal__close" onClick={onClose} aria-label="Close">✕</button>
+      <div className="kg-modal" role="dialog" aria-modal="true" aria-label={`${dog.name} — ${dog.breed}`} onClick={(e) => e.stopPropagation()}>
+        <button className="kg-modal__close" ref={closeRef} onClick={onClose} aria-label="Close">✕</button>
         <div className="kg-modal__head">
           <CoatSwatch dog={dog} height={40} />
           <h2>{dog.sex === "M" ? "♂" : "♀"} {dog.name}</h2>

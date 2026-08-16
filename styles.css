@@ -43,17 +43,65 @@ html, body { margin:0; padding:0; background:#0a0605; }
 .kg-app *:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 .kg-loading { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; color: var(--ink-soft); min-height:100vh; font-family:'Inter',system-ui,sans-serif; }
 
-/* ---------- header ---------- */
-.kg-header { max-width: 1200px; margin: 0 auto; display:flex; flex-wrap:wrap; gap:14px; align-items:center; justify-content:space-between; border-bottom: 1px solid var(--metal); padding-bottom: 16px; }
-.kg-header__title { display:flex; align-items:center; gap:11px; }
-.kg-header__title h1 {
-  font-family:'Space Grotesk', 'Inter', sans-serif; font-weight:700; font-size: 27px; letter-spacing:-0.025em;
-  margin:0; cursor:pointer; display:flex; align-items:center; gap:9px;
+/* ---------- header: centred masthead ---------- */
+/* The logo used to sit at 46px off to the left where you couldn't read it.
+   It's the strongest thing the game has, so it anchors the page instead. */
+.kg-header {
+  position:relative; max-width: 1200px; margin: 0 auto;
+  display:flex; flex-direction:column; align-items:center; text-align:center;
+  gap:14px; padding: 8px 0 22px; border-bottom: 1px solid var(--metal);
+}
+.kg-header__controls { position:absolute; top:0; right:0; display:flex; gap:8px; z-index:5; }
+.kg-header__logo {
+  width: clamp(180px, 26vw, 260px); height:auto; object-fit:contain; display:block;
+  filter: drop-shadow(0 10px 28px rgba(240,90,0,0.34));
+}
+.kg-header__name { margin:0; }
+.kg-header__namebtn {
+  font-family:'Space Grotesk', 'Inter', sans-serif; font-weight:700;
+  font-size: clamp(24px, 3.6vw, 34px); letter-spacing:-0.028em; line-height:1.1;
   background: linear-gradient(96deg, #f7ecd8 0%, var(--gold) 40%, var(--accent) 76%, var(--accent-2) 100%);
   -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent;
+  border:none; padding:2px 6px; cursor:pointer; display:inline-flex; align-items:baseline; gap:10px;
+  border-radius:8px;
 }
-.kg-header__logo { width:46px; height:46px; object-fit:contain; flex:0 0 auto; filter: drop-shadow(0 2px 8px rgba(240,90,0,0.45)); }
-.kg-header__stats { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.kg-header__namebtn:hover .kg-header__pencil { opacity:1; }
+.kg-header__pencil {
+  -webkit-text-fill-color: var(--ink-soft); color: var(--ink-soft);
+  font-size:0.45em; opacity:0.35; transition: opacity 0.15s;
+}
+.kg-header__stats { display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:center; }
+.kg-btn--sm2 { padding:7px 13px; font-size:11.5px; }
+
+/* ---------- title screen ---------- */
+.kg-title { display:flex; align-items:center; justify-content:center; position:relative; }
+.kg-title__controls { position:absolute; top:20px; right:20px; display:flex; gap:8px; }
+.kg-title__inner { max-width: 640px; text-align:center; padding: 6vh 0 4vh; }
+.kg-title__logo {
+  width:min(400px, 82vw); height:auto; display:block; margin:0 auto 22px;
+  filter: drop-shadow(0 16px 44px rgba(240,90,0,0.35));
+}
+.kg-title__pitch { font-size:17px; line-height:1.6; color: var(--ink); margin:0 auto 22px; max-width:52ch; }
+.kg-title__points {
+  list-style:none; margin:0 auto 28px; padding:0; display:flex; flex-direction:column; gap:9px;
+  max-width:44ch; text-align:left;
+}
+.kg-title__points li {
+  font-size:14.5px; color: var(--ink-soft); padding-left:20px; position:relative; line-height:1.5;
+}
+.kg-title__points li::before { content:"◆"; position:absolute; left:0; top:0; color: var(--accent); font-size:10px; }
+.kg-title__points b { color: var(--ink); font-weight:600; }
+.kg-title__actions { display:flex; justify-content:center; margin-bottom:16px; }
+.kg-btn--lg { padding:15px 34px; font-size:14px; letter-spacing:0.05em; }
+.kg-title__note { font-size:13px; color: var(--ink-soft); margin:0; }
+.kg-title__note b { color: var(--ink); }
+
+.kg-card__namebtn {
+  font: inherit; color: inherit; background:none; border:none; padding:0; cursor:pointer;
+  text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px;
+}
+.kg-card__namebtn:hover { color: var(--accent); }
+.kg-onboard__warn { margin: 0 0 14px; }
 .kg-hstat { font-size: 12.5px; color: var(--ink-soft); font-weight:500; font-variant-numeric: tabular-nums; background: var(--paper); border:1px solid var(--border); border-radius: 999px; padding: 6px 13px; }
 .kg-hstat--cash { color: var(--gold); border-color: rgba(245,185,66,0.28); background: rgba(245,185,66,0.09); font-weight:600; }
 
@@ -396,7 +444,7 @@ html[data-theme="light"], html[data-theme="light"] body { background:#f2ebdd; }
 }
 
 /* Gradient wordmarks need a dark starting stop on a light ground. */
-[data-theme="light"] .kg-header__title h1,
+[data-theme="light"] .kg-header__namebtn,
 [data-theme="light"] .kg-onboard__hero h1 {
   background: linear-gradient(96deg, #2c1b12 0%, #9c4a10 42%, var(--accent) 74%, var(--accent-2) 100%);
   -webkit-background-clip:text; background-clip:text;
@@ -465,12 +513,11 @@ html[data-theme="light"], html[data-theme="light"] body { background:#f2ebdd; }
 
 @media (max-width: 560px) {
   .kg-app { padding: 16px 12px 44px; }
-  .kg-header__logo { width:38px; height:38px; }
   .kg-themetoggle__label { display:none; }
   .kg-themetoggle { padding:8px 11px; }
   .kg-shopgrid { grid-template-columns: 1fr; }
   .kg-statrow { grid-template-columns: 70px 1fr 24px; }
-  .kg-header { flex-direction:column; align-items:flex-start; }
-  .kg-header__title h1 { font-size:23px; }
+  .kg-header { padding-top: 46px; }
+  .kg-header__logo { width: min(230px, 62vw); }
   .kg-grid { grid-template-columns: 1fr; }
 }
