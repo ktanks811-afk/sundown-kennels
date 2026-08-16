@@ -81,6 +81,7 @@ html, body { margin:0; padding:0; background:#0a0b0e; }
   .kg-layout { flex-direction: column; gap:14px; }
   .kg-tabs { flex-direction:row; overflow-x:auto; position:static; width:100%; flex:none; padding-bottom:4px; gap:6px; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
   .kg-tabs::-webkit-scrollbar { display:none; }
+  .kg-tabgroup { display:none; }
   .kg-tab { flex: 0 0 auto; border:1px solid var(--border); background: var(--paper-dark); }
   .kg-tab--active::before { display:none; }
   .kg-main { padding: 20px 16px; }
@@ -292,8 +293,179 @@ html, body { margin:0; padding:0; background:#0a0b0e; }
 .kg-pednode__children { margin-left: 10px; }
 .kg-pedroot { font-weight:700; font-family:'Space Grotesk','Inter',sans-serif; font-size:14px; margin-bottom:8px; letter-spacing:-0.015em; }
 
+/* ======================= new systems: store / inventory ======================= */
+
+.kg-themetoggle {
+  display:inline-flex; align-items:center; gap:7px; font-family:inherit; font-size:12px; font-weight:600;
+  letter-spacing:0.03em; text-transform:uppercase; color: var(--ink-soft); cursor:pointer;
+  background: var(--paper); border:1px solid var(--border); border-radius:999px; padding:8px 14px;
+  transition: background 0.16s, color 0.16s, border-color 0.16s;
+}
+.kg-themetoggle:hover { color: var(--ink); border-color: rgba(255,255,255,0.2); background: var(--raise); }
+.kg-themetoggle__icon { font-size:13px; line-height:1; color: var(--accent); }
+
+.kg-tabgroup { margin:16px 0 5px; padding:0 14px; font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.13em; color: var(--ink-soft); opacity:0.65; }
+.kg-tabgroup:first-child { margin-top:0; }
+.kg-tab__icon { display:inline-block; width:16px; margin-right:9px; text-align:center; opacity:0.55; font-size:11px; }
+.kg-tab--active .kg-tab__icon { opacity:1; color: var(--accent); }
+
+.kg-shopcats { display:flex; flex-wrap:wrap; gap:7px; margin-bottom:14px; }
+.kg-shopcat {
+  font-family:inherit; font-size:12.5px; font-weight:500; padding:9px 14px; cursor:pointer;
+  color: var(--ink-soft); background: var(--paper-dark); border:1px solid var(--border); border-radius:999px;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.kg-shopcat:hover { color: var(--ink); border-color: rgba(255,255,255,0.18); }
+.kg-shopcat--active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-line); font-weight:600; }
+
+.kg-shopgrid { display:grid; grid-template-columns: repeat(auto-fill, minmax(258px, 1fr)); gap:13px; margin-top:16px; }
+.kg-shopitem {
+  background: var(--paper-dark); border:1px solid var(--border); border-radius: var(--r-md); padding:16px;
+  display:flex; flex-direction:column; gap:9px; transition: border-color 0.16s, transform 0.16s;
+}
+.kg-shopitem:hover { border-color: rgba(255,255,255,0.16); transform: translateY(-2px); }
+.kg-shopitem--owned { border-color: rgba(61,220,151,0.28); background: rgba(61,220,151,0.05); }
+.kg-shopitem__head { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.kg-shopitem__head strong { font-family:'Space Grotesk','Inter',sans-serif; font-weight:600; font-size:14.5px; letter-spacing:-0.015em; display:flex; align-items:center; gap:8px; }
+.kg-shopitem__price { font-weight:700; color: var(--gold); font-size:13.5px; font-variant-numeric: tabular-nums; white-space:nowrap; }
+.kg-shopitem__desc { margin:0; font-size:12.5px; color: var(--ink-soft); line-height:1.5; flex:1; }
+.kg-shopitem__effects { display:flex; flex-wrap:wrap; gap:5px; }
+.kg-shopitem__foot { display:flex; align-items:center; gap:10px; margin-top:2px; }
+.kg-shopitem__foot .kg-btn { flex:1; }
+.kg-shopitem__owned { font-size:11px; color: var(--ink-soft); white-space:nowrap; }
+.kg-collardot { width:13px; height:13px; border-radius:50%; border:1px solid rgba(0,0,0,0.35); box-shadow: inset 0 1px 1px rgba(255,255,255,0.35); flex:0 0 auto; }
+
+.kg-invlist { display:flex; flex-direction:column; gap:10px; }
+.kg-invrow {
+  background: var(--paper-dark); border:1px solid var(--border); border-radius: var(--r-md); padding:15px 16px;
+  display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:14px;
+}
+.kg-invrow__main { flex:1; min-width:210px; }
+.kg-invrow__main strong { font-family:'Space Grotesk','Inter',sans-serif; font-weight:600; font-size:14px; display:inline-flex; align-items:center; gap:8px; }
+.kg-invrow__qty { font-size:12px; color: var(--accent); font-weight:700; margin-left:9px; font-variant-numeric: tabular-nums; }
+.kg-invrow__desc { margin:5px 0 0; font-size:12.5px; color: var(--ink-soft); line-height:1.5; }
+.kg-invrow__actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.kg-invrow__actions select { font-family:inherit; font-size:12.5px; padding:9px 11px; min-width:190px; color: var(--ink); background: var(--paper); border:1px solid var(--border); border-radius: var(--r-sm); }
+.kg-invrow__actions .kg-btn { width:auto; }
+.kg-invrow__warn { flex-basis:100%; margin:0; }
+
+.kg-rescuecard .kg-card { height:100%; }
+.kg-rescuecard__story { font-size:12px; color: var(--ink-soft); font-style:italic; line-height:1.5; margin:0 0 9px; border-left:2px solid var(--border); padding-left:10px; }
+.kg-card__coat { position:relative; }
+.kg-card__collar { position:absolute; left:0; right:0; bottom:5px; height:5px; border-radius:999px; box-shadow: 0 0 0 1px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.4); }
+.kg-card__rescue { position:absolute; top:13px; left:13px; z-index:2; font-size:11px; color: var(--rust); background: rgba(255,107,107,0.14); border:1px solid rgba(255,107,107,0.3); border-radius:999px; width:22px; height:22px; display:flex; align-items:center; justify-content:center; }
+
+.kg-ranklist { list-style:none; margin:16px 0 0; padding:0; display:flex; flex-direction:column; gap:6px; counter-reset:rank; }
+.kg-rankrow {
+  display:flex; align-items:center; gap:14px; padding:13px 16px;
+  background: var(--paper-dark); border:1px solid var(--border); border-radius: var(--r-md);
+  transition: border-color 0.16s;
+}
+.kg-rankrow:hover { border-color: rgba(255,255,255,0.16); }
+.kg-rankrow--me { background: var(--accent-soft); border-color: var(--accent-line); }
+.kg-rankrow__pos { font-family:'Space Grotesk','Inter',sans-serif; font-weight:700; font-size:17px; color: var(--ink-soft); min-width:30px; text-align:center; font-variant-numeric: tabular-nums; }
+.kg-rankrow--me .kg-rankrow__pos { color: var(--accent); }
+.kg-rankrow__main { flex:1; min-width:0; }
+.kg-rankrow__main strong { font-family:'Space Grotesk','Inter',sans-serif; font-weight:600; font-size:14.5px; letter-spacing:-0.015em; display:flex; align-items:center; gap:8px; }
+.kg-rankrow__you { font-size:9.5px; text-transform:uppercase; letter-spacing:0.09em; font-weight:700; color: var(--accent-ink); background: var(--accent); border-radius:999px; padding:2px 7px; }
+.kg-rankrow__meta { display:block; font-size:12px; color: var(--ink-soft); margin-top:3px; }
+.kg-rankrow__score { font-family:'Space Grotesk','Inter',sans-serif; font-weight:700; font-size:18px; letter-spacing:-0.03em; font-variant-numeric: tabular-nums; }
+
+/* ============================== daylight theme ============================== */
+
+html[data-theme="light"], html[data-theme="light"] body { background:#efece6; }
+
+[data-theme="light"] .kg-app {
+  --hide: #efece6; --hide-deep: #e5e1d9;
+  --paper: #ffffff;
+  --paper-dark: #f7f5f1;
+  --raise: #e8e4dc;
+  --ink: #1b1e24; --ink-soft: #626b78;
+  --border: rgba(28,32,40,0.13); --metal: rgba(28,32,40,0.10); --stitch: rgba(28,32,40,0.07);
+  --accent: #d9661a; --accent-2: #cf3f38; --accent-ink: #ffffff;
+  --accent-soft: rgba(217,102,26,0.10); --accent-line: rgba(217,102,26,0.34);
+  --olive: #12855a; --denim: #1f66c4; --rust: #cc3b3b; --tan-ink: #a9760a; --gold: #9c7208;
+  --shadow: 0 1px 2px rgba(28,32,40,0.07), 0 8px 22px -10px rgba(28,32,40,0.22);
+  --shadow-lg: 0 2px 6px rgba(28,32,40,0.09), 0 24px 56px -20px rgba(28,32,40,0.3);
+  background:
+    radial-gradient(900px 520px at 50% -190px, rgba(217,102,26,0.11), transparent 70%),
+    radial-gradient(700px 480px at 100% 0%, rgba(207,63,56,0.05), transparent 65%),
+    linear-gradient(180deg, #fbf9f5 0%, var(--hide) 45%, var(--hide-deep) 100%);
+}
+
+/* Gradient wordmarks need a dark starting stop on a light ground. */
+[data-theme="light"] .kg-header__title h1,
+[data-theme="light"] .kg-onboard__hero h1 {
+  background: linear-gradient(96deg, #23262d 0%, #8a4a1c 42%, var(--accent) 74%, var(--accent-2) 100%);
+  -webkit-background-clip:text; background-clip:text;
+}
+
+[data-theme="light"] .kg-tab:hover { background: rgba(28,32,40,0.05); }
+[data-theme="light"] .kg-tab--active { background: var(--accent-soft); color: #a1490f; }
+[data-theme="light"] .kg-themetoggle:hover,
+[data-theme="light"] .kg-shopcat:hover,
+[data-theme="light"] .kg-ovstat:hover,
+[data-theme="light"] .kg-card:hover,
+[data-theme="light"] .kg-shopitem:hover,
+[data-theme="light"] .kg-rankrow:hover,
+[data-theme="light"] .kg-huntcard:hover,
+[data-theme="light"] .kg-trialcard:hover { border-color: rgba(28,32,40,0.26); }
+[data-theme="light"] .kg-huntcard:hover, [data-theme="light"] .kg-trialcard:hover { background:#fbfaf7; }
+[data-theme="light"] .kg-iconbtn:hover { background: rgba(28,32,40,0.07); }
+[data-theme="light"] .kg-statbar { background: rgba(28,32,40,0.11); }
+[data-theme="light"] .kg-search::placeholder, [data-theme="light"] input::placeholder { color:#9aa2ad; }
+[data-theme="light"] .kg-search:focus, [data-theme="light"] .kg-onboard__input:focus,
+[data-theme="light"] .kg-cloud__panel input:focus, [data-theme="light"] .kg-pairpick select:focus,
+[data-theme="light"] .kg-pairpick input:focus, [data-theme="light"] .kg-filters select:focus,
+[data-theme="light"] .kg-filters input:focus, [data-theme="light"] .kg-rename input:focus { background:#fff; }
+[data-theme="light"] .kg-pednode__unknown { color:#98a0ab; }
+
+[data-theme="light"] .kg-hstat--cash { color: var(--gold); background: rgba(156,114,8,0.10); border-color: rgba(156,114,8,0.3); }
+[data-theme="light"] .kg-savewarn { background: rgba(204,59,59,0.08); border-color: rgba(204,59,59,0.3); color:#a02c2c; }
+[data-theme="light"] .kg-notice { background: rgba(31,102,196,0.07); border-color: rgba(31,102,196,0.26); color:#1a559f; }
+
+[data-theme="light"] .kg-badge--olive { border-color: rgba(18,133,90,0.32); background: rgba(18,133,90,0.10); }
+[data-theme="light"] .kg-badge--rust  { border-color: rgba(204,59,59,0.32); background: rgba(204,59,59,0.09); }
+[data-theme="light"] .kg-badge--denim { border-color: rgba(31,102,196,0.3);  background: rgba(31,102,196,0.09); }
+[data-theme="light"] .kg-badge--tan   { border-color: rgba(169,118,10,0.32); background: rgba(169,118,10,0.10); }
+[data-theme="light"] .kg-badge--gold  { border-color: rgba(156,114,8,0.34);  background: rgba(156,114,8,0.12); }
+[data-theme="light"] .kg-seal { background: rgba(28,32,40,0.03); }
+[data-theme="light"] .kg-seal--gold  { border-color: rgba(156,114,8,0.45);  background: rgba(156,114,8,0.11); }
+[data-theme="light"] .kg-seal--olive { border-color: rgba(18,133,90,0.45);  background: rgba(18,133,90,0.11); }
+[data-theme="light"] .kg-seal--denim { border-color: rgba(31,102,196,0.45); background: rgba(31,102,196,0.11); }
+[data-theme="light"] .kg-seal--rust  { border-color: rgba(204,59,59,0.45);  background: rgba(204,59,59,0.11); }
+[data-theme="light"] .kg-card__stamp { border-color: rgba(31,102,196,0.3); background: rgba(31,102,196,0.09); }
+[data-theme="light"] .kg-card__rescue { background: rgba(204,59,59,0.1); border-color: rgba(204,59,59,0.3); }
+[data-theme="light"] .kg-shopitem--owned { border-color: rgba(18,133,90,0.3); background: rgba(18,133,90,0.05); }
+
+[data-theme="light"] .kg-btn { box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), 0 2px 8px -2px rgba(217,102,26,0.4); }
+[data-theme="light"] .kg-btn--gold { color:#fff; background: linear-gradient(180deg, #c99411 0%, #ab7c07 55%, #8f6706 100%); }
+[data-theme="light"] .kg-btn--sm { background:#fff; }
+[data-theme="light"] .kg-btn--sm:hover:not(:disabled) { background: var(--raise); border-color: rgba(28,32,40,0.24); }
+[data-theme="light"] .kg-btn--ghost:hover:not(:disabled) { background: rgba(28,32,40,0.05); border-color: rgba(28,32,40,0.24); }
+[data-theme="light"] .kg-btn--danger { background: rgba(204,59,59,0.1); color:#b23434; border-color: rgba(204,59,59,0.32); }
+[data-theme="light"] .kg-btn--danger:hover:not(:disabled) { background: rgba(204,59,59,0.17); color:#962b2b; }
+[data-theme="light"] .kg-btn:disabled { background: var(--raise); color: var(--ink-soft); }
+
+[data-theme="light"] .kg-modal, [data-theme="light"] .kg-cloud__panel { background:#fff; }
+[data-theme="light"] .kg-modal-backdrop { background: rgba(40,36,30,0.4); }
+[data-theme="light"] .kg-modal__close { background: rgba(28,32,40,0.04); }
+[data-theme="light"] .kg-modal__close:hover { background: rgba(28,32,40,0.1); }
+[data-theme="light"] .kg-invrow__actions select { background:#fff; }
+[data-theme="light"] .kg-pickcard--chosen .kg-card { background:#fffaf5; }
+
+@media (max-width: 700px) {
+  .kg-invrow { flex-direction:column; align-items:stretch; }
+  .kg-invrow__actions select { min-width:0; width:100%; }
+  .kg-rankrow { gap:10px; padding:12px; }
+  .kg-rankrow__score { font-size:16px; }
+}
+
 @media (max-width: 560px) {
   .kg-app { padding: 16px 12px 44px; }
+  .kg-themetoggle__label { display:none; }
+  .kg-themetoggle { padding:8px 11px; }
+  .kg-shopgrid { grid-template-columns: 1fr; }
   .kg-statrow { grid-template-columns: 70px 1fr 24px; }
   .kg-header { flex-direction:column; align-items:flex-start; }
   .kg-header__title h1 { font-size:23px; }
@@ -340,6 +512,22 @@ const BREEDS = {
   "Dogo Argentino": { short: "Dogo", base: { gameness: 82, grip: 85, nose: 55, stamina: 78, speed: 68, conformation: 78 } },
   "Cane Corso": { short: "Corso", base: { gameness: 70, grip: 80, nose: 45, stamina: 60, speed: 50, conformation: 82 } },
   "Airedale Terrier": { short: "Airedale", base: { gameness: 68, grip: 62, nose: 68, stamina: 68, speed: 60, conformation: 66 } },
+  "American Staffordshire Terrier": { short: "AmStaff", base: { gameness: 78, grip: 78, nose: 42, stamina: 68, speed: 62, conformation: 80 } },
+  "Staffordshire Bull Terrier": { short: "Staffy", base: { gameness: 80, grip: 76, nose: 40, stamina: 64, speed: 60, conformation: 74 } },
+  "American Bully": { short: "Am Bully", base: { gameness: 60, grip: 70, nose: 38, stamina: 52, speed: 44, conformation: 86 } },
+  "Patterdale Terrier": { short: "Patterdale", base: { gameness: 88, grip: 68, nose: 70, stamina: 72, speed: 62, conformation: 55 } },
+  "Jagdterrier": { short: "Jagd", base: { gameness: 90, grip: 66, nose: 78, stamina: 74, speed: 64, conformation: 56 } },
+  "Mountain Feist": { short: "Feist", base: { gameness: 62, grip: 34, nose: 82, stamina: 66, speed: 80, conformation: 55 } },
+  "Black and Tan Coonhound": { short: "B&T", base: { gameness: 58, grip: 36, nose: 90, stamina: 78, speed: 62, conformation: 68 } },
+  "English Coonhound": { short: "English", base: { gameness: 60, grip: 38, nose: 86, stamina: 82, speed: 76, conformation: 64 } },
+  "Majestic Tree Hound": { short: "Majestic", base: { gameness: 62, grip: 44, nose: 91, stamina: 74, speed: 48, conformation: 70 } },
+  "Presa Canario": { short: "Presa", base: { gameness: 76, grip: 86, nose: 44, stamina: 62, speed: 52, conformation: 80 } },
+  "Boerboel": { short: "Boerboel", base: { gameness: 72, grip: 87, nose: 42, stamina: 60, speed: 46, conformation: 83 } },
+  "Dogue de Bordeaux": { short: "Bordeaux", base: { gameness: 66, grip: 84, nose: 40, stamina: 50, speed: 40, conformation: 81 } },
+  "Rhodesian Ridgeback": { short: "Ridgeback", base: { gameness: 74, grip: 60, nose: 72, stamina: 84, speed: 76, conformation: 76 } },
+  "Carolina Dog": { short: "Carolina", base: { gameness: 64, grip: 44, nose: 80, stamina: 80, speed: 74, conformation: 62 } },
+  "German Shorthaired Pointer": { short: "GSP", base: { gameness: 58, grip: 36, nose: 88, stamina: 86, speed: 80, conformation: 72 } },
+  "Beagle": { short: "Beagle", base: { gameness: 54, grip: 30, nose: 89, stamina: 70, speed: 58, conformation: 64 } },
 };
 const BREED_NAMES = Object.keys(BREEDS);
 
@@ -358,6 +546,22 @@ const HEIGHT_WEIGHT = {
   "Dogo Argentino": { mH: [24, 26.5], fH: [24, 25.5], mW: [88, 100], fW: [80, 95] },
   "Cane Corso": { mH: [24, 27.5], fH: [23, 25.5], mW: [95, 110], fW: [85, 99] },
   "Airedale Terrier": { mH: [22, 24], fH: [22, 24], mW: [50, 70], fW: [50, 70] },
+  "American Staffordshire Terrier": { mH: [18, 19], fH: [17, 18], mW: [55, 70], fW: [40, 55] },
+  "Staffordshire Bull Terrier": { mH: [14, 16], fH: [14, 16], mW: [28, 38], fW: [24, 34] },
+  "American Bully": { mH: [17, 20], fH: [16, 19], mW: [65, 110], fW: [55, 90] },
+  "Patterdale Terrier": { mH: [12, 15], fH: [11, 14], mW: [11, 13], fW: [10, 12] },
+  "Jagdterrier": { mH: [13, 16], fH: [13, 16], mW: [17, 22], fW: [16, 20] },
+  "Mountain Feist": { mH: [12, 18], fH: [12, 18], mW: [12, 30], fW: [12, 30] },
+  "Black and Tan Coonhound": { mH: [25, 27], fH: [23, 25], mW: [65, 110], fW: [65, 100] },
+  "English Coonhound": { mH: [22, 27], fH: [21, 25], mW: [45, 65], fW: [40, 60] },
+  "Majestic Tree Hound": { mH: [25, 30], fH: [24, 28], mW: [75, 110], fW: [65, 95] },
+  "Presa Canario": { mH: [23, 26], fH: [22, 25], mW: [100, 130], fW: [85, 110] },
+  "Boerboel": { mH: [24, 27], fH: [22, 25], mW: [150, 200], fW: [110, 154] },
+  "Dogue de Bordeaux": { mH: [23, 27], fH: [23, 26], mW: [110, 145], fW: [99, 130] },
+  "Rhodesian Ridgeback": { mH: [25, 27], fH: [24, 26], mW: [79, 90], fW: [64, 75] },
+  "Carolina Dog": { mH: [17, 24], fH: [17, 24], mW: [30, 55], fW: [30, 50] },
+  "German Shorthaired Pointer": { mH: [23, 25], fH: [21, 23], mW: [55, 70], fW: [45, 60] },
+  "Beagle": { mH: [13, 15], fH: [13, 15], mW: [20, 30], fW: [20, 30] },
 };
 
 const COLOR_NAMES = ["black", "blue", "red", "fawn", "chocolate", "white", "buckskin", "yellow", "tricolor", "tan"];
@@ -377,6 +581,22 @@ const BREED_COLOR_PROFILE = {
   "Dogo Argentino": { bases: ["white"], patterns: { solid: 1 }, merleCapable: false },
   "Cane Corso": { bases: ["black", "blue", "fawn", "red"], patterns: { solid: 0.6, brindle: 0.4 }, merleCapable: false },
   "Airedale Terrier": { bases: ["tan"], patterns: { saddle: 1 }, merleCapable: false },
+  "American Staffordshire Terrier": { bases: ["blue", "black", "red", "fawn"], patterns: { solid: 0.5, brindle: 0.3, piebald: 0.2 }, merleCapable: false },
+  "Staffordshire Bull Terrier": { bases: ["red", "fawn", "black", "white"], patterns: { solid: 0.45, brindle: 0.4, piebald: 0.15 }, merleCapable: false },
+  "American Bully": { bases: ["blue", "black", "fawn", "chocolate", "white"], patterns: { solid: 0.5, piebald: 0.3, brindle: 0.2 }, merleCapable: true },
+  "Patterdale Terrier": { bases: ["black", "chocolate", "red"], patterns: { solid: 0.9, piebald: 0.1 }, merleCapable: false },
+  "Jagdterrier": { bases: ["black", "chocolate"], patterns: { saddle: 0.8, solid: 0.2 }, merleCapable: false },
+  "Mountain Feist": { bases: ["white", "black", "red", "tricolor"], patterns: { piebald: 0.6, tricolor: 0.25, solid: 0.15 }, merleCapable: false },
+  "Black and Tan Coonhound": { bases: ["black", "tan"], patterns: { saddle: 0.85, solid: 0.15 }, merleCapable: false },
+  "English Coonhound": { bases: ["red", "white", "tricolor"], patterns: { ticked: 0.6, tricolor: 0.25, piebald: 0.15 }, merleCapable: false },
+  "Majestic Tree Hound": { bases: ["black", "tan", "red"], patterns: { saddle: 0.5, tricolor: 0.3, solid: 0.2 }, merleCapable: false },
+  "Presa Canario": { bases: ["fawn", "black", "buckskin"], patterns: { brindle: 0.7, solid: 0.3 }, merleCapable: false },
+  "Boerboel": { bases: ["fawn", "red", "buckskin", "chocolate"], patterns: { solid: 0.7, brindle: 0.3 }, merleCapable: false },
+  "Dogue de Bordeaux": { bases: ["red", "fawn"], patterns: { solid: 1 }, merleCapable: false },
+  "Rhodesian Ridgeback": { bases: ["red", "fawn", "buckskin"], patterns: { solid: 1 }, merleCapable: false },
+  "Carolina Dog": { bases: ["buckskin", "yellow", "red"], patterns: { solid: 0.8, saddle: 0.2 }, merleCapable: false },
+  "German Shorthaired Pointer": { bases: ["chocolate", "white"], patterns: { ticked: 0.7, piebald: 0.3 }, merleCapable: false },
+  "Beagle": { bases: ["tricolor", "tan", "white"], patterns: { tricolor: 0.7, piebald: 0.3 }, merleCapable: false },
 };
 
 const HUNTS = {
@@ -410,19 +630,185 @@ const NAMES_M = ["Diesel", "Cutter", "Duke", "Bo", "Ranger", "Scout", "Bull", "T
 const NAMES_F = ["Ruby", "Bella", "Trix", "Dixie", "Roxy", "Sadie", "Belle", "Piper", "Blaze", "Honey", "Willow", "Delta", "Sage", "Marlow", "Cricket", "Josie", "Rowan", "Huckleberry", "Fern", "Scrappy"];
 
 const TABS = [
-  { id: "overview", label: "Overview" },
-  { id: "kennel", label: "Kennel" },
-  { id: "hunt", label: "Hunt" },
-  { id: "breed", label: "Breed" },
-  { id: "trials", label: "Trials" },
-  { id: "market", label: "Market" },
-  { id: "trade", label: "Trade" },
-  { id: "rivals", label: "Rivals" },
-  { id: "leaderboard", label: "Leaderboard" },
-  { id: "registry", label: "Registry" },
-  { id: "hof", label: "Hall of Fame" },
-  { id: "log", label: "Ledger" },
+  { id: "overview", label: "Overview", icon: "◆", group: "Kennel" },
+  { id: "kennel", label: "Kennel", icon: "⌂", group: "Kennel" },
+  { id: "hunt", label: "Hunt", icon: "✦", group: "Kennel" },
+  { id: "breed", label: "Breed", icon: "❖", group: "Kennel" },
+  { id: "trials", label: "Trials", icon: "▲", group: "Kennel" },
+  { id: "market", label: "Market", icon: "$", group: "Economy" },
+  { id: "shop", label: "Supply Store", icon: "▤", group: "Economy" },
+  { id: "inventory", label: "Inventory", icon: "▣", group: "Economy" },
+  { id: "rescue", label: "Rescue", icon: "♥", group: "Economy" },
+  { id: "trade", label: "Trade", icon: "⇄", group: "Online" },
+  { id: "rivals", label: "Rivals", icon: "⚑", group: "Online" },
+  { id: "leaderboard", label: "Leaderboard", icon: "◎", group: "Online" },
+  { id: "registry", label: "Registry", icon: "§", group: "Records" },
+  { id: "rankings", label: "County Ranks", icon: "★", group: "Records" },
+  { id: "hof", label: "Hall of Fame", icon: "♛", group: "Records" },
+  { id: "log", label: "Ledger", icon: "≡", group: "Records" },
 ];
+
+/* ------------------------------ supply store ------------------------------ */
+
+const ITEM_CATEGORIES = [
+  { id: "feed", label: "Feed & Nutrition", blurb: "Condition comes off the feed pan first. Better feed means faster recovery and slow, permanent gains." },
+  { id: "med", label: "Veterinary", blurb: "Patch up a torn-up catch dog. Salve handles scrapes; a real vet kit puts a dog back to sound." },
+  { id: "training", label: "Training Gear", blurb: "Conditioning trades health for permanent stat gains. Don't work a hurt dog." },
+  { id: "cosmetic", label: "Collars & Tack", blurb: "Purely cosmetic. Colors show on the dog's card and in the stud book." },
+  { id: "kennel", label: "Kennel Upgrades", blurb: "One-time buys that change how the whole yard runs. Expensive, permanent, worth it." },
+];
+
+/* stat: permanent gain. health: immediate change (negative = conditioning cost).
+   Training gear is deliberately health-negative — the tradeoff is the game. */
+const ITEMS = {
+  kibble:       { name: "Bulk Kibble",         cat: "feed", price: 18,  desc: "Keeps weight on. Nothing fancy.",                         health: 5 },
+  highProtein:  { name: "High-Protein Feed",   cat: "feed", price: 45,  desc: "Working-dog ration. Builds wind.",                        health: 10, stat: { stamina: 1 } },
+  rawDiet:      { name: "Raw Diet",            cat: "feed", price: 80,  desc: "Meat, bone, organ. Hard-conditioned dogs thrive on it.",  health: 16, stat: { gameness: 1, grip: 1 } },
+  perfBlend:    { name: "Performance Blend",   cat: "feed", price: 130, desc: "Competition ration. What the trial kennels feed.",        health: 22, stat: { stamina: 2, speed: 1 } },
+  electrolytes: { name: "Electrolyte Mix",     cat: "feed", price: 30,  desc: "Pours back what a long hunt took out.",                   health: 13 },
+
+  woundSalve:   { name: "Wound Salve",         cat: "med",  price: 40,  desc: "Cuts and scrapes. Field-standard.",                       health: 26 },
+  antibiotics:  { name: "Antibiotics",         cat: "med",  price: 95,  desc: "For a hog cut gone hot. Clears infection.",               health: 46 },
+  jointSupp:    { name: "Joint Supplement",    cat: "med",  price: 70,  desc: "Keeps an older dog sound and moving square.",             health: 14, stat: { conformation: 1 } },
+  vetKit:       { name: "Full Vet Workup",     cat: "med",  price: 175, desc: "Sutures, fluids, rest. Brings a dog all the way back.",   heal: true },
+
+  scentDrag:    { name: "Scent Drag",          cat: "training", price: 70,  desc: "Lay a line and let them work it out.",                stat: { nose: 3 },        health: -5 },
+  flirtPole:    { name: "Flirt Pole",          cat: "training", price: 85,  desc: "Builds drive and foot speed.",                        stat: { speed: 3 },       health: -7 },
+  springPole:   { name: "Spring Pole",         cat: "training", price: 95,  desc: "Hangs from the oak. Builds a jaw.",                    stat: { grip: 3 },        health: -8 },
+  weightVest:   { name: "Weight Vest",         cat: "training", price: 110, desc: "Walk them heavy. Adds power everywhere.",              stat: { grip: 2, conformation: 1 }, health: -6 },
+  showLead:     { name: "Show Lead & Table",   cat: "training", price: 60,  desc: "Stacking practice for the bench.",                     stat: { conformation: 2 }, health: -3 },
+  bayPen:       { name: "Bay Pen Session",     cat: "training", price: 145, desc: "Controlled bay work. Reads a dog's nerve.",            stat: { gameness: 3 },    health: -10 },
+  treadmill:    { name: "Slat Mill",           cat: "training", price: 210, desc: "The old standby. Nothing builds wind like it.",        stat: { stamina: 4 },     health: -9 },
+
+  collarBrass:  { name: "Brass-Buckle Collar", cat: "cosmetic", price: 35, desc: "Heavy leather, brass hardware.",   collar: "#b08d3f" },
+  collarRed:    { name: "Red Working Collar",  cat: "cosmetic", price: 28, desc: "Easy to spot in thick cover.",     collar: "#c2422d" },
+  collarOrange: { name: "Blaze Orange Collar", cat: "cosmetic", price: 32, desc: "Safety orange. Hunt season legal.", collar: "#e0742a" },
+  collarBlack:  { name: "Black Latigo Collar", cat: "cosmetic", price: 30, desc: "Plain, dark, and tough.",          collar: "#2e2e33" },
+  collarTeal:   { name: "Turquoise Collar",    cat: "cosmetic", price: 34, desc: "Show ring flash.",                 collar: "#2f9c95" },
+  collarCamo:   { name: "Camo Collar",         cat: "cosmetic", price: 38, desc: "Timber pattern.",                  collar: "#5c6a4a" },
+  bandanaRed:   { name: "Red Bandana",         cat: "cosmetic", price: 22, desc: "Tied at the throat. Classic.",     collar: "#a8342a" },
+  collarSilver: { name: "Silver Trial Collar", cat: "cosmetic", price: 90, desc: "Awarded look, bought price.",      collar: "#9fa6ad" },
+};
+
+/* One-time kennel upgrades. Each one changes a rule in the simulation. */
+const UPGRADES = {
+  feedSilo:     { name: "Feed Silo",        price: 1200, desc: "Buy feed in bulk. Cuts daily upkeep by a quarter." },
+  vetShed:      { name: "Vet Shed",         price: 2000, desc: "On-site care. Dogs recover noticeably faster every day." },
+  whelpingBox:  { name: "Whelping Barn",    price: 1500, desc: "Proper whelping quarters. Far fewer pups lost from a litter." },
+  trainingYard: { name: "Training Yard",    price: 1800, desc: "Dedicated conditioning ground. Training gear gives more and costs less." },
+  scentKennel:  { name: "Scent Kennel",     price: 1400, desc: "Purpose-built hound runs. Hunts pay better and injure less." },
+};
+
+const ITEM_IDS = Object.keys(ITEMS);
+function itemsInCategory(cat) { return ITEM_IDS.filter((id) => ITEMS[id].cat === cat); }
+
+/* Apply a purchased item to a dog. Returns the updated dog plus a log line.
+   Training gains are capped at 100 and scale with the Training Yard upgrade. */
+function applyItem(dog, itemId, upgrades) {
+  const item = ITEMS[itemId];
+  if (!item) return { dog, msg: null, ok: false };
+  const up = upgrades || {};
+  const next = { ...dog, stats: { ...dog.stats } };
+
+  if (item.collar) {
+    next.collar = item.collar;
+    next.collarName = item.name;
+    return { dog: next, ok: true, msg: `${dog.name} is wearing a ${item.name.toLowerCase()}.` };
+  }
+
+  if (item.heal) {
+    next.health = 100;
+    return { dog: next, ok: true, msg: `${dog.name} got a full workup and came back sound.` };
+  }
+
+  const gains = [];
+  if (item.stat) {
+    const bonus = up.trainingYard && item.cat === "training" ? 1 : 0;
+    Object.entries(item.stat).forEach(([k, amt]) => {
+      const before = next.stats[k];
+      next.stats[k] = clamp(before + amt + bonus);
+      const real = next.stats[k] - before;
+      if (real > 0) gains.push(`+${real} ${STAT_LABELS[k].toLowerCase()}`);
+    });
+  }
+  if (typeof item.health === "number") {
+    let h = item.health;
+    if (h < 0 && up.trainingYard) h = Math.round(h * 0.6);
+    next.health = clamp(next.health + h);
+  }
+
+  const gainText = gains.length ? ` (${gains.join(", ")})` : "";
+  const verb = item.cat === "training" ? "worked on the" : "got the";
+  return { dog: next, ok: true, msg: `${dog.name} ${verb} ${item.name.toLowerCase()}${gainText}.` };
+}
+
+/* ------------------------------ rescue intake ------------------------------ */
+
+const RESCUE_STORIES = [
+  "Picked up as a stray off a county road. No collar, no tag.",
+  "Surrendered when the owner's health went. Sound dog, hard luck.",
+  "Pulled from a hoarding case. Thin, but the frame is there.",
+  "Left behind when a hunting lease changed hands.",
+  "Found in a drainage culvert after a storm. Tough as they come.",
+  "Dropped at the shelter gate overnight. Nobody came back.",
+  "Seized from a neglect case two counties over.",
+  "Owner passed. Family couldn't keep the whole yard together.",
+];
+
+/* Rescues are cheap, unpapered, and beat up — but the genetics are a coin flip
+   and occasionally you pull a very good dog out of the pen for $200. */
+function generateRescueDog(day) {
+  const dog = generateRandomDog();
+  dog.health = randInt(28, 68);
+  dog.registered = false;
+  dog.ageDays = randInt(200, 1500);
+  dog.hiddenColor = null;
+  dog.hiddenPattern = null;
+  dog.pedigree = null;
+  dog.rescued = true;
+  const value = computeValue(dog);
+  return {
+    id: "r" + dog.id,
+    dog,
+    story: RESCUE_STORIES[randInt(0, RESCUE_STORIES.length - 1)],
+    fee: Math.max(75, Math.round(value * rand(0.18, 0.34))),
+    listedDay: day,
+  };
+}
+function generateRescuePool(n, day) {
+  return Array.from({ length: n }, () => generateRescueDog(day));
+}
+
+/* ------------------------------- rankings -------------------------------- */
+
+/* Kennels are scored on a blend of the things the game actually rewards:
+   fame, the quality of the best dogs, and depth of the yard. */
+function kennelScore({ fame, dogs }) {
+  if (!dogs || !dogs.length) return Math.round(fame || 0);
+  const rated = dogs.map((d) => overallRating(d.stats)).sort((a, b) => b - a);
+  const best = rated[0] || 0;
+  const topThree = rated.slice(0, 3).reduce((a, b) => a + b, 0) / Math.min(3, rated.length);
+  return Math.round((fame || 0) * 1.6 + best * 2 + topThree * 1.5 + dogs.length * 4);
+}
+
+function buildRankings(state) {
+  const rows = Object.values(state.aiKennels || {}).map((k) => {
+    const dogs = k.dogs || [];
+    // AI kennels don't track fame directly — infer it from the yard so the
+    // tier labels actually spread out instead of all reading "Unknown".
+    const best = dogs.length ? Math.max(...dogs.map((d) => overallRating(d.stats))) : 0;
+    const inferred = Math.max(0, Math.round((best - 52) * 3.4 + dogs.length * 5));
+    return { id: k.id, name: k.name, dogs, fame: typeof k.fame === "number" ? k.fame : inferred, isPlayer: false };
+  });
+  rows.push({ id: "player", name: state.kennelName, dogs: state.dogs, fame: state.fame || 0, isPlayer: true });
+  return rows
+    .map((r) => ({
+      ...r,
+      score: kennelScore(r),
+      bestDog: (r.dogs || []).slice().sort((a, b) => overallRating(b.stats) - overallRating(a.stats))[0] || null,
+    }))
+    .sort((a, b) => b.score - a.score);
+}
 
 /* --------------------------------- helpers --------------------------------- */
 
@@ -1163,6 +1549,10 @@ function initKennel(kennelName, starterDogs) {
     offers: [],
     fame: 0,
     socialFeed: [],
+    inventory: { kibble: 2, woundSalve: 1 },
+    upgrades: {},
+    rescue: generateRescuePool(3, day),
+    rescueRefreshedDay: day,
     log: [{ day, type: "info", text: `${name} established. Stud book opened.` }],
   };
   base.netWorthHistory = [{ day, netWorth: kennelNetWorth(base) }];
@@ -1170,7 +1560,22 @@ function initKennel(kennelName, starterDogs) {
 }
 function addLog(state, type, text) { return { ...state, log: [{ day: state.day, type, text }, ...state.log].slice(0, 60) }; }
 
+/* Older saves predate the store, rescue pen, and upgrades. Rather than bump the
+   storage key and wipe everyone's kennel, fill in whatever's missing on load. */
+function migrateState(s) {
+  if (!s || typeof s !== "object") return s;
+  const out = { ...s };
+  if (!out.inventory || typeof out.inventory !== "object") out.inventory = { kibble: 2, woundSalve: 1 };
+  if (!out.upgrades || typeof out.upgrades !== "object") out.upgrades = {};
+  if (!Array.isArray(out.rescue)) out.rescue = generateRescuePool(3, out.day || 1);
+  if (typeof out.rescueRefreshedDay !== "number") out.rescueRefreshedDay = out.day || 1;
+  if (typeof out.fame !== "number") out.fame = 0;
+  if (!Array.isArray(out.socialFeed)) out.socialFeed = [];
+  return out;
+}
+
 const STORAGE_KEY = "kennel-save-v7";
+const THEME_KEY = "kennel-theme";
 
 /* --------------------------------- pieces --------------------------------- */
 
@@ -1273,7 +1678,11 @@ function DogCard({ dog, price, sellerName, footer, onView }) {
   return (
     <div className="kg-card">
       <div className="kg-card__stamp">{breedShort(dog.breed)}</div>
-      <CoatSwatch dog={dog} />
+      {dog.rescued && <div className="kg-card__rescue" title="Shelter dog">♥</div>}
+      <div className="kg-card__coat">
+        <CoatSwatch dog={dog} />
+        {dog.collar && <span className="kg-card__collar" style={{ background: dog.collar }} title={dog.collarName || "Collar"} />}
+      </div>
       <div className="kg-card__top">
         <h3 className="kg-card__name" style={onView ? { cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted" } : null} onClick={onView ? () => onView(dog) : undefined}>
           {dog.sex === "M" ? "♂" : "♀"} {dog.name}
@@ -1495,7 +1904,7 @@ function CloudAuthPanel(props) {
 
 /* First-time setup: name the kennel, then pick exactly 2 starter dogs from
    a fresh set of candidates to found the roster with. */
-function KennelSetup({ onComplete, cloudAuth }) {
+function KennelSetup({ onComplete, cloudAuth, themeToggle }) {
   const [step, setStep] = useState(1);
   const [name, setName] = useState("");
   const [candidates] = useState(() => generateStarterCandidates());
@@ -1511,7 +1920,7 @@ function KennelSetup({ onComplete, cloudAuth }) {
 
   return (
     <div className="kg-app">
-      <div style={{ display: "flex", justifyContent: "flex-end", maxWidth: 640, margin: "0 auto" }}>{cloudAuth}</div>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, maxWidth: 640, margin: "0 auto" }}>{themeToggle}{cloudAuth}</div>
       <div className="kg-onboard">
         <div className="kg-onboard__hero">
           <h1><span className="kg-header__logo">🐾</span> Found Your Kennel</h1>
@@ -1565,6 +1974,21 @@ function KennelGame() {
   const [state, setState] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("overview");
+  const [shopCat, setShopCat] = useState("feed");
+  const [itemTargets, setItemTargets] = useState({});
+  const [theme, setTheme] = useState(() => {
+    try {
+      const saved = window.localStorage.getItem(THEME_KEY);
+      if (saved === "light" || saved === "dark") return saved;
+    } catch {}
+    return (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) ? "light" : "dark";
+  });
+
+  // Theme lives on <html> so the loading screen and onboarding pick it up too.
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    try { window.localStorage.setItem(THEME_KEY, theme); } catch {}
+  }, [theme]);
   const [saveError, setSaveError] = useState(false);
   const [storageMode, setStorageMode] = useState("local");
   const [huntPick, setHuntPick] = useState({ dogId: null, hunt: "hog" });
@@ -1591,7 +2015,7 @@ function KennelGame() {
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
-      setState(raw ? JSON.parse(raw) : null);
+      setState(raw ? migrateState(JSON.parse(raw)) : null);
       setStorageMode("local");
     } catch { setState(null); setStorageMode("memory"); }
     setLoading(false);
@@ -1616,8 +2040,9 @@ function KennelGame() {
         if (cancelled) return;
         if (error) { setCloudStatus("error"); return; }
         if (data && data.state) {
-          setState(data.state);
-          try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data.state)); } catch {}
+          const migrated = migrateState(data.state);
+          setState(migrated);
+          try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated)); } catch {}
           setCloudStatus("synced");
         } else if (state) {
           pushToCloud(state);
@@ -1796,9 +2221,21 @@ function KennelGame() {
     />
   );
 
+  const themeToggleEl = (
+    <button
+      className="kg-themetoggle"
+      onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+      title={theme === "dark" ? "Switch to daylight" : "Switch to night"}
+      aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+    >
+      <span className="kg-themetoggle__icon">{theme === "dark" ? "☾" : "☀"}</span>
+      <span className="kg-themetoggle__label">{theme === "dark" ? "Night" : "Day"}</span>
+    </button>
+  );
+
   if (loading) return <div className="kg-app kg-loading"><p>Opening the stud book…</p></div>;
   if (!state) {
-    return <KennelSetup cloudAuth={cloudAuthEl} onComplete={(name, dogs) => {
+    return <KennelSetup cloudAuth={cloudAuthEl} themeToggle={themeToggleEl} onComplete={(name, dogs) => {
       const fresh = initKennel(name, dogs);
       setState(fresh);
       persist(fresh);
@@ -1807,11 +2244,14 @@ function KennelGame() {
 
   function tick(prev, days, overrides = {}) {
     let next = { ...prev, day: prev.day + days };
-    const upkeep = prev.dogs.length * 4 * days;
+    const up = prev.upgrades || {};
+    const upkeepRate = up.feedSilo ? 3 : 4;
+    const recovery = up.vetShed ? 7 : 4.5;
+    const upkeep = prev.dogs.length * upkeepRate * days;
     next.cash = Math.round((prev.cash - upkeep) * 100) / 100;
     next.dogs = prev.dogs.map((d) => {
       const ov = overrides[d.id];
-      let health = d.health + 4.5 * days;
+      let health = d.health + recovery * days;
       let cooldown = Math.max(0, d.breedCooldown - days);
       if (ov && typeof ov.healthDelta === "number") health = d.health + ov.healthDelta;
       if (ov && typeof ov.cooldownSet === "number") cooldown = ov.cooldownSet;
@@ -1830,6 +2270,12 @@ function KennelGame() {
     }
     next.offers = offers.slice(-6);
     next.socialFeed = social.slice(-10);
+
+    // The shelter turns over roughly every ten days.
+    if (next.day - (prev.rescueRefreshedDay || 0) >= 10) {
+      next.rescue = generateRescuePool(randInt(2, 4), next.day);
+      next.rescueRefreshedDay = next.day;
+    }
     return next;
   }
 
@@ -2032,6 +2478,68 @@ function KennelGame() {
       return addLog(next, "money", `Bought ${dog.name} (${dog.breed})${sellerName ? " from " + sellerName : ""} for ${fmtMoney(price)}.`);
     });
   }
+  function doBuyItem(itemId, qty = 1) {
+    const item = ITEMS[itemId];
+    if (!item) return;
+    const cost = item.price * qty;
+    if (state.cash < cost) return;
+    update((prev) => {
+      const inv = { ...(prev.inventory || {}) };
+      inv[itemId] = (inv[itemId] || 0) + qty;
+      return addLog({ ...prev, cash: Math.round((prev.cash - cost) * 100) / 100, inventory: inv }, "money",
+        `Bought ${qty > 1 ? qty + "× " : ""}${item.name} for ${fmtMoney(cost)}.`);
+    });
+  }
+
+  function doUseItem(itemId, dogId) {
+    const item = ITEMS[itemId];
+    const target = state.dogs.find((d) => d.id === dogId);
+    if (!item || !target) return;
+    if (!(state.inventory && state.inventory[itemId] > 0)) return;
+    update((prev) => {
+      const inv = { ...(prev.inventory || {}) };
+      inv[itemId] = Math.max(0, (inv[itemId] || 0) - 1);
+      if (inv[itemId] === 0) delete inv[itemId];
+      let msg = "";
+      const dogs = prev.dogs.map((d) => {
+        if (d.id !== dogId) return d;
+        const res = applyItem(d, itemId, prev.upgrades);
+        msg = res.msg;
+        return res.dog;
+      });
+      const type = item.cat === "med" ? "injury" : item.cat === "training" ? "hunt" : "info";
+      return addLog({ ...prev, inventory: inv, dogs }, type, msg || `Used ${item.name}.`);
+    });
+  }
+
+  function doBuyUpgrade(key) {
+    const up = UPGRADES[key];
+    if (!up || (state.upgrades && state.upgrades[key])) return;
+    if (state.cash < up.price) return;
+    update((prev) => addLog({
+      ...prev,
+      cash: Math.round((prev.cash - up.price) * 100) / 100,
+      upgrades: { ...(prev.upgrades || {}), [key]: true },
+    }, "money", `Built the ${up.name} for ${fmtMoney(up.price)}.`));
+  }
+
+  function doAdopt(entry) {
+    if (state.cash < entry.fee) return;
+    update((prev) => {
+      const next = {
+        ...prev,
+        cash: Math.round((prev.cash - entry.fee) * 100) / 100,
+        dogs: [...prev.dogs, entry.dog],
+        rescue: (prev.rescue || []).filter((r) => r.id !== entry.id),
+      };
+      return addLog(next, "info", `Adopted ${entry.dog.name} (${entry.dog.breed}) out of the shelter for ${fmtMoney(entry.fee)}.`);
+    });
+  }
+
+  function refreshRescue() {
+    update((prev) => addLog({ ...prev, rescue: generateRescuePool(randInt(2, 4), prev.day), rescueRefreshedDay: prev.day }, "info", "Checked the shelter for new intakes."));
+  }
+
   function scoutMarket() { update((prev) => addLog({ ...prev, market: [...prev.market, ...generateMarket(4, prev.day)].slice(-30) }, "info", "Scouted new dogs at the market.")); }
   function restWeek() { update((prev) => addLog(tick(prev, 7), "info", "Rested the kennel a week. Dogs recovered condition.")); }
   function renameKennel() { const name = nameDraft.trim(); if (name) update((prev) => ({ ...prev, kennelName: name })); setEditingName(false); }
@@ -2091,6 +2599,7 @@ function KennelGame() {
           <span className="kg-hstat kg-hstat--cash">${state.cash.toLocaleString("en-US")}</span>
           <span className="kg-hstat">{state.dogs.length} dog{state.dogs.length === 1 ? "" : "s"}</span>
           <button className="kg-btn kg-btn--ghost" onClick={restWeek}>Rest a Week</button>
+          {themeToggleEl}
           {cloudAuthEl}
         </div>
       </header>
@@ -2101,7 +2610,15 @@ function KennelGame() {
 
       <div className="kg-layout">
       <nav className="kg-tabs">
-        {TABS.map((t) => <button key={t.id} className={"kg-tab " + (tab === t.id ? "kg-tab--active" : "")} onClick={() => setTab(t.id)}>{t.label}</button>)}
+        {TABS.map((t, i) => (
+          <React.Fragment key={t.id}>
+            {t.group && t.group !== (TABS[i - 1] || {}).group && <p className="kg-tabgroup">{t.group}</p>}
+            <button className={"kg-tab " + (tab === t.id ? "kg-tab--active" : "")} onClick={() => setTab(t.id)}>
+              <span className="kg-tab__icon" aria-hidden="true">{t.icon}</span>
+              <span className="kg-tab__label">{t.label}</span>
+            </button>
+          </React.Fragment>
+        ))}
       </nav>
 
       <main className="kg-main">
@@ -2411,6 +2928,192 @@ function KennelGame() {
             )}
           </section>
         )}
+
+        {tab === "shop" && (
+          <>
+            <h2 className="kg-subhead">Supply Store</h2>
+            <p className="kg-hint">Feed, medicine, conditioning gear, and tack. Everything here is bought once and kept in your inventory until you use it on a dog.</p>
+
+            <div className="kg-shopcats">
+              {ITEM_CATEGORIES.map((c) => (
+                <button key={c.id} className={"kg-shopcat " + (shopCat === c.id ? "kg-shopcat--active" : "")} onClick={() => setShopCat(c.id)}>
+                  {c.label}
+                </button>
+              ))}
+            </div>
+            <p className="kg-note">{(ITEM_CATEGORIES.find((c) => c.id === shopCat) || {}).blurb}</p>
+
+            {shopCat === "kennel" ? (
+              <div className="kg-shopgrid">
+                {Object.entries(UPGRADES).map(([key, up]) => {
+                  const owned = !!(state.upgrades && state.upgrades[key]);
+                  return (
+                    <div key={key} className={"kg-shopitem " + (owned ? "kg-shopitem--owned" : "")}>
+                      <div className="kg-shopitem__head">
+                        <strong>{up.name}</strong>
+                        {owned ? <Badge tone="olive">Built</Badge> : <span className="kg-shopitem__price">{fmtMoney(up.price)}</span>}
+                      </div>
+                      <p className="kg-shopitem__desc">{up.desc}</p>
+                      <button className="kg-btn kg-btn--sm" disabled={owned || state.cash < up.price} onClick={() => doBuyUpgrade(key)}>
+                        {owned ? "Already built" : state.cash < up.price ? "Can't afford" : "Build it"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="kg-shopgrid">
+                {itemsInCategory(shopCat).map((id) => {
+                  const item = ITEMS[id];
+                  const owned = (state.inventory || {})[id] || 0;
+                  return (
+                    <div key={id} className="kg-shopitem">
+                      <div className="kg-shopitem__head">
+                        <strong>
+                          {item.collar && <span className="kg-collardot" style={{ background: item.collar }} />}
+                          {item.name}
+                        </strong>
+                        <span className="kg-shopitem__price">{fmtMoney(item.price)}</span>
+                      </div>
+                      <p className="kg-shopitem__desc">{item.desc}</p>
+                      <div className="kg-shopitem__effects">
+                        {item.heal && <Badge tone="olive">Full heal</Badge>}
+                        {item.stat && Object.entries(item.stat).map(([k, v]) => <Badge key={k} tone="denim">+{v} {STAT_LABELS[k]}</Badge>)}
+                        {typeof item.health === "number" && item.health > 0 && <Badge tone="olive">+{item.health} condition</Badge>}
+                        {typeof item.health === "number" && item.health < 0 && <Badge tone="rust">{item.health} condition</Badge>}
+                        {item.collar && <Badge tone="tan">Cosmetic</Badge>}
+                      </div>
+                      <div className="kg-shopitem__foot">
+                        {owned > 0 && <span className="kg-shopitem__owned">{owned} in stock</span>}
+                        <button className="kg-btn kg-btn--sm" disabled={state.cash < item.price} onClick={() => doBuyItem(id)}>
+                          {state.cash < item.price ? "Can't afford" : "Buy"}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
+
+        {tab === "inventory" && (() => {
+          const inv = state.inventory || {};
+          const owned = Object.keys(inv).filter((id) => inv[id] > 0 && ITEMS[id]);
+          const builtUpgrades = Object.keys(state.upgrades || {}).filter((k) => UPGRADES[k]);
+          return (
+            <>
+              <h2 className="kg-subhead">Inventory</h2>
+              <p className="kg-hint">Pick a dog and use an item on them. Feed and medicine restore condition; conditioning gear trades condition for permanent stat gains.</p>
+
+              {!owned.length && <p className="kg-empty">Nothing on the shelf. Head to the Supply Store.</p>}
+
+              <div className="kg-invlist">
+                {owned.map((id) => {
+                  const item = ITEMS[id];
+                  const targetId = itemTargets[id] || (state.dogs[0] && state.dogs[0].id) || "";
+                  const targetDog = state.dogs.find((d) => d.id === targetId);
+                  const hurtWarning = item.cat === "training" && targetDog && targetDog.health < 45;
+                  return (
+                    <div key={id} className="kg-invrow">
+                      <div className="kg-invrow__main">
+                        <strong>
+                          {item.collar && <span className="kg-collardot" style={{ background: item.collar }} />}
+                          {item.name}
+                        </strong>
+                        <span className="kg-invrow__qty">×{inv[id]}</span>
+                        <p className="kg-invrow__desc">{item.desc}</p>
+                      </div>
+                      <div className="kg-invrow__actions">
+                        <select value={targetId} onChange={(e) => setItemTargets((p) => ({ ...p, [id]: e.target.value }))}>
+                          {state.dogs.map((d) => (
+                            <option key={d.id} value={d.id}>{d.name} — {breedShort(d.breed)} ({Math.round(d.health)}%)</option>
+                          ))}
+                        </select>
+                        <button className="kg-btn kg-btn--sm" disabled={!targetId} onClick={() => doUseItem(id, targetId)}>Use</button>
+                      </div>
+                      {hurtWarning && <p className="kg-warn kg-invrow__warn">{targetDog.name} is already beat up — conditioning will take them lower.</p>}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {!!builtUpgrades.length && (
+                <>
+                  <hr className="kg-divider" />
+                  <h3 className="kg-subhead">Kennel upgrades</h3>
+                  <div className="kg-shopgrid">
+                    {builtUpgrades.map((k) => (
+                      <div key={k} className="kg-shopitem kg-shopitem--owned">
+                        <div className="kg-shopitem__head"><strong>{UPGRADES[k].name}</strong><Badge tone="olive">Active</Badge></div>
+                        <p className="kg-shopitem__desc">{UPGRADES[k].desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </>
+          );
+        })()}
+
+        {tab === "rescue" && (
+          <>
+            <h2 className="kg-subhead">County Shelter</h2>
+            <p className="kg-hint">Unpapered dogs at a fraction of market price. Condition is rough and there's no pedigree behind them — but the genetics are real, and every so often something very good comes through the pen.</p>
+            <div className="kg-marketbar">
+              <span className="kg-note">{(state.rescue || []).length} dog{(state.rescue || []).length === 1 ? "" : "s"} in intake · turns over every 10 days</span>
+              <button className="kg-btn kg-btn--ghost" onClick={refreshRescue}>Check for new intakes</button>
+            </div>
+            {!(state.rescue || []).length && <p className="kg-empty">The pen is empty right now. Check back in a few days.</p>}
+            <div className="kg-grid">
+              {(state.rescue || []).map((entry) => (
+                <div key={entry.id} className="kg-rescuecard">
+                  <DogCard
+                    dog={entry.dog}
+                    onView={setViewDog}
+                    footer={
+                      <>
+                        <p className="kg-rescuecard__story">“{entry.story}”</p>
+                        <p className="kg-card__price">Adoption fee {fmtMoney(entry.fee)}</p>
+                        <button className="kg-btn kg-btn--sm" disabled={state.cash < entry.fee} onClick={() => doAdopt(entry)}>
+                          {state.cash < entry.fee ? "Can't afford" : "Adopt"}
+                        </button>
+                      </>
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {tab === "rankings" && (() => {
+          const rows = buildRankings(state);
+          const myIndex = rows.findIndex((r) => r.isPlayer);
+          return (
+            <>
+              <h2 className="kg-subhead">County Rankings</h2>
+              <p className="kg-hint">Every kennel in the county scored on fame, the quality of their best dogs, and the depth of the yard. Win trials and build a better line to climb.</p>
+              <p className="kg-note">You're sitting <strong>#{myIndex + 1}</strong> of {rows.length}.</p>
+              <ol className="kg-ranklist">
+                {rows.map((r, i) => (
+                  <li key={r.id} className={"kg-rankrow " + (r.isPlayer ? "kg-rankrow--me" : "")}>
+                    <span className="kg-rankrow__pos">{i + 1}</span>
+                    <div className="kg-rankrow__main">
+                      <strong>{r.name}{r.isPlayer && <span className="kg-rankrow__you">you</span>}</strong>
+                      <span className="kg-rankrow__meta">
+                        {r.dogs.length} dog{r.dogs.length === 1 ? "" : "s"}
+                        {r.bestDog && <> · best: {r.bestDog.name} ({overallRating(r.bestDog.stats)})</>}
+                        {" · "}{fameTier(r.fame).label}
+                      </span>
+                    </div>
+                    <span className="kg-rankrow__score">{r.score}</span>
+                  </li>
+                ))}
+              </ol>
+            </>
+          );
+        })()}
 
         {tab === "trade" && (
           <section>
