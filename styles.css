@@ -128,6 +128,13 @@ html, body { margin:0; padding:0; background:#0a0605; }
   width:min(400px, 82vw); height:auto; display:block; margin:0 auto 22px;
   filter: drop-shadow(0 16px 44px rgba(240,90,0,0.35));
 }
+/* The logo already carries the name in heavy display type, so the subtitle
+   sits under it letterspaced and quiet rather than competing with it. */
+.kg-title__sim {
+  font-family:'Space Grotesk','Inter',sans-serif; font-weight:600;
+  font-size:clamp(13px, 2.2vw, 17px); text-transform:uppercase; letter-spacing:0.42em;
+  color: var(--accent); margin:-8px 0 20px; padding-left:0.42em;
+}
 .kg-title__pitch { font-size:17px; line-height:1.6; color: var(--ink); margin:0 auto 22px; max-width:52ch; }
 .kg-title__points {
   list-style:none; margin:0 auto 28px; padding:0; display:flex; flex-direction:column; gap:9px;
@@ -483,7 +490,14 @@ html, body { margin:0; padding:0; background:#0a0605; }
   -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent;
 }
 [data-theme="light"] .kg-topstrip__word { background: linear-gradient(96deg, #2c1b12 0%, #9c4a10 45%, var(--accent) 100%); -webkit-background-clip:text; background-clip:text; }
+.kg-topstrip__sim {
+  font-family:'Space Grotesk','Inter',sans-serif; font-weight:600; font-size:10.5px;
+  text-transform:uppercase; letter-spacing:0.24em; color: var(--accent);
+  border:1px solid var(--accent-line); border-radius:999px; padding:3px 9px 3px 11px;
+  align-self:center; white-space:nowrap;
+}
 .kg-topstrip__right { margin-left:auto; display:flex; gap:8px; align-items:center; }
+@media (max-width: 560px) { .kg-topstrip__sim { display:none; } }
 
 /* menu bar */
 .kg-menubar { background: var(--paper); border-bottom:1px solid var(--border); position:relative; z-index:30; }

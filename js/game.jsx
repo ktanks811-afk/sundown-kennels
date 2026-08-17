@@ -3003,6 +3003,7 @@ function KennelGame() {
           <div className="kg-topstrip__inner">
             <img className="kg-topstrip__logo" src="assets/logo-mark.png" alt="" width="96" height="96" />
             <span className="kg-topstrip__word">Sundown Kennels</span>
+            <span className="kg-topstrip__sim">Simulator</span>
             <div className="kg-topstrip__right">
               {themeToggleEl}
               {cloudAuthEl}
