@@ -230,6 +230,31 @@ function computeRarity(dog) {
   const profile = BREED_COLOR_PROFILE[dog.breed];
   if (profile && !profile.bases.includes(dog.colorGenes.base)) score += 2;
   if (profile && !(dog.colorGenes.pattern in profile.patterns)) score += 2;
+  /* Crossbreds and Bandogs already score above just for being mixed — a
+     clean purebred line has never scored anything on its own. Give it
+     three ways to earn rarity purely through careful, purebred breeding
+     instead of an odd color falling out of the litter. */
+  if (!dog.crossBred) {
+    score += 1; // true to type, unmixed
+    /* A bloodline can only be founded by two papered, unbred purebreds of
+       the same breed (see doBreed) — it's an established line the player
+       built, not a random roll, so it earns real weight, growing with
+       every generation it's carried down. */
+    if (dog.bloodline) score += Math.min(1 + (dog.generation - 1) * 0.3, 3);
+    /* "Breeding up": pick the biggest pups each litter, breed them back
+       together, and the line drifts past its breed's own standard over
+       generations (see inheritSize — each pup's size comes from its actual
+       parents' size, not a fixed template, so this compounds). Reward that
+       investment instead of it paying out nothing at sale time. */
+    const hw = HEIGHT_WEIGHT[dog.breed];
+    if (hw) {
+      const maxH = Math.max(hw.mH[1], hw.fH[1]);
+      const maxW = Math.max(hw.mW[1], hw.fW[1]);
+      const overH = Math.max(0, dog.heightIn - maxH) / maxH;
+      const overW = Math.max(0, dog.weightLb - maxW) / maxW;
+      score += Math.min((overH + overW) * 6, 4);
+    }
+  }
   if (score >= 7) return { tier: "Legendary", mult: 1.6, tone: "gold" };
   if (score >= 4.5) return { tier: "Rare", mult: 1.35, tone: "rust" };
   if (score >= 2) return { tier: "Uncommon", mult: 1.15, tone: "denim" };
