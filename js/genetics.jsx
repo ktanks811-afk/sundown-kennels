@@ -596,6 +596,14 @@ const cattleRating = (stats) => Math.round(CATTLE_STAT_KEYS.reduce((s, k) => s +
 
 function cattleColorLabel(breedName, g) {
   const b = CATTLE_BREEDS[breedName];
+  // A crossbred calf's breed is a synthetic "X × Y Cross" label, not a real
+  // CATTLE_BREEDS key — b is undefined here, so fall back to reading the
+  // shape of the inherited genes themselves instead of crashing on b.pattern.
+  if (!b) {
+    if (g.roan) return g.roan === "solidRed" ? "Dark Red" : g.roan === "solidWhite" ? "White" : "Red Roan";
+    if (g.shade) return g.shade;
+    return "Mixed";
+  }
   if (b.pattern === "roanCapable") return g.roan === "solidRed" ? "Dark Red" : g.roan === "solidWhite" ? "White" : "Red Roan";
   if (b.pattern === "varies") return g.shade + " Longhorn";
   return b.color;
