@@ -178,6 +178,27 @@ function KennelGame() {
   // is what let the dialog's focus effect re-fire while you were typing.
   const toggleCloudPanel = useCallback(() => setCloudPanelOpen((v) => !v), []);
 
+  /* Owned animals get a real page at a real URL; anything from the market, a
+     rival or a stud listing keeps the modal, because those live in transient
+     lists and their ids do not survive a refresh.
+
+     These sit up here with the other hooks rather than down beside the actions
+     they belong with: KennelGame returns early while the save is loading, and a
+     useCallback below that point runs on some renders and not others, which is
+     a hook-order violation React fails outright on. */
+  const openDogProfile = useCallback((dog) => {
+    if (dog && state && (state.dogs || []).some((d) => d.id === dog.id)) {
+      navigate("/animal/dog/" + encodeURIComponent(dog.id));
+    } else setViewDog(dog);
+  }, [state]);
+
+  const openAnimalProfile = useCallback((target) => {
+    const owned = target && target.animal &&
+      ((state && state[target.kind === "horse" ? "horses" : "cattle"] || []).some((a) => a.id === target.animal.id));
+    if (owned) navigate("/animal/" + target.kind + "/" + encodeURIComponent(target.animal.id));
+    else setViewAnimal(target);
+  }, [state]);
+
   /* signInWithOAuth navigates immediately, so if the provider isn't enabled the
      player lands on a raw JSON error page and any message we'd set never gets
      shown. Ask the endpoint first, and only hand off if it's actually wired up. */
@@ -1222,6 +1243,23 @@ function KennelGame() {
     });
   }
 
+  /* Cleaning out a run. Always available — the spec's one action that never
+     needs an item — but capped to once per animal per day, or it would be a
+     free healing button you could hold down. */
+  function doCleanAnimal(kind, id) {
+    const listKey = kind === "horse" ? "horses" : kind === "cattle" ? "cattle" : "dogs";
+    const animal = (state[listKey] || []).find((a) => a.id === id);
+    if (!animal || animal.cleanedDay === state.day) return 0;
+    const gained = Math.min(4, 100 - animal.health);
+    if (gained <= 0) return 0;
+    update((prev) => addLog({
+      ...prev,
+      [listKey]: (prev[listKey] || []).map((a) =>
+        a.id === id ? { ...a, health: Math.min(100, a.health + gained), cleanedDay: prev.day } : a),
+    }, "info", `Cleaned out ${animal.name}'s run.`));
+    return gained;
+  }
+
   function doSell(dog) {
     const value = computeValue(dog);
     update((prev) => addLog({ ...prev, cash: Math.round(prev.cash + value), dogs: prev.dogs.filter((d) => d.id !== dog.id) }, "money", `Sold ${dog.name} to a trader for ${fmtMoney(value)}.`));
@@ -1547,6 +1585,15 @@ function KennelGame() {
     setViewAnimal, setViewDog, shopCat, shownMarket, signOutEverywhere, sire, state,
     studDam, studDamId, studMsg, studOffers, studPick, studs, tab, theme, tick,
     toggleBayPick, toggleCatchPick, topCatch, topDog, trialPick, usernameDraft,
+
+    // These four come last on purpose. The generated list above still
+    // carries `setViewDog` and `setViewAnimal` as plain shorthand, and in an
+    // object literal the later key wins — putting these first would have
+    // them silently overwritten by the raw setters.
+    params: route.params,
+    doCleanAnimal,
+    setViewDog: openDogProfile,
+    setViewAnimal: openAnimalProfile,
   };
 
   /* Every screen, rendered the same in either layout. Only the chrome around
@@ -1560,6 +1607,7 @@ function KennelGame() {
       <OnlineScreens game={game} />
       <RecordsScreens game={game} />
       <AccountScreens game={game} />
+      <AnimalProfileScreen game={game} />
     </>
   );
 

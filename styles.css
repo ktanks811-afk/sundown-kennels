@@ -1420,3 +1420,101 @@ html[data-theme="light"], html[data-theme="light"] body { background:#f2ebdd; }
 @media (prefers-reduced-motion: reduce) {
   .kg-ui-meter__fill { transition: none; }
 }
+
+/* ------------------------- animal profile (phase 4) ------------------------ */
+/* Left rail of action cards, the animal in the middle, its record under tabs.
+   Sized against the homestead card's ~700px main column. */
+
+.kg-ap { display: flex; flex-direction: column; gap: 14px; }
+
+.kg-ap__head {
+  display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between;
+  gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--hs-rule, var(--border));
+}
+.kg-ap__name {
+  margin: 0; font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-size: 25px; letter-spacing: -0.02em; line-height: 1.15;
+}
+.kg-ap__sub { margin: 3px 0 0; font-size: 13px; color: var(--ink-soft); }
+.kg-ap__owner {
+  background: none; border: 0; padding: 0; cursor: pointer; font: inherit;
+  color: var(--accent); text-decoration: underline;
+}
+
+/* The inline stat row, with a star on the two the breed is actually built for. */
+.kg-ap__statrow { display: flex; flex-wrap: wrap; gap: 6px; }
+.kg-ap__stat {
+  display: flex; flex-direction: column; gap: 1px; min-width: 74px;
+  padding: 5px 9px; border-radius: 6px;
+  background: var(--paper-dark); border: 1px solid var(--border);
+}
+.kg-ap__stat--major { border-color: var(--accent); background: rgba(173, 68, 9, 0.07); }
+.kg-ap__statlabel {
+  font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-soft);
+  display: flex; align-items: center; gap: 3px;
+}
+.kg-ap__star { color: var(--gold); font-size: 10px; }
+.kg-ap__stat b { font-size: 16px; font-variant-numeric: tabular-nums; }
+
+.kg-ap__cols { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 14px; align-items: start; }
+.kg-ap__rail { display: flex; flex-direction: column; gap: 10px; }
+.kg-ap__main { min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+
+/* Interact grid: every action gets its own icon, per the spec's icon language. */
+.kg-ap__acts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.kg-ap__act {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 9px 4px; border-radius: 6px; cursor: pointer; font: inherit;
+  font-size: 10.5px; font-weight: 600; text-align: center;
+  border: 1px solid var(--border); background: var(--paper-dark); color: var(--ink);
+}
+.kg-ap__act:hover { border-color: var(--accent); }
+.kg-ap__acticon { font-size: 17px; line-height: 1; }
+/* Not-ready actions stay clickable on purpose — clicking one explains why it
+   cannot run and links to the fix, which a disabled button cannot do. */
+.kg-ap__act--off { opacity: 0.55; }
+.kg-ap__act--off:hover { opacity: 0.8; border-color: var(--border); }
+.kg-ap__fix { margin: 9px 0 0; font-size: 12px; }
+
+.kg-ap__field { display: block; margin-bottom: 8px; font-size: 12px; }
+.kg-ap__field span { display: block; margin-bottom: 3px; color: var(--ink-soft); }
+.kg-ap__field input {
+  width: 100%; font: inherit; font-size: 13px; padding: 6px 9px;
+  color: var(--ink); background: var(--paper); border: 1px solid var(--border); border-radius: 5px;
+}
+
+.kg-ap__portrait {
+  padding: 14px; border-radius: 7px; text-align: center;
+  border: 1px solid var(--border); background: var(--paper-dark);
+}
+.kg-ap__portrait > :first-child { margin: 0 auto; }
+.kg-ap__portraitnote { margin: 8px 0 0; font-size: 12px; color: var(--ink-soft); }
+.kg-ap__blank {
+  height: 54px; max-width: 280px; margin: 0 auto; border-radius: 6px;
+  background: linear-gradient(100deg, #8a6a4a, #b08d6a 45%, #8a6a4a);
+  border: 1px solid var(--border);
+}
+
+/* Label/value record table. Two columns where there is room, one when not. */
+.kg-ap__facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; }
+.kg-ap__facts > div {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  padding: 5px 8px; font-size: 12.5px;
+}
+.kg-ap__facts > div:nth-child(4n + 1),
+.kg-ap__facts > div:nth-child(4n + 2) { background: rgba(140, 110, 70, 0.055); }
+.kg-ap__facts span { color: var(--ink-soft); }
+.kg-ap__facts b { text-align: right; }
+.kg-ap__h4 {
+  margin: 14px 0 6px; font-size: 11px; letter-spacing: 0.09em;
+  text-transform: uppercase; color: var(--ink-soft);
+}
+
+@media (max-width: 720px) {
+  .kg-ap__cols { grid-template-columns: minmax(0, 1fr); }
+  .kg-ap__facts { grid-template-columns: minmax(0, 1fr); }
+  .kg-ap__facts > div:nth-child(4n + 1),
+  .kg-ap__facts > div:nth-child(4n + 2) { background: none; }
+  .kg-ap__facts > div:nth-child(odd) { background: rgba(140, 110, 70, 0.055); }
+  .kg-ap__name { font-size: 21px; }
+}
