@@ -778,6 +778,29 @@ html, body { margin:0; padding:0; background:#0a0605; }
 .kg-shopitem__owned { font-size:11px; color: var(--ink-soft); white-space:nowrap; }
 .kg-collardot { width:13px; height:13px; border-radius:50%; border:1px solid rgba(0,0,0,0.35); box-shadow: inset 0 1px 1px rgba(255,255,255,0.35); flex:0 0 auto; }
 
+/* Item art. The drawings use fixed colours so an object reads the same in
+   either theme; only the plate behind them follows the theme. */
+.kg-shopitem__art {
+  display:flex; align-items:center; justify-content:center; padding:9px;
+  border-radius: var(--r-sm); border:1px solid var(--border);
+  background:
+    radial-gradient(circle at 50% 38%, rgba(255,236,214,0.11) 0%, rgba(255,236,214,0) 62%),
+    var(--paper);
+}
+.kg-itemart { display:block; overflow:visible; transition: transform 0.16s ease; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.34)); }
+.kg-shopitem:hover .kg-itemart { transform: scale(1.05); }
+.kg-invrow__art {
+  flex:0 0 auto; display:flex; align-items:center; justify-content:center; padding:7px;
+  border-radius: var(--r-sm); border:1px solid var(--border); background: var(--paper);
+}
+[data-theme="light"] .kg-shopitem__art,
+[data-theme="light"] .kg-invrow__art { background:#fffdf8; }
+[data-theme="light"] .kg-itemart { filter: drop-shadow(0 1px 2px rgba(74,45,26,0.22)); }
+@media (prefers-reduced-motion: reduce) {
+  .kg-itemart { transition:none; }
+  .kg-shopitem:hover .kg-itemart { transform:none; }
+}
+
 .kg-invlist { display:flex; flex-direction:column; gap:10px; }
 .kg-invrow {
   background: var(--paper-dark); border:1px solid var(--border); border-radius: var(--r-md); padding:15px 16px;

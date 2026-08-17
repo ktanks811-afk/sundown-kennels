@@ -2586,6 +2586,7 @@ function KennelGame() {
                   const owned = !!(state.upgrades && state.upgrades[key]);
                   return (
                     <div key={key} className={"kg-shopitem " + (owned ? "kg-shopitem--owned" : "")}>
+                      <div className="kg-shopitem__art"><UpgradeIcon id={key} /></div>
                       <div className="kg-shopitem__head">
                         <strong>{up.name}</strong>
                         {owned ? <Badge tone="olive">Built</Badge> : <span className="kg-shopitem__price">{fmtMoney(up.price)}</span>}
@@ -2605,6 +2606,7 @@ function KennelGame() {
                   const owned = (state.inventory || {})[id] || 0;
                   return (
                     <div key={id} className="kg-shopitem">
+                      <div className="kg-shopitem__art"><ItemIcon id={id} item={item} /></div>
                       <div className="kg-shopitem__head">
                         <strong>
                           {item.collar && <span className="kg-collardot" style={{ background: item.collar }} />}
@@ -2653,6 +2655,7 @@ function KennelGame() {
                   const hurtWarning = item.cat === "training" && targetDog && targetDog.health < 45;
                   return (
                     <div key={id} className="kg-invrow">
+                      <div className="kg-invrow__art"><ItemIcon id={id} item={item} size={40} /></div>
                       <div className="kg-invrow__main">
                         <strong>
                           {item.collar && <span className="kg-collardot" style={{ background: item.collar }} />}
@@ -2682,6 +2685,7 @@ function KennelGame() {
                   <div className="kg-shopgrid">
                     {builtUpgrades.map((k) => (
                       <div key={k} className="kg-shopitem kg-shopitem--owned">
+                        <div className="kg-shopitem__art"><UpgradeIcon id={k} /></div>
                         <div className="kg-shopitem__head"><strong>{UPGRADES[k].name}</strong><Badge tone="olive">Active</Badge></div>
                         <p className="kg-shopitem__desc">{UPGRADES[k].desc}</p>
                       </div>
