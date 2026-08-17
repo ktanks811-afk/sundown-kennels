@@ -63,12 +63,22 @@
      browser, which means they must be served over http:// — opening
      index.html straight off disk will not work. See the README. -->
 <script type="text/babel" src="js/data.jsx"></script>
+<script type="text/babel" src="js/router.jsx"></script>
 <script type="text/babel" src="js/genetics.jsx"></script>
 <script type="text/babel" src="js/simulation.jsx"></script>
 <script type="text/babel" src="js/grouphunt.jsx"></script>
 <script type="text/babel" src="js/icons.jsx"></script>
 <script type="text/babel" src="js/components.jsx"></script>
 <script type="text/babel" src="js/setup.jsx"></script>
+<!-- One file per section of the game. Each exports a component that takes the
+     shared `game` object; game.jsx builds it and renders all seven. -->
+<script type="text/babel" src="js/screens/kennel.jsx"></script>
+<script type="text/babel" src="js/screens/work.jsx"></script>
+<script type="text/babel" src="js/screens/livestock.jsx"></script>
+<script type="text/babel" src="js/screens/market.jsx"></script>
+<script type="text/babel" src="js/screens/online.jsx"></script>
+<script type="text/babel" src="js/screens/records.jsx"></script>
+<script type="text/babel" src="js/screens/account.jsx"></script>
 <script type="text/babel" src="js/game.jsx"></script>
 </body>
 </html>
