@@ -17,6 +17,115 @@ function StatBar({ label, value }) {
 }
 function Badge({ tone, children }) { return <span className={"kg-badge kg-badge--" + tone}>{children}</span>; }
 
+/* A small suitability-percent pill for the group-hunt role pickers — not
+   shown on DogCard anywhere else in the game. */
+function RoleBadge({ label, value }) {
+  const tone = value >= 75 ? "olive" : value >= 45 ? "denim" : "rust";
+  return <span className={"kg-rolebadge kg-rolebadge--" + tone}>{label} {value}%</span>;
+}
+
+/* The staged zone map — a grid of named areas with dog markers that hop
+   between zones on each simulation tick (see stepSearch/stepTravel in
+   grouphunt.jsx). Not a free-position map: markers snap to whichever zone
+   tile they currently occupy. */
+function HuntMap({ zones, dogZones, dogsById, bayDogIds, catchDogIds, hogZoneKey, phase }) {
+  /* What each role is actually doing right now. During the search the bay
+     dogs are working ground and the catch dogs are held back; once the hog
+     is bayed those swap — the bay dogs are pinned holding it and the catch
+     dogs are the ones on the move. */
+  const statusFor = (isBay) =>
+    phase === "traveling"
+      ? (isBay ? "Holding the hog" : "Closing in")
+      : (isBay ? "Searching" : "Standing by");
+  return (
+    <div className="kg-huntmap">
+      <div className="kg-huntmap__grid">
+        {zones.map((zone) => {
+          const here = Object.entries(dogZones).filter(([, z]) => z === zone.key).map(([id]) => id);
+          return (
+            <div key={zone.key} className={"kg-zone" + (hogZoneKey === zone.key ? " kg-zone--hog" : "")}>
+              <span className="kg-zone__label">{zone.label}</span>
+              <div className="kg-zone__dogs">
+                {here.map((id) => (
+                  <span key={id} className={"kg-dogmarker " + (bayDogIds.includes(id) ? "kg-dogmarker--bay" : "kg-dogmarker--catch")} title={dogsById[id].name}>
+                    {bayDogIds.includes(id) ? "🐕" : "🐾"}
+                  </span>
+                ))}
+                {hogZoneKey === zone.key && <span className="kg-dogmarker kg-dogmarker--hog" title="Hog">🐗</span>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <ul className="kg-huntmap__status">
+        {[...bayDogIds, ...catchDogIds].map((id) => {
+          const dog = dogsById[id];
+          const zone = zones.find((z) => z.key === dogZones[id]);
+          const isBay = bayDogIds.includes(id);
+          return (
+            <li key={id}>
+              🐕 <strong>{dog.name}</strong> — {zone ? zone.label : "Camp"}
+              <span className="kg-huntmap__statustag"> · {statusFor(isBay)}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+/* The bayed-hog interrupt — fires mid-search when stepSearch finds the hog.
+   Player chooses to send the catch dogs in, which opens the travel phase,
+   or call the whole pack off for a small consolation payout and no risk. */
+function BayedEventModal({ hog, bayDogs, zoneLabel, onRelease, onCallOff }) {
+  return (
+    <div className="kg-modal-backdrop">
+      <div className="kg-modal" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
+        <div className="kg-modal__head"><h2>🐗 HOG BAYED!</h2></div>
+        <p>Your bay dogs have a hog bayed at <strong>{zoneLabel}</strong>.</p>
+        <p className="kg-note">Bay dogs: {bayDogs.map((d) => d.name).join(", ")}</p>
+        <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+          <button className="kg-btn kg-btn--gold" onClick={onRelease}>Release Catch Dogs</button>
+          <button className="kg-btn kg-btn--ghost" onClick={onCallOff}>Call Off</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* A marker sweeps 0-100 on a repeating CSS animation; the player taps when
+   it's inside the sweet spot. onTap receives the marker's estimated
+   position at the moment of the tap. */
+function CatchMiniGame({ miniGame, onTap }) {
+  // useRef/useEffect are destructured from React once, at the top of
+  // data.jsx (the first file loaded) — every later file, this one included,
+  // uses them bare rather than as React.useRef/React.useEffect.
+  const startRef = useRef(Date.now());
+
+  useEffect(() => { startRef.current = Date.now(); }, [miniGame.round]);
+
+  function handleTap() {
+    onTap(markerPctAt(Date.now() - startRef.current, miniGame.sweepMs));
+  }
+
+  return (
+    <div className="kg-minigame">
+      <p className="kg-note">Round {miniGame.round + 1} of {MINIGAME_MAX_ROUNDS} — tap when the marker crosses the highlighted zone.</p>
+      <div className="kg-minigame__meter"><div className="kg-minigame__meterfill" style={{ width: miniGame.meter + "%" }} /></div>
+      <div className="kg-minigame__bar">
+        <div className="kg-minigame__sweetspot" style={{ left: miniGame.sweetSpot.start + "%", width: (miniGame.sweetSpot.end - miniGame.sweetSpot.start) + "%" }} />
+        {/* key={round} remounts the marker every round, which restarts the
+            CSS sweep animation from 0 in lockstep with the startRef reset
+            above. Without it the animation keeps running from the original
+            mount while the hit-test clock restarts each round, and the two
+            drift apart from round 2 on. */}
+        <div key={miniGame.round} className="kg-minigame__marker" style={{ animationDuration: miniGame.sweepMs + "ms" }} />
+      </div>
+      <button className="kg-btn kg-btn--gold" onClick={handleTap}>Tap!</button>
+    </div>
+  );
+}
+
 /* Hand-inked ledger line — plots net worth over time from the kennel's own
    recorded history, no external chart library. */
 function Sparkline({ points, width = 640, height = 140 }) {

@@ -27,7 +27,8 @@ function KennelGame() {
   const [saveError, setSaveError] = useState(false);
   const [storageMode, setStorageMode] = useState("local");
   const [huntPick, setHuntPick] = useState({ dogId: null, hunt: "hog" });
-  const [groupHuntPicks, setGroupHuntPicks] = useState([]);
+  const [groupSetup, setGroupSetup] = useState({ bayIds: [], catchIds: [] });
+  const [groupHunt, setGroupHunt] = useState(null);
   const [viewDog, setViewDog] = useState(null);
   const [viewAnimal, setViewAnimal] = useState(null);
   const [trialPick, setTrialPick] = useState({ dogId: null, trial: "weightpull" });
@@ -118,6 +119,18 @@ function KennelGame() {
     return () => { cancelled = true; };
     // eslint-disable-next-line
   }, [session]);
+
+  useEffect(() => {
+    if (!groupHunt) return;
+    if (groupHunt.phase !== "searching" && groupHunt.phase !== "traveling") return;
+    const step = groupHunt.phase === "searching" ? stepSearch : stepTravel;
+    // Scoped to this effect run, not a shared ref — the cleanup below can
+    // only ever clear the interval this same run created.
+    const intervalId = setInterval(() => {
+      setGroupHunt((p) => (p && p.phase === groupHunt.phase ? step(p) : p));
+    }, SEARCH_TICK_MS);
+    return () => clearInterval(intervalId);
+  }, [groupHunt && groupHunt.phase]);
 
   const pushToCloud = useCallback((next) => {
     if (!session) return;
@@ -915,31 +928,118 @@ function KennelGame() {
     });
   }
 
-  function doGroupHunt(dogIds) {
-    const dogs = state.dogs.filter((d) => dogIds.includes(d.id));
-    if (dogs.length < 2) return;
-    const avgStats = {};
-    STAT_KEYS.forEach((k) => (avgStats[k] = dogs.reduce((s, d) => s + d.stats[k], 0) / dogs.length));
-    const result = resolveHunt({ stats: avgStats, ageDays: AGE_PRIME_START + 1 }, "hog", state.day);
-    const weightLbs = catchWeight("hog", result.tier, dogs.length);
-    const payout = hogPayout(weightLbs);
+  function toggleBayPick(dogId) {
+    setGroupSetup((p) => {
+      if (p.bayIds.includes(dogId)) return { ...p, bayIds: p.bayIds.filter((id) => id !== dogId) };
+      const limit = groupHuntLimit(state.fame || 0);
+      if (p.bayIds.length >= limit.bay) return p;
+      return { ...p, bayIds: [...p.bayIds, dogId], catchIds: p.catchIds.filter((id) => id !== dogId) };
+    });
+  }
+  function toggleCatchPick(dogId) {
+    setGroupSetup((p) => {
+      if (p.catchIds.includes(dogId)) return { ...p, catchIds: p.catchIds.filter((id) => id !== dogId) };
+      const limit = groupHuntLimit(state.fame || 0);
+      if (p.catchIds.length >= limit.catch) return p;
+      return { ...p, catchIds: [...p.catchIds, dogId], bayIds: p.bayIds.filter((id) => id !== dogId) };
+    });
+  }
+  function doStartGroupHunt() {
+    const bayDogs = state.dogs.filter((d) => groupSetup.bayIds.includes(d.id));
+    const catchDogs = state.dogs.filter((d) => groupSetup.catchIds.includes(d.id));
+    if (bayDogs.length < 1 || catchDogs.length < 1) return;
+    const dogsById = {};
+    [...bayDogs, ...catchDogs].forEach((d) => { dogsById[d.id] = d; });
+    const dogZones = {};
+    [...bayDogs, ...catchDogs].forEach((d) => { dogZones[d.id] = CAMP_ZONE; });
+    setGroupHunt({
+      phase: "searching",
+      bayDogIds: bayDogs.map((d) => d.id),
+      catchDogIds: catchDogs.map((d) => d.id),
+      dogsById,
+      dogZones,
+      ticksElapsed: 0,
+      travelTicks: 0,
+      hog: rollHog(bayDogs, catchDogs),
+      miniGame: null,
+    });
+  }
+
+  // Applies a finished group hunt's outcome to the real, persisted kennel
+  // state — same tick()/update()/addLog() mechanism every other hunt in the
+  // game uses, just with per-role dog overrides and a shared catch-log line.
+  function finishGroupHunt(outcome) {
+    const { caught, calledOff, bayDogs, catchDogs, hog, hogHits } = outcome;
+    // hogPayout() rolls a random $/lb, so it must be called exactly once per
+    // hunt — every branch below reads this one value rather than re-rolling.
+    const fullPayout = hogPayout(hog.weightLbs);
+    const payout = caught ? fullPayout : calledOff ? Math.round(fullPayout * CALL_OFF_PAYOUT_PCT) : 0;
+    const fameGain = caught ? 4 : calledOff ? 0 : 1;
+    // Injury risk comes from how many hits the hog actually landed during
+    // the mini-game, not from whether it was ultimately caught — a clean
+    // fight sends every dog home sound either way.
+    const injuryChance = calledOff ? 0 : hogHitInjuryChance(hogHits);
     update((prev) => {
       const overrides = {};
-      dogs.forEach((d) => (overrides[d.id] = { healthDelta: -result.healthLoss }));
+      bayDogs.forEach((d) => { overrides[d.id] = { healthDelta: -randInt(2, 8) }; });
+      catchDogs.forEach((d) => {
+        const hurt = Math.random() < injuryChance;
+        overrides[d.id] = { healthDelta: hurt ? -randInt(15, 35) : -randInt(5, 15), injury: hurt ? rollInjury("hog") : undefined };
+      });
       let next = tick(prev, 1, overrides);
       next.cash = Math.round(next.cash + payout);
-      const names = dogs.map((d) => d.name).join(", ");
-      if (result.tier !== "Poor") {
-        next.catches = [...next.catches, { id: genId(), day: prev.day + 1, kennelName: prev.kennelName, dogName: `${names} (pack of ${dogs.length})`, breed: "Group Hunt", huntType: "Hog Hunt", tier: result.tier, weightLbs, payout }]
+      next.fame = (prev.fame || 0) + fameGain;
+      if (caught) {
+        const bayGain = randInt(1, 3), catchGain = randInt(1, 3);
+        next.dogs = next.dogs.map((d) => {
+          if (bayDogs.some((b) => b.id === d.id)) return { ...d, stats: { ...d.stats, nose: clamp(d.stats.nose + bayGain), speed: clamp(d.stats.speed + bayGain) } };
+          if (catchDogs.some((c) => c.id === d.id)) return { ...d, stats: { ...d.stats, grip: clamp(d.stats.grip + catchGain), gameness: clamp(d.stats.gameness + catchGain) } };
+          return d;
+        });
+      }
+      const names = [...bayDogs, ...catchDogs].map((d) => d.name).join(", ");
+      if (caught) {
+        next.catches = [...next.catches, { id: genId(), day: prev.day + 1, kennelName: prev.kennelName, dogName: `${names} (group hunt)`, breed: "Group Hunt", huntType: "Hog Hunt", tier: hog.tier, weightLbs: hog.weightLbs, payout }]
           .sort((a, b) => (b.weightLbs || b.payout) - (a.weightLbs || a.payout)).slice(0, 25);
       }
-      const monster = weightLbs >= 700 ? " — a genuine monster hog!" : "";
-      const msg = result.injured
-        ? `The pack (${names}) ran down a ${weightLbs} lb hog — ${result.tier.toLowerCase()} run, earned ${fmtMoney(payout)}, but some of them took a beating.${monster}`
-        : `The pack (${names}) ran down a ${weightLbs} lb hog — ${result.tier.toLowerCase()} run, earned ${fmtMoney(payout)}.${monster}`;
-      return addLog(next, result.injured ? "injury" : "hunt", msg);
+      const msg = calledOff
+        ? `Called the pack (${names}) off a bayed hog rather than risk it — banked ${fmtMoney(payout)} for the find.`
+        : caught
+        ? `The pack (${names}) bayed and caught a ${hog.weightLbs}lb hog — earned ${fmtMoney(payout)}.`
+        : `The pack (${names}) had a hog bayed but it fought free before the catch dogs could finish it.`;
+      return addLog(next, caught ? "hunt" : calledOff ? "info" : "injury", msg);
     });
-    setGroupHuntPicks([]);
+    setGroupSetup({ bayIds: [], catchIds: [] });
+    return payout;
+  }
+
+  function doCallOffGroupHunt() {
+    const bayDogs = groupHunt.bayDogIds.map((id) => groupHunt.dogsById[id]);
+    const payout = finishGroupHunt({ caught: false, calledOff: true, bayDogs, catchDogs: [], hog: groupHunt.hog, hogHits: 0 });
+    setGroupHunt((p) => (p ? { ...p, phase: "results", result: { calledOff: true, payout } } : p));
+  }
+
+  function doReleaseCatchDogs() {
+    setGroupHunt((p) => (p ? { ...p, phase: "traveling", travelTicks: 0 } : p));
+  }
+
+  function doMiniGameTap(markerPct) {
+    if (!groupHunt || groupHunt.phase !== "catching") return;
+    const { outcome, next } = resolveMiniGameTap(groupHunt.miniGame, markerPct);
+    if (!outcome) { setGroupHunt((p) => (p ? { ...p, miniGame: next } : p)); return; }
+    const bayDogs = groupHunt.bayDogIds.map((id) => groupHunt.dogsById[id]);
+    const catchDogs = groupHunt.catchDogIds.map((id) => groupHunt.dogsById[id]);
+    const hog = groupHunt.hog;
+    // next.hogHits is the running total the hog landed across every round of
+    // this mini-game — it's what drives the catch dogs' injury rolls.
+    const hogHits = next.hogHits || 0;
+    const payout = finishGroupHunt({ caught: outcome === "caught", calledOff: false, bayDogs, catchDogs, hog, hogHits });
+    const performancePct = huntPerformancePct(next.meter, groupHunt.ticksElapsed);
+    setGroupHunt((p) => (p ? { ...p, miniGame: next, phase: "results", result: { calledOff: false, caught: outcome === "caught", hog, bayDogs, catchDogs, meter: next.meter, ticksElapsed: groupHunt.ticksElapsed, hogHits, performancePct, payout } } : p));
+  }
+
+  function doEndGroupHuntSession() {
+    setGroupHunt(null);
   }
 
   function doDeclineOffer(offerId) {
@@ -1566,7 +1666,7 @@ function KennelGame() {
                 </p>
                 <div className="kg-acct__seg" style={{ display: "inline-flex" }}>
                   {LAYOUTS.map((l) => (
-                    <button key={l.id} className={"kg-subtab " + (layout === l.id ? "kg-subtab--active" : "")}
+                    <button key={l.id} className={"kg-seg__btn " + (layout === l.id ? "kg-seg__btn--active" : "")}
                       onClick={() => setLayout(l.id)}>{l.label}</button>
                   ))}
                 </div>
@@ -1662,8 +1762,8 @@ function KennelGame() {
                         <p className="kg-acct__hint">Night suits the sundown palette; day is easier in bright light.</p>
                       </div>
                       <div className="kg-acct__seg">
-                        <button className={"kg-subtab " + (theme === "dark" ? "kg-subtab--active" : "")} onClick={() => setTheme("dark")}>Night</button>
-                        <button className={"kg-subtab " + (theme === "light" ? "kg-subtab--active" : "")} onClick={() => setTheme("light")}>Day</button>
+                        <button className={"kg-seg__btn " + (theme === "dark" ? "kg-seg__btn--active" : "")} onClick={() => setTheme("dark")}>Night</button>
+                        <button className={"kg-seg__btn " + (theme === "light" ? "kg-seg__btn--active" : "")} onClick={() => setTheme("light")}>Day</button>
                       </div>
                     </div>
 
@@ -1677,7 +1777,7 @@ function KennelGame() {
                       </div>
                       <div className="kg-acct__seg">
                         {LAYOUTS.map((l) => (
-                          <button key={l.id} className={"kg-subtab " + (layout === l.id ? "kg-subtab--active" : "")}
+                          <button key={l.id} className={"kg-seg__btn " + (layout === l.id ? "kg-seg__btn--active" : "")}
                             onClick={() => setLayout(l.id)}>{l.label}</button>
                         ))}
                       </div>
@@ -1704,9 +1804,9 @@ function KennelGame() {
                         <p className="kg-acct__hint">Turn this off and your kennel stops appearing in the public rankings. You can still trade and take challenges.</p>
                       </div>
                       <div className="kg-acct__seg">
-                        <button className={"kg-subtab " + ((!profile || profile.show_on_leaderboard !== false) ? "kg-subtab--active" : "")}
+                        <button className={"kg-seg__btn " + ((!profile || profile.show_on_leaderboard !== false) ? "kg-seg__btn--active" : "")}
                           disabled={accountBusy} onClick={() => saveProfile({ show_on_leaderboard: true })}>Public</button>
-                        <button className={"kg-subtab " + ((profile && profile.show_on_leaderboard === false) ? "kg-subtab--active" : "")}
+                        <button className={"kg-seg__btn " + ((profile && profile.show_on_leaderboard === false) ? "kg-seg__btn--active" : "")}
                           disabled={accountBusy} onClick={() => saveProfile({ show_on_leaderboard: false })}>Hidden</button>
                       </div>
                     </div>
@@ -2112,26 +2212,103 @@ function KennelGame() {
             )}
 
             <hr className="kg-divider" />
-            <h2 className="kg-subhead">Group hog hunt</h2>
-            <p className="kg-hint">ℹ Send a pack after the same hog. More dogs means a real shot at something huge — solo hunts top out around 480 lb, but a pack of 3+ can occasionally run into 500–1,200 lb monster hogs. Every dog in the pack shares the risk.</p>
-            {huntableDogs.length < 2 ? <p className="kg-empty">Need at least 2 dogs fit to hunt for a group run.</p> : (
+            <h2 className="kg-subhead">Group Hunt</h2>
+            {!groupHunt && (
               <>
-                <div className="kg-grid" style={{ marginBottom: 14 }}>
-                  {huntableDogs.map((dog) => {
-                    const picked = groupHuntPicks.includes(dog.id);
-                    return (
-                      <DogCard key={dog.id} dog={dog} onView={setViewDog}
-                        footer={<button className={"kg-btn kg-btn--sm " + (picked ? "" : "kg-btn--ghost")}
-                          onClick={() => setGroupHuntPicks((p) => picked ? p.filter((id) => id !== dog.id) : [...p, dog.id])}>
-                          {picked ? "✓ In the pack" : "Add to pack"}
-                        </button>} />
-                    );
-                  })}
-                </div>
-                <button className="kg-btn kg-btn--gold" disabled={groupHuntPicks.length < 2} onClick={() => doGroupHunt(groupHuntPicks)}>
-                  {groupHuntPicks.length < 2 ? "Pick at least 2 dogs" : `Send the pack (${groupHuntPicks.length} dogs) after a hog`}
-                </button>
+                <p className="kg-hint">ℹ Build a hunting party: bay dogs find and hold the hog, catch dogs bring it down. Your kennel's fame sets how big a group you can field.</p>
+                <p className="kg-note">{fameTier(state.fame || 0).label} — up to {groupHuntLimit(state.fame || 0).bay} bay dogs, {groupHuntLimit(state.fame || 0).catch} catch dogs.</p>
+                {huntableDogs.length < 2 ? <p className="kg-empty">Need at least 2 dogs fit to hunt to build a group.</p> : (
+                  <>
+                    <h3 className="kg-subhead" style={{ fontSize: 15 }}>Bay dogs ({groupSetup.bayIds.length}/{groupHuntLimit(state.fame || 0).bay})</h3>
+                    <div className="kg-grid" style={{ marginBottom: 18 }}>
+                      {huntableDogs.map((dog) => {
+                        const picked = groupSetup.bayIds.includes(dog.id);
+                        const takenByCatch = groupSetup.catchIds.includes(dog.id);
+                        const disabled = !picked && (takenByCatch || groupSetup.bayIds.length >= groupHuntLimit(state.fame || 0).bay);
+                        return (
+                          <DogCard key={dog.id} dog={dog} onView={setViewDog}
+                            footer={<>
+                              <RoleBadge label="Bay" value={baySuitability(dog)} />
+                              <button className={"kg-btn kg-btn--sm " + (picked ? "" : "kg-btn--ghost")} disabled={disabled}
+                                onClick={() => toggleBayPick(dog.id)}>{picked ? "✓ Bay dog" : takenByCatch ? "Already a catch dog" : "Add as bay dog"}</button>
+                            </>} />
+                        );
+                      })}
+                    </div>
+                    <h3 className="kg-subhead" style={{ fontSize: 15 }}>Catch dogs ({groupSetup.catchIds.length}/{groupHuntLimit(state.fame || 0).catch})</h3>
+                    <div className="kg-grid" style={{ marginBottom: 18 }}>
+                      {huntableDogs.map((dog) => {
+                        const picked = groupSetup.catchIds.includes(dog.id);
+                        const takenByBay = groupSetup.bayIds.includes(dog.id);
+                        const disabled = !picked && (takenByBay || groupSetup.catchIds.length >= groupHuntLimit(state.fame || 0).catch);
+                        return (
+                          <DogCard key={dog.id} dog={dog} onView={setViewDog}
+                            footer={<>
+                              <RoleBadge label="Catch" value={catchSuitability(dog)} />
+                              <button className={"kg-btn kg-btn--sm " + (picked ? "" : "kg-btn--ghost")} disabled={disabled}
+                                onClick={() => toggleCatchPick(dog.id)}>{picked ? "✓ Catch dog" : takenByBay ? "Already a bay dog" : "Add as catch dog"}</button>
+                            </>} />
+                        );
+                      })}
+                    </div>
+                    <button className="kg-btn kg-btn--gold" disabled={groupSetup.bayIds.length < 1 || groupSetup.catchIds.length < 1} onClick={doStartGroupHunt}>
+                      {groupSetup.bayIds.length < 1 ? "Pick at least 1 bay dog" : groupSetup.catchIds.length < 1 ? "Pick at least 1 catch dog" : "Head out"}
+                    </button>
+                  </>
+                )}
               </>
+            )}
+            {groupHunt && groupHunt.phase === "searching" && (
+              <div className="kg-huntsession">
+                <p className="kg-note">🔎 Your bay dogs are working the ground — the hog's exact location is still unknown.</p>
+                <HuntMap zones={HUNT_ZONES} dogZones={groupHunt.dogZones} dogsById={groupHunt.dogsById}
+                  bayDogIds={groupHunt.bayDogIds} catchDogIds={groupHunt.catchDogIds} hogZoneKey={null} phase={groupHunt.phase} />
+              </div>
+            )}
+            {groupHunt && groupHunt.phase === "bayed" && (
+              <BayedEventModal hog={groupHunt.hog} bayDogs={groupHunt.bayDogIds.map((id) => groupHunt.dogsById[id])}
+                zoneLabel={(HUNT_ZONES.find((z) => z.key === groupHunt.hog.zoneKey) || {}).label}
+                onRelease={doReleaseCatchDogs} onCallOff={doCallOffGroupHunt} />
+            )}
+            {groupHunt && groupHunt.phase === "traveling" && (
+              <div className="kg-huntsession">
+                <p className="kg-note">🐾 Catch dogs are closing in on the bayed hog.</p>
+                <HuntMap zones={HUNT_ZONES} dogZones={groupHunt.dogZones} dogsById={groupHunt.dogsById}
+                  bayDogIds={groupHunt.bayDogIds} catchDogIds={groupHunt.catchDogIds} hogZoneKey={groupHunt.hog.zoneKey} phase={groupHunt.phase} />
+                {/* Skipping just pushes travelTicks to the cap and lets the
+                    next tick's stepTravel do the transition, so the button
+                    reflects that queued state instead of looking dead for a
+                    tick. */}
+                <button className="kg-btn kg-btn--ghost kg-btn--sm" disabled={groupHunt.travelTicks >= TRAVEL_TICKS}
+                  onClick={() => setGroupHunt((p) => (p ? { ...p, travelTicks: TRAVEL_TICKS } : p))}>
+                  {groupHunt.travelTicks >= TRAVEL_TICKS ? "Closing in…" : "Skip ahead"}
+                </button>
+              </div>
+            )}
+            {groupHunt && groupHunt.phase === "catching" && (
+              <CatchMiniGame miniGame={groupHunt.miniGame} onTap={doMiniGameTap} />
+            )}
+            {groupHunt && groupHunt.phase === "results" && (
+              <div className="kg-huntresult">
+                {groupHunt.result && groupHunt.result.calledOff ? (
+                  <p>Called the pack off — no risk taken, and {fmtMoney(groupHunt.result.payout)} for finding and holding the hog.</p>
+                ) : groupHunt.result && groupHunt.result.caught ? (
+                  <>
+                    <h2 className="kg-subhead">🐗 HOG CAUGHT!</h2>
+                    <p>Hog: {groupHunt.result.hog.weightLbs}lb ({groupHunt.result.hog.tier})</p>
+                    <p className="kg-note">Bay dogs: {groupHunt.result.bayDogs.map((d) => d.name).join(", ")}</p>
+                    <p className="kg-note">Catch dogs: {groupHunt.result.catchDogs.map((d) => d.name).join(", ")}</p>
+                    <p>Hunt Performance: {groupHunt.result.performancePct}%</p>
+                    <p>Reward: {fmtMoney(groupHunt.result.payout)}</p>
+                  </>
+                ) : (
+                  <>
+                    <h2 className="kg-subhead">HOG GOT AWAY!</h2>
+                    <p>The hog fought free before the catch dogs could finish it.</p>
+                  </>
+                )}
+                <button className="kg-btn" onClick={doEndGroupHuntSession}>Back to the kennel</button>
+              </div>
             )}
           </section>
         )}
@@ -2755,7 +2932,7 @@ function KennelGame() {
           <section>
             <h2 className="kg-subhead">Hall of Fame — biggest catches</h2>
             <p className="kg-hint">ℹ Every kennel's hunts count, yours and the other eight. Hog weights are the headline number; other hunts rank by payout.</p>
-            <p className="kg-note">🐗 Group hog hunts — send a pack of dogs together — can bring in monster hogs up to 1,000+ lb. It's veryyyyy rare, but that's where the record-book catches come from.</p>
+            <p className="kg-note">🐗 Group hog hunts — bay dogs to find and hold, catch dogs to finish — are where the record-book hogs come from. The more catch dogs your fame lets you field, the bigger the hog your pack can handle.</p>
             {state.catches.length === 0 ? <p className="kg-empty">No notable catches yet. Go hunting, or advance a few days.</p> : (
               <ul className="kg-log">
                 {state.catches.map((c, i) => (

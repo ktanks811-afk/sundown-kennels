@@ -113,9 +113,41 @@ async function main() {
   const menus = await walkFrame();
   console.log(`Frame layout: ${menus} menus walked.`);
 
+  // Classic last, so the group-hunt walkthrough below — which drives .kg-tab —
+  // runs with the sidebar layout on screen.
   await setLayout("classic");
   const tabs = await walkClassic();
   console.log(`Sidebar layout: ${tabs} nav entries walked.`);
+
+  // Group hunt: pick a bay dog and a catch dog, start the hunt, wait for the
+  // bay (search ticks are randomized but forced to resolve inside
+  // MAX_SEARCH_TICKS * SEARCH_TICK_MS ~= 30s — see grouphunt.jsx), then call
+  // off rather than trying to script the timing-based catch mini-game.
+  await page.locator(".kg-tab", { hasText: /hunt/i }).first().click();
+  await page.waitForTimeout(300);
+  const bayButtons = page.getByRole("button", { name: /add as bay dog/i });
+  const catchButtons = page.getByRole("button", { name: /add as catch dog/i });
+  if (await bayButtons.count() && await catchButtons.count()) {
+    await bayButtons.first().click();
+    await catchButtons.first().click();
+    await page.waitForTimeout(200);
+    const headOutBtn = page.getByRole("button", { name: /head out/i });
+    if (await headOutBtn.count()) {
+      await headOutBtn.first().click();
+      const bayedHeading = page.getByRole("heading", { name: /HOG BAYED/i });
+      await bayedHeading.waitFor({ timeout: 35000 });
+      const callOffBtn = page.getByRole("button", { name: /call off/i });
+      await callOffBtn.first().click();
+      await page.waitForTimeout(300);
+      const backBtn = page.getByRole("button", { name: /back to the kennel/i });
+      if (await backBtn.count()) { await backBtn.first().click(); await page.waitForTimeout(200); }
+      console.log("Group hunt: setup -> search -> bayed -> call off -> results completed.");
+    } else {
+      console.log("Group hunt: not enough eligible dogs to head out — skipping the rest of this pass.");
+    }
+  } else {
+    console.log("Group hunt: no eligible dogs for a fresh kennel — skipping this pass.");
+  }
 
   await browser.close();
   server.close();
