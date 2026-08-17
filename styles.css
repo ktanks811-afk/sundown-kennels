@@ -128,6 +128,13 @@ html, body { margin:0; padding:0; background:#0a0605; }
   width:min(400px, 82vw); height:auto; display:block; margin:0 auto 22px;
   filter: drop-shadow(0 16px 44px rgba(240,90,0,0.35));
 }
+/* The logo already carries the name in heavy display type, so the subtitle
+   sits under it letterspaced and quiet rather than competing with it. */
+.kg-title__sim {
+  font-family:'Space Grotesk','Inter',sans-serif; font-weight:600;
+  font-size:clamp(13px, 2.2vw, 17px); text-transform:uppercase; letter-spacing:0.42em;
+  color: var(--accent); margin:-8px 0 20px; padding-left:0.42em;
+}
 .kg-title__pitch { font-size:17px; line-height:1.6; color: var(--ink); margin:0 auto 22px; max-width:52ch; }
 .kg-title__points {
   list-style:none; margin:0 auto 28px; padding:0; display:flex; flex-direction:column; gap:9px;
@@ -420,6 +427,17 @@ html, body { margin:0; padding:0; background:#0a0605; }
 .kg-acct__setting strong { font-size:14.5px; font-weight:600; }
 .kg-acct__setting .kg-acct__hint { margin:3px 0 0; }
 .kg-acct__seg { display:flex; gap:4px; background: var(--paper-dark); border:1px solid var(--border); border-radius:999px; padding:3px; }
+/* Segmented controls look like sub-tabs but are not navigation — they need
+   their own class so anything walking .kg-subtab (the CI smoke test, for one)
+   doesn't flip the player's settings on its way past. */
+.kg-seg__btn {
+  font-family:inherit; font-size:13px; font-weight:500; padding:8px 14px; cursor:pointer;
+  color: var(--ink-soft); background:transparent; border:1px solid transparent; border-radius:999px;
+  transition: background 0.15s, color 0.15s;
+}
+.kg-seg__btn:hover { background: rgba(255,186,133,0.07); color: var(--ink); }
+.kg-seg__btn--active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-line); font-weight:600; }
+[data-theme="light"] .kg-seg__btn:hover { background: rgba(74,45,26,0.06); }
 
 .kg-notice--good { background: rgba(70,179,122,0.10); border-color: rgba(70,179,122,0.32); color: var(--olive); }
 .kg-notice--bad  { background: rgba(224,72,74,0.10); border-color: rgba(224,72,74,0.32); color: var(--rust); }
@@ -472,7 +490,14 @@ html, body { margin:0; padding:0; background:#0a0605; }
   -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent;
 }
 [data-theme="light"] .kg-topstrip__word { background: linear-gradient(96deg, #2c1b12 0%, #9c4a10 45%, var(--accent) 100%); -webkit-background-clip:text; background-clip:text; }
+.kg-topstrip__sim {
+  font-family:'Space Grotesk','Inter',sans-serif; font-weight:600; font-size:10.5px;
+  text-transform:uppercase; letter-spacing:0.24em; color: var(--accent);
+  border:1px solid var(--accent-line); border-radius:999px; padding:3px 9px 3px 11px;
+  align-self:center; white-space:nowrap;
+}
 .kg-topstrip__right { margin-left:auto; display:flex; gap:8px; align-items:center; }
+@media (max-width: 560px) { .kg-topstrip__sim { display:none; } }
 
 /* menu bar */
 .kg-menubar { background: var(--paper); border-bottom:1px solid var(--border); position:relative; z-index:30; }
@@ -752,6 +777,29 @@ html, body { margin:0; padding:0; background:#0a0605; }
 .kg-shopitem__foot .kg-btn { flex:1; }
 .kg-shopitem__owned { font-size:11px; color: var(--ink-soft); white-space:nowrap; }
 .kg-collardot { width:13px; height:13px; border-radius:50%; border:1px solid rgba(0,0,0,0.35); box-shadow: inset 0 1px 1px rgba(255,255,255,0.35); flex:0 0 auto; }
+
+/* Item art. The drawings use fixed colours so an object reads the same in
+   either theme; only the plate behind them follows the theme. */
+.kg-shopitem__art {
+  display:flex; align-items:center; justify-content:center; padding:9px;
+  border-radius: var(--r-sm); border:1px solid var(--border);
+  background:
+    radial-gradient(circle at 50% 38%, rgba(255,236,214,0.11) 0%, rgba(255,236,214,0) 62%),
+    var(--paper);
+}
+.kg-itemart { display:block; overflow:visible; transition: transform 0.16s ease; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.34)); }
+.kg-shopitem:hover .kg-itemart { transform: scale(1.05); }
+.kg-invrow__art {
+  flex:0 0 auto; display:flex; align-items:center; justify-content:center; padding:7px;
+  border-radius: var(--r-sm); border:1px solid var(--border); background: var(--paper);
+}
+[data-theme="light"] .kg-shopitem__art,
+[data-theme="light"] .kg-invrow__art { background:#fffdf8; }
+[data-theme="light"] .kg-itemart { filter: drop-shadow(0 1px 2px rgba(74,45,26,0.22)); }
+@media (prefers-reduced-motion: reduce) {
+  .kg-itemart { transition:none; }
+  .kg-shopitem:hover .kg-itemart { transform:none; }
+}
 
 .kg-invlist { display:flex; flex-direction:column; gap:10px; }
 .kg-invrow {

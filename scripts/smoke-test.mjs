@@ -34,6 +34,17 @@ async function main() {
   page.on("console", (msg) => { if (msg.type() === "error") errors.push(msg.text()); });
   page.on("pageerror", (err) => errors.push("uncaught exception: " + err.message));
 
+  // A failed fetch logs as "Failed to load resource: ... 404 ()" with no URL,
+  // which is useless when the build goes red. Record what actually failed, and
+  // whether it was ours or one of the CDNs, so the log names the culprit.
+  const badRequests = [];
+  page.on("response", (res) => {
+    if (res.status() >= 400) badRequests.push(`${res.status()} ${res.url()}`);
+  });
+  page.on("requestfailed", (req) => {
+    badRequests.push(`no response (${(req.failure() || {}).errorText || "unknown"}) ${req.url()}`);
+  });
+
   await page.goto(`http://localhost:${PORT}/index.html`, { waitUntil: "networkidle", timeout: 30000 });
   await page.waitForTimeout(1000);
 
@@ -59,18 +70,65 @@ async function main() {
   const foundBtn = page.getByRole("button", { name: /^Found /i });
   if (await foundBtn.count()) { await foundBtn.first().click(); await page.waitForTimeout(600); }
 
-  // Click every top-level nav entry, and every sub-tab it reveals.
-  const tabButtons = await page.locator(".kg-tab").all();
-  console.log(`Found ${tabButtons.length} top-level nav entries.`);
-  for (let i = 0; i < tabButtons.length; i++) {
-    await page.locator(".kg-tab").nth(i).click();
-    await page.waitForTimeout(250);
-    const subtabs = await page.locator(".kg-subtab").all();
-    for (let j = 0; j < subtabs.length; j++) {
-      await page.locator(".kg-subtab").nth(j).click();
-      await page.waitForTimeout(200);
+  // There are two layouts and either can be the default, so walk both. Counting
+  // only one layout's selectors is how this test can pass while visiting
+  // nothing at all — assert we actually clicked something.
+  let visited = 0;
+
+  async function walkClassic() {
+    const tabs = await page.locator(".kg-tab").count();
+    for (let i = 0; i < tabs; i++) {
+      await page.locator(".kg-tab").nth(i).click();
+      await page.waitForTimeout(250);
+      visited++;
+      // Re-count each step: navigating can change how many sub-tabs exist, so
+      // a cached count goes stale and waits forever on an index that's gone.
+      for (let j = 0; j < (await page.locator(".kg-subtab").count()); j++) {
+        const sub = page.locator(".kg-subtab").nth(j);
+        if (!(await sub.count())) break;
+        await sub.click();
+        await page.waitForTimeout(200);
+        visited++;
+      }
     }
+    return tabs;
   }
+
+  async function walkFrame() {
+    const menus = await page.locator(".kg-menu__btn").count();
+    for (let i = 0; i < menus; i++) {
+      await page.locator(".kg-menu__btn").nth(i).click();
+      // Step the pointer off the menu bar, or the hover-opened dropdown sits
+      // over the sidebar and swallows the next click.
+      await page.mouse.move(5, 600);
+      await page.waitForTimeout(250);
+      visited++;
+      for (let j = 0; j < (await page.locator(".kg-side__link").count()); j++) {
+        const link = page.locator(".kg-side__link").nth(j);
+        if (!(await link.count())) break;
+        await link.click();
+        await page.waitForTimeout(200);
+        visited++;
+      }
+    }
+    return menus;
+  }
+
+  async function setLayout(which) {
+    await page.evaluate((v) => window.localStorage.setItem("kennel-layout", v), which);
+    await page.reload({ waitUntil: "networkidle" });
+    await page.waitForTimeout(900);
+  }
+
+  await setLayout("frame");
+  const menus = await walkFrame();
+  console.log(`Frame layout: ${menus} menus walked.`);
+
+  // Classic last, so the group-hunt walkthrough below — which drives .kg-tab —
+  // runs with the sidebar layout on screen.
+  await setLayout("classic");
+  const tabs = await walkClassic();
+  console.log(`Sidebar layout: ${tabs} nav entries walked.`);
 
   // Group hunt: pick a bay dog and a catch dog, start the hunt, wait for the
   // bay (search ticks are randomized but forced to resolve inside
@@ -108,9 +166,19 @@ async function main() {
   if (errors.length) {
     console.error(`\n${errors.length} console error(s) during the smoke test:`);
     for (const e of errors) console.error(" - " + e);
+    if (badRequests.length) {
+      console.error(`\nFailed requests (${badRequests.length}) — likely the source of the above:`);
+      for (const r of badRequests) console.error(" - " + r);
+    }
     process.exit(1);
   }
-  console.log("\nSmoke test passed: onboarding + every tab loaded with zero console errors.");
+  // A pass with nothing clicked is not a pass.
+  if (menus === 0 || tabs === 0 || visited < 20) {
+    console.error(`\nSmoke test reached almost nothing: ${menus} menus, ${tabs} nav entries, ${visited} screens visited.`);
+    console.error("Either a layout stopped rendering or its selectors changed.");
+    process.exit(1);
+  }
+  console.log(`\nSmoke test passed: onboarding + ${visited} screen visits across both layouts, zero console errors.`);
 }
 
 main().catch((err) => { console.error(err); process.exit(1); });
