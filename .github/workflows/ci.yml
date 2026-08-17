@@ -66,3 +66,44 @@ jobs:
         env:
           PGPASSWORD: postgres
         run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase-schema.sql
+
+      # supabase-schema.sql is the schema built from empty. The files in
+      # migrations/ are what actually gets pasted into the live project, and
+      # until now nothing checked them at all — which is how 001 and 002 sat
+      # half-applied without anything going red.
+      - name: Apply migrations/ in order, on their own database
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -e
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -c "create database migrated;"
+          # Roles are cluster-wide so the ones stubbed above carry over, but
+          # extensions, schemas and publications are per-database and have to
+          # be created again here.
+          psql -h localhost -U postgres -d migrated -v ON_ERROR_STOP=1 <<'SQL'
+          create extension if not exists pgcrypto;
+          create schema if not exists auth;
+          create table if not exists auth.users (id uuid primary key default gen_random_uuid());
+          create or replace function auth.uid() returns uuid language sql stable as $$ select null::uuid $$;
+          create publication supabase_realtime;
+          SQL
+          # The migrations assume the base schema already exists, the same way
+          # the live project does.
+          psql -h localhost -U postgres -d migrated -v ON_ERROR_STOP=1 -f supabase-schema.sql
+          for f in migrations/*.sql; do
+            echo "--- $f"
+            psql -h localhost -U postgres -d migrated -v ON_ERROR_STOP=1 -f "$f"
+          done
+
+      # Every migration claims to be safe to run twice. This is the only way to
+      # know that it is — and re-running is exactly what happens when someone
+      # is unsure whether a paste went through the first time.
+      - name: Re-run every migration to prove it is idempotent
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -e
+          for f in migrations/*.sql; do
+            echo "--- $f (second run)"
+            psql -h localhost -U postgres -d migrated -v ON_ERROR_STOP=1 -f "$f"
+          done
