@@ -26,7 +26,8 @@ function KennelSetup({ onComplete, cloudAuth, themeToggle }) {
       <div className="kg-app kg-title">
         <div className="kg-title__controls">{themeToggle}{cloudAuth}</div>
         <div className="kg-title__inner">
-          <img className="kg-title__logo" src="assets/logo.png" alt="Sundown Kennels" width="400" height="400" />
+          <img className="kg-title__logo" src="assets/logo.png" alt="Sundown Kennels Simulator" width="400" height="400" />
+          <p className="kg-title__sim">Simulator</p>
           <p className="kg-title__pitch">
             Build a line of working dogs from the ground up. Breed for nose, grit and grip,
             run them on hogs and coon, take them to trials — and see how far a bloodline can carry your name.
