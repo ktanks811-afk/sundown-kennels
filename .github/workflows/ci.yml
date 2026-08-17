@@ -77,11 +77,15 @@ jobs:
         run: |
           set -e
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -c "create database migrated;"
+          # Roles are cluster-wide so the ones stubbed above carry over, but
+          # extensions, schemas and publications are per-database and have to
+          # be created again here.
           psql -h localhost -U postgres -d migrated -v ON_ERROR_STOP=1 <<'SQL'
           create extension if not exists pgcrypto;
           create schema if not exists auth;
           create table if not exists auth.users (id uuid primary key default gen_random_uuid());
           create or replace function auth.uid() returns uuid language sql stable as $$ select null::uuid $$;
+          create publication supabase_realtime;
           SQL
           # The migrations assume the base schema already exists, the same way
           # the live project does.
