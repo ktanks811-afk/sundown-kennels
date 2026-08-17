@@ -631,6 +631,11 @@ html, body { margin:0; padding:0; background:#0a0605; }
 .kg-huntcard__meta { color: var(--denim) !important; }
 .kg-huntcard--active, .kg-trialcard--active { border-color: var(--accent-line); background: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent-line); }
 
+.kg-rolebadge { display:inline-block; font-size:11px; font-weight:600; padding:3px 9px; border-radius:999px; margin-right:8px; letter-spacing:0.01em; }
+.kg-rolebadge--olive { color: var(--olive); background: rgba(70,179,122,0.13); border:1px solid rgba(70,179,122,0.3); }
+.kg-rolebadge--denim { color: var(--denim); background: rgba(134,176,209,0.13); border:1px solid rgba(134,176,209,0.3); }
+.kg-rolebadge--rust  { color: var(--rust);  background: rgba(224,72,74,0.13);   border:1px solid rgba(224,72,74,0.3); }
+
 /* ---------- breeding ---------- */
 .kg-pairpick { display:flex; gap:11px; flex-wrap:wrap; margin-bottom: 20px; }
 .kg-pairpick select, .kg-pairpick input { font-size:13.5px; padding:11px 12px; min-width: 220px; flex:1; }
@@ -914,3 +919,34 @@ html[data-theme="light"], html[data-theme="light"] body { background:#f2ebdd; }
   .kg-header__stats .kg-btn { padding:6px 11px; font-size:11px; }
   .kg-grid { grid-template-columns: 1fr; }
 }
+
+.kg-huntmap { margin: 14px 0 20px; }
+.kg-huntmap__grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap:10px; margin-bottom:16px; }
+.kg-zone {
+  background: var(--paper-dark); border:1px solid var(--border); border-radius: var(--r-sm);
+  padding:12px; min-height:64px; transition: border-color 0.3s, background 0.3s;
+}
+.kg-zone--hog { border-color: var(--rust); background: rgba(224,72,74,0.09); }
+.kg-zone__label { font-size:12px; font-weight:600; color: var(--ink-soft); display:block; margin-bottom:8px; }
+.kg-zone__dogs { display:flex; flex-wrap:wrap; gap:6px; font-size:18px; }
+.kg-dogmarker { transition: transform 0.25s; }
+.kg-dogmarker--bay   { filter: drop-shadow(0 0 3px rgba(134,176,209,0.55)); }
+.kg-dogmarker--catch { filter: drop-shadow(0 0 3px rgba(232,181,90,0.55)); }
+.kg-dogmarker--hog { filter: drop-shadow(0 0 4px rgba(224,72,74,0.6)); }
+.kg-huntmap__status { list-style:none; margin:0; padding:0; font-size:13px; color: var(--ink-soft); display:flex; flex-direction:column; gap:4px; }
+.kg-huntmap__statustag { color: var(--denim); }
+@media (max-width: 640px) { .kg-huntmap__grid { grid-template-columns: 1fr 1fr; } }
+
+.kg-huntsession { margin-top: 14px; }
+.kg-huntresult { background: var(--paper-dark); border:1px solid var(--border); border-radius: var(--r-md); padding:20px; margin-top:14px; }
+
+.kg-minigame { background: var(--paper-dark); border:1px solid var(--border); border-radius: var(--r-md); padding:18px; margin:14px 0; }
+.kg-minigame__meter { height:10px; border-radius:999px; background: var(--paper); border:1px solid var(--border); overflow:hidden; margin-bottom:14px; }
+.kg-minigame__meterfill { height:100%; background: var(--gold); transition: width 0.25s; }
+.kg-minigame__bar { position:relative; height:28px; border-radius: var(--r-sm); background: var(--paper); border:1px solid var(--border); margin-bottom:14px; overflow:hidden; }
+.kg-minigame__sweetspot { position:absolute; top:0; bottom:0; background: rgba(70,179,122,0.35); border-left:2px solid var(--olive); border-right:2px solid var(--olive); }
+.kg-minigame__marker {
+  position:absolute; top:0; bottom:0; width:3px; background: var(--rust);
+  animation-name: kg-minigame-sweep; animation-timing-function: linear; animation-iteration-count: infinite;
+}
+@keyframes kg-minigame-sweep { 0% { left:0%; } 50% { left:100%; } 100% { left:0%; } }
