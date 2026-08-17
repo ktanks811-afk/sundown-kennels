@@ -75,20 +75,37 @@ async function main() {
   // nothing at all — assert we actually clicked something.
   let visited = 0;
 
+  /* Every nav destination must put a real route in the address bar. A screen id
+     in NAV or MENUS with no matching entry in the router's table silently falls
+     back to the overview, which looks like a working click and is invisible
+     without this check. Record what the URL was after each one. */
+  const seenPaths = new Set();
+  const deadEnds = [];
+  async function recordRoute(label) {
+    const hash = await page.evaluate(() => window.location.hash);
+    const path = hash.replace(/^#/, "");
+    if (!path || path === "/") deadEnds.push(`${label} -> ${hash || "(no hash)"}`);
+    else seenPaths.add(path);
+  }
+
   async function walkClassic() {
     const tabs = await page.locator(".kg-tab").count();
     for (let i = 0; i < tabs; i++) {
+      const tabLabel = (await page.locator(".kg-tab").nth(i).innerText()).trim();
       await page.locator(".kg-tab").nth(i).click();
       await page.waitForTimeout(250);
       visited++;
+      await recordRoute(`sidebar/${tabLabel}`);
       // Re-count each step: navigating can change how many sub-tabs exist, so
       // a cached count goes stale and waits forever on an index that's gone.
       for (let j = 0; j < (await page.locator(".kg-subtab").count()); j++) {
         const sub = page.locator(".kg-subtab").nth(j);
         if (!(await sub.count())) break;
+        const subLabel = (await sub.innerText()).trim();
         await sub.click();
         await page.waitForTimeout(200);
         visited++;
+        await recordRoute(`sidebar/${tabLabel} > ${subLabel}`);
       }
     }
     return tabs;
@@ -97,18 +114,22 @@ async function main() {
   async function walkFrame() {
     const menus = await page.locator(".kg-menu__btn").count();
     for (let i = 0; i < menus; i++) {
+      const menuLabel = (await page.locator(".kg-menu__btn").nth(i).innerText()).trim();
       await page.locator(".kg-menu__btn").nth(i).click();
       // Step the pointer off the menu bar, or the hover-opened dropdown sits
       // over the sidebar and swallows the next click.
       await page.mouse.move(5, 600);
       await page.waitForTimeout(250);
       visited++;
+      await recordRoute(`frame/${menuLabel}`);
       for (let j = 0; j < (await page.locator(".kg-side__link").count()); j++) {
         const link = page.locator(".kg-side__link").nth(j);
         if (!(await link.count())) break;
+        const linkLabel = (await link.innerText()).trim();
         await link.click();
         await page.waitForTimeout(200);
         visited++;
+        await recordRoute(`frame/${menuLabel} > ${linkLabel}`);
       }
     }
     return menus;
@@ -120,6 +141,40 @@ async function main() {
     await page.waitForTimeout(900);
   }
 
+  /* Routing is only worth having if the browser's own controls work with it:
+     a deep link has to open its screen cold, back has to undo a navigation,
+     and a junk URL has to land somewhere real instead of a blank page. */
+  async function checkBrowserNavigation() {
+    const problems = [];
+    const heading = () => page.locator(".kg-subhead, h1, h2").first().innerText().catch(() => "");
+
+    await page.evaluate(() => { window.location.hash = "#/records/ledger"; });
+    await page.waitForTimeout(400);
+    await page.reload({ waitUntil: "networkidle" });
+    await page.waitForTimeout(900);
+    const cold = await page.evaluate(() => window.location.hash);
+    if (cold !== "#/records/ledger") problems.push(`deep link did not survive a reload: ${cold}`);
+    const ledgerText = await heading();
+
+    await page.evaluate(() => { window.location.hash = "#/kennel"; });
+    await page.waitForTimeout(400);
+    await page.goBack();
+    await page.waitForTimeout(500);
+    const back = await page.evaluate(() => window.location.hash);
+    if (back !== "#/records/ledger") problems.push(`back button landed on ${back}, expected #/records/ledger`);
+    const afterBack = await heading();
+    if (ledgerText && afterBack !== ledgerText) {
+      problems.push(`back changed the URL but not the screen (${afterBack} vs ${ledgerText})`);
+    }
+
+    await page.evaluate(() => { window.location.hash = "#/not-a-real-page"; });
+    await page.waitForTimeout(500);
+    const fallback = await page.evaluate(() => window.location.hash);
+    if (fallback !== "#/overview") problems.push(`unknown route did not fall back to the overview: ${fallback}`);
+
+    return problems;
+  }
+
   await setLayout("frame");
   const menus = await walkFrame();
   console.log(`Frame layout: ${menus} menus walked.`);
@@ -129,6 +184,9 @@ async function main() {
   await setLayout("classic");
   const tabs = await walkClassic();
   console.log(`Sidebar layout: ${tabs} nav entries walked.`);
+
+  const navProblems = await checkBrowserNavigation();
+  console.log(`Routing: ${seenPaths.size} distinct URLs reached, deep link + back + fallback checked.`);
 
   // Group hunt: pick a bay dog and a catch dog, start the hunt, wait for the
   // bay (search ticks are randomized but forced to resolve inside
@@ -178,7 +236,19 @@ async function main() {
     console.error("Either a layout stopped rendering or its selectors changed.");
     process.exit(1);
   }
-  console.log(`\nSmoke test passed: onboarding + ${visited} screen visits across both layouts, zero console errors.`);
+  if (deadEnds.length) {
+    console.error(`\n${deadEnds.length} nav destination(s) with no route of their own:`);
+    for (const d of deadEnds) console.error(" - " + d);
+    console.error("Add the screen id to ROUTES in js/router.jsx.");
+    process.exit(1);
+  }
+  if (navProblems.length) {
+    console.error("\nBrowser navigation is broken:");
+    for (const p of navProblems) console.error(" - " + p);
+    process.exit(1);
+  }
+  console.log(`\nSmoke test passed: onboarding + ${visited} screen visits across both layouts, ` +
+    `${seenPaths.size} routes, zero console errors.`);
 }
 
 main().catch((err) => { console.error(err); process.exit(1); });
