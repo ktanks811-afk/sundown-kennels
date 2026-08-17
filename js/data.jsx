@@ -456,6 +456,8 @@ const HOME_NAV_OWNER = {
   registry: "records", rankings: "records", hof: "records",
   racerecords: "records", log: "records", leaderboard: "records", rivals: "records",
   profile: "account", settings: "account", danger: "account", admin: "account",
+  // An animal's page belongs to the ranch it lives on.
+  animalprofile: "kennel",
 };
 
 /* Each menu is a dropdown; columns group its links the way a stud book would. */

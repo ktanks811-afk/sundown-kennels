@@ -46,6 +46,12 @@ const ROUTES = [
      without it gets sent to the overview rather than a blank screen. */
   { path: "/account/admin",      screen: "admin", requiresAdmin: true },
 
+  /* One animal, by species and the id it carries inside the save. Only animals
+     the player owns resolve here — market, rival and stud dogs live in
+     transient lists with no stable identity, so those keep opening in the
+     modal rather than getting a URL that would break on the next refresh. */
+  { path: "/animal/:species/:id", screen: "animalprofile" },
+
   /* Alias, so a bare "#/" and a link with no hash both land somewhere real. */
   { path: "/",                   screen: "overview", alias: true },
 ];

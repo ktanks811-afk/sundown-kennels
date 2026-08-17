@@ -181,6 +181,42 @@ async function main() {
     await page.waitForTimeout(900);
   }
 
+  /* The animal profile is the one page with a parameterised route, so it is
+     also the only one that can break by resolving the wrong animal or none at
+     all. Open one from the yard, walk its four tabs, and check a made-up id
+     gets an explanation rather than an empty page. */
+  async function checkAnimalProfile() {
+    const problems = [];
+    await page.evaluate(() => { window.location.hash = "#/kennel"; });
+    await page.waitForTimeout(400);
+
+    const name = page.locator(".kg-card__namebtn").first();
+    if (!(await name.count())) { problems.push("no dog in the yard to open"); return problems; }
+    await name.click();
+    await page.waitForTimeout(500);
+
+    const hash = await page.evaluate(() => window.location.hash);
+    if (!/^#\/animal\/dog\/.+/.test(hash)) problems.push(`opening a dog gave ${hash}`);
+    if (!(await page.locator(".kg-ap__name").count())) problems.push("profile page did not render");
+
+    for (const t of ["Items", "Career", "History", "About"]) {
+      const tabBtn = page.locator(".kg-ap__main .kg-ui-tabs__tab", { hasText: t }).first();
+      if (!(await tabBtn.count())) { problems.push(`no ${t} tab`); continue; }
+      await tabBtn.click();
+      await page.waitForTimeout(250);
+      visited++;
+      if (!(await page.locator(".kg-ui-panel").count())) problems.push(`${t} tab rendered nothing`);
+    }
+
+    // An id that was never real — a sold dog, or a shared link gone stale.
+    await page.evaluate(() => { window.location.hash = "#/animal/dog/not-a-real-id"; });
+    await page.waitForTimeout(400);
+    const gone = await page.locator(".kg-ui-notice--error").count();
+    if (!gone) problems.push("a missing animal did not explain itself");
+
+    return problems;
+  }
+
   /* Routing is only worth having if the browser's own controls work with it:
      a deep link has to open its screen cold, back has to undo a navigation,
      and a junk URL has to land somewhere real instead of a blank page. */
@@ -228,6 +264,9 @@ async function main() {
   await setLayout("classic");
   const tabs = await walkClassic();
   console.log(`Sidebar layout: ${tabs} nav entries walked.`);
+
+  const profileProblems = await checkAnimalProfile();
+  console.log("Animal profile: opened from the yard, four tabs walked, stale id handled.");
 
   const navProblems = await checkBrowserNavigation();
   console.log(`Routing: ${seenPaths.size} distinct URLs reached, deep link + back + fallback checked.`);
@@ -285,6 +324,11 @@ async function main() {
     console.error(`\n${deadEnds.length} nav destination(s) with no route of their own:`);
     for (const d of deadEnds) console.error(" - " + d);
     console.error("Add the screen id to ROUTES in js/router.jsx.");
+    process.exit(1);
+  }
+  if (profileProblems.length) {
+    console.error("\nThe animal profile page is broken:");
+    for (const p of profileProblems) console.error(" - " + p);
     process.exit(1);
   }
   if (navProblems.length) {
