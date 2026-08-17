@@ -78,9 +78,12 @@ function KennelGame() {
   const setTab = route.goToScreen;
 
   const [layout, setLayout] = useState(() => {
-    // Frame is the default now. An explicit "classic" choice is still honoured,
-    // so anyone who already picked the old one keeps it.
-    try { return window.localStorage.getItem(LAYOUT_KEY) === "classic" ? "classic" : "frame"; } catch { return "frame"; }
+    // Homestead is the default now. Any layout already chosen is still
+    // honoured, so nobody gets moved off the one they picked.
+    try {
+      const saved = window.localStorage.getItem(LAYOUT_KEY);
+      return LAYOUTS.some((l) => l.id === saved) ? saved : "home";
+    } catch { return "home"; }
   });
   useEffect(() => {
     try { window.localStorage.setItem(LAYOUT_KEY, layout); } catch {}
@@ -1547,6 +1550,135 @@ function KennelGame() {
       <AccountScreens game={game} />
     </>
   );
+
+  /* Homestead: the shell phase 3 built. A tiled ground, one centred page card,
+     a utility bar above it and an info rail down the right. The screens inside
+     are the same ones the other two layouts render — only the chrome differs,
+     which is what keeps all three honest as sections get rebuilt. */
+  if (layout === "home") {
+    const owner = HOME_NAV_OWNER[tab] || "kennel";
+    const seasonNow = seasonLabel(state.day);
+    return (
+      <div className="kg-app kg-app--home">
+        <div className="kg-hs">
+          {/* Utility bar: social on the left, what you're worth on the right. */}
+          <div className="kg-hs__utility">
+            <div className="kg-hs__ulinks">
+              <button className="kg-hs__ulink" onClick={() => setTab("trade")}>Player Market</button>
+              <button className="kg-hs__ulink" onClick={() => setTab("rivals")}>Challenges</button>
+              <button className="kg-hs__ulink" onClick={() => setTab("leaderboard")}>Leaderboard</button>
+            </div>
+            <div className="kg-hs__purse">
+              <span>Fame <b className="kg-hs__fame">{fameTier(state.fame || 0).label}</b></span>
+              <span>Cash <b className="kg-hs__cash">{fmtMoney(state.cash)}</b></span>
+              {themeToggleEl}
+              {cloudAuthEl}
+            </div>
+          </div>
+
+          <div className="kg-hs__card">
+            <div className="kg-hs__head">
+              <button className="kg-hs__brand" onClick={() => setTab("overview")} title="Overview">
+                <img src="assets/logo-mark.png" alt="" width="42" height="42" />
+                <span>
+                  <span className="kg-hs__wordmark">Sundown Kennels</span>
+                  <span className="kg-hs__sim">Simulator</span>
+                </span>
+              </button>
+
+              <nav className="kg-hs__nav" aria-label="Main">
+                {HOME_NAV.map((n) => (
+                  <div key={n.id} className={"kg-hs__navitem " + (owner === n.id ? "kg-hs__navitem--on" : "")}>
+                    <button className="kg-hs__navbtn"
+                      onClick={(e) => { setTab(n.menu ? "rescue" : n.tab); e.currentTarget.blur(); }}>
+                      <span className="kg-hs__navicon" aria-hidden="true">{n.icon}</span>{n.label}
+                    </button>
+                    {n.menu && (
+                      <div className="kg-hs__mega" role="menu">
+                        {ATLAS_MENU.map((col) => (
+                          <div key={col.heading} className="kg-hs__megacol">
+                            <p className="kg-hs__megahead">{col.heading}</p>
+                            {col.items.map((it) => (
+                              <button key={it.id} role="menuitem" className="kg-hs__megalink"
+                                onClick={(e) => { setTab(it.id); e.currentTarget.blur(); }}>{it.label}</button>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </nav>
+            </div>
+
+            <div className="kg-hs__body">
+              <main className="kg-hs__main">
+                {saveError && <Notice tone="error">Couldn't save progress just now — keep playing, it'll retry.</Notice>}
+                {storageMode === "memory" && (
+                  <Notice tone="warn">This browser is blocking local storage, so progress won't be saved between visits.</Notice>
+                )}
+                {!session && (
+                  <Notice tone="info" fix={{ label: "Sign in", onClick: () => setCloudPanelOpen(true) }}>
+                    You're playing locally. Sign in to save your kennel to the cloud and join the boards.
+                  </Notice>
+                )}
+                {screens}
+              </main>
+
+              <aside className="kg-hs__rail">
+                <SideBox title="Game Time">
+                  <p style={{ margin: 0, fontWeight: 700, color: "var(--hs-ink)" }}>{seasonNow}</p>
+                  <p style={{ margin: "2px 0 0", color: "var(--hs-ink-mute)" }}>
+                    Day {state.day} · Year {yearOf(state.day)}
+                  </p>
+                </SideBox>
+
+                <SideBox title="Logged In As">
+                  <p style={{ margin: 0, fontWeight: 700, color: "var(--hs-ink)" }}>
+                    {(profile && profile.username) || state.kennelName}
+                  </p>
+                  <p style={{ margin: "2px 0 6px", color: "var(--hs-ink-mute)" }}>
+                    {session ? "Signed in" : "Local play"}
+                  </p>
+                  <Meter label="Fame" value={Math.min(100, state.fame || 0)} hint="Fame comes from wins, titles and papered dogs. It gates buyers and events." />
+                  {/* Its own class rather than the link-stack one: this is an
+                      action, not navigation, and sharing the class made the
+                      smoke test's Quick Links walk open the auth dialog. */}
+                  <p style={{ margin: "6px 0 0" }}>
+                    {session
+                      ? <button className="kg-hs__sessionbtn" onClick={handleSignOut}>(Log out)</button>
+                      : <button className="kg-hs__sessionbtn" onClick={() => setCloudPanelOpen(true)}>(Sign in)</button>}
+                  </p>
+                </SideBox>
+
+                <SideBox title="Your Kennel">
+                  <ul className="kg-rail__list" style={{ margin: 0 }}>
+                    <li><span>Dogs</span><strong>{state.dogs.length} / {dogCapacity}</strong></li>
+                    <li><span>Horses</span><strong>{(state.horses || []).length}</strong></li>
+                    <li><span>Cattle</span><strong>{(state.cattle || []).length}</strong></li>
+                    <li><span>Net worth</span><strong>{fmtMoney(netWorth)}</strong></li>
+                  </ul>
+                </SideBox>
+
+                <SideBox title="Quick Links">
+                  <LinkStack links={HOME_QUICK_LINKS} current={tab} onPick={setTab} />
+                </SideBox>
+
+                {/* Deliberately an empty labelled slot rather than a real ad. */}
+                <div className="kg-ui-sidebox kg-ui-sidebox--slot">
+                  <p className="kg-ui-sidebox__title">Notices</p>
+                  <div className="kg-ui-sidebox__body">Nothing pinned right now.</div>
+                </div>
+              </aside>
+            </div>
+          </div>
+        </div>
+
+        <DogProfileModal dog={viewDog} onClose={() => setViewDog(null)} />
+        <AnimalProfileModal target={viewAnimal} onClose={() => setViewAnimal(null)} />
+      </div>
+    );
+  }
 
   if (layout === "frame") {
     const openMenu = menuFor(tab);
