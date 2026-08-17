@@ -998,3 +998,414 @@ html[data-theme="light"], html[data-theme="light"] body { background:#f2ebdd; }
   animation-name: kg-minigame-sweep; animation-timing-function: linear; animation-iteration-count: infinite;
 }
 @keyframes kg-minigame-sweep { 0% { left:0%; } 50% { left:100%; } 100% { left:0%; } }
+
+/* ==========================================================================
+   Homestead layout — phase 3 of the rebuild
+   ==========================================================================
+   The classic browser-game shell: a tiled ground, one centred page card, a
+   utility bar above it, primary nav inside its top, and a narrow info rail
+   down the right. Everything here is scoped to .kg-app--home or prefixed
+   kg-ui-, so the frame and sidebar layouts are untouched and swapping between
+   all three stays lossless.
+
+   Tokens are redeclared rather than inherited: this layout puts a cream page
+   on a saturated ground, which is the opposite of what the other two do. */
+
+.kg-app--home {
+  --hs-ground:   #7d3410;
+  --hs-card:     #fbf5e9;
+  --hs-card-2:   #f2e7d3;
+  --hs-bar:      #3b2818;
+  --hs-bar-ink:  #fdf6e9;
+  --hs-ink:      #2c1f14;
+  --hs-ink-soft: #6d5a48;
+  --hs-ink-mute: #97836f;
+  --hs-rule:     #d3c0a2;
+  --hs-rule-2:   #e7dac2;
+  --hs-rust:     #ad4409;
+  --hs-brass:    #8a6a12;
+  --hs-good:     #3f6b34;
+  --hs-good-bg:  #dfeacf;
+  --hs-info-bg:  #d8e6f0;
+  --hs-info-ink: #2b5a7a;
+  --hs-bad:      #a52f2f;
+  --hs-bad-bg:   #f7dcdc;
+  --hs-shadow:   0 3px 0 rgba(48, 25, 10, 0.3), 0 16px 36px -14px rgba(35, 16, 5, 0.6);
+}
+
+[data-theme="dark"] .kg-app--home {
+  --hs-ground:   #24100a;
+  --hs-card:     #1d1611;
+  --hs-card-2:   #262019;
+  --hs-bar:      #100b07;
+  --hs-bar-ink:  #f6e9d6;
+  --hs-ink:      #ece0cf;
+  --hs-ink-soft: #b3a08c;
+  --hs-ink-mute: #8a7867;
+  --hs-rule:     #45372a;
+  --hs-rule-2:   #32271e;
+  --hs-rust:     #f4813c;
+  --hs-brass:    #d8b04a;
+  --hs-good:     #9dbd7c;
+  --hs-good-bg:  #2b3a21;
+  --hs-info-bg:  #1e3243;
+  --hs-info-ink: #8cc3e6;
+  --hs-bad:      #e88b8b;
+  --hs-bad-bg:   #3d1f1f;
+  --hs-shadow:   0 3px 0 rgba(0, 0, 0, 0.5), 0 16px 36px -14px rgba(0, 0, 0, 0.85);
+}
+
+/* ------------------------------- page shell ------------------------------- */
+
+/* Two classes deep on purpose: [data-theme="light"] .kg-app is (0,2,0) and
+   would otherwise repaint this layout's ground with the light app's colour. */
+.kg-app.kg-app--home {
+  min-height: 100vh;
+  padding: 0 14px 60px;
+  color: var(--hs-ink);
+  background-color: var(--hs-ground);
+  /* Paw prints and horseshoes — the two marks this game is actually about. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96'%3E%3Cg fill='%23ffffff' fill-opacity='0.07'%3E%3Cellipse cx='22' cy='27' rx='7' ry='6'/%3E%3Cellipse cx='12' cy='17' rx='3.4' ry='4.3'/%3E%3Cellipse cx='21' cy='12' rx='3.4' ry='4.5'/%3E%3Cellipse cx='30' cy='16' rx='3.2' ry='4'/%3E%3Cpath d='M70 58a12 12 0 0 0-12 12v10h5V70a7 7 0 0 1 14 0v10h5V70a12 12 0 0 0-12-12z'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+.kg-hs { max-width: 900px; margin: 0 auto; }
+
+/* Thin utility bar above the card: social on the left, money on the right. */
+.kg-hs__utility {
+  display: flex; flex-wrap: wrap; gap: 4px 16px;
+  align-items: center; justify-content: space-between;
+  background: var(--hs-bar); color: var(--hs-bar-ink);
+  padding: 6px 14px; margin-top: 16px;
+  border-radius: 8px 8px 0 0;
+  font-size: 12px;
+}
+.kg-hs__ulinks { display: flex; gap: 14px; flex-wrap: wrap; }
+.kg-hs__ulink {
+  background: none; border: 0; padding: 0; cursor: pointer;
+  color: #d6bb96; font: inherit;
+}
+.kg-hs__ulink:hover { color: var(--hs-bar-ink); text-decoration: underline; }
+.kg-hs__purse { display: flex; gap: 12px; align-items: center; font-variant-numeric: tabular-nums; }
+/* The theme toggle and auth button are shared with the other layouts, where
+   they sit on a wide header. In this thin bar they have to shrink to fit it
+   rather than the bar growing to fit them. */
+.kg-app--home .kg-hs__purse .kg-themetoggle,
+.kg-app--home .kg-hs__purse .kg-cloud > .kg-btn {
+  padding: 3px 9px; font-size: 11px; border-radius: 5px; width: auto;
+  background: rgba(255, 255, 255, 0.1); color: var(--hs-bar-ink);
+  border: 1px solid rgba(255, 255, 255, 0.18); box-shadow: none; min-height: 0;
+  text-transform: none; letter-spacing: 0;
+}
+.kg-app--home .kg-hs__purse .kg-themetoggle:hover,
+.kg-app--home .kg-hs__purse .kg-cloud > .kg-btn:hover { background: rgba(255, 255, 255, 0.2); }
+.kg-hs__purse .kg-themetoggle__label { font-size: 11px; }
+.kg-hs__purse b { font-weight: 700; }
+.kg-hs__cash { color: #57c286; }
+.kg-hs__fame { color: #f0c04a; }
+
+.kg-hs__card {
+  background: var(--hs-card);
+  border: 1px solid var(--hs-rule);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  box-shadow: var(--hs-shadow);
+}
+
+/* Masthead: wordmark left, primary nav right. */
+.kg-hs__head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; padding: 12px 16px 0; flex-wrap: wrap;
+}
+.kg-hs__brand { display: flex; align-items: center; gap: 9px; background: none; border: 0; cursor: pointer; padding: 0; }
+.kg-hs__brand img { width: 42px; height: 42px; border-radius: 10px; }
+.kg-hs__wordmark {
+  font-family: 'Space Grotesk', 'Inter', sans-serif; font-weight: 700;
+  font-size: 21px; letter-spacing: -0.02em; color: var(--hs-ink); line-height: 1;
+  display: block; text-align: left;
+}
+.kg-hs__sim {
+  display: block; font-size: 9.5px; letter-spacing: 0.26em;
+  text-transform: uppercase; color: var(--hs-rust); font-weight: 600; margin-top: 3px;
+}
+
+.kg-hs__nav { display: flex; gap: 3px; flex-wrap: wrap; }
+.kg-hs__navitem { position: relative; }
+.kg-hs__navbtn {
+  display: flex; align-items: center; gap: 6px;
+  background: none; border: 0; cursor: pointer; font: inherit;
+  font-size: 13px; font-weight: 600; color: var(--hs-ink-soft);
+  padding: 8px 11px; border-radius: 7px 7px 0 0;
+}
+.kg-hs__navbtn:hover { background: var(--hs-card-2); color: var(--hs-ink); }
+.kg-hs__navitem--on .kg-hs__navbtn { background: var(--hs-bar); color: var(--hs-bar-ink); }
+.kg-hs__navicon { font-size: 14px; }
+
+/* Atlas mega-dropdown. Hover or keyboard focus opens it. */
+.kg-hs__mega {
+  position: absolute; top: 100%; right: 0; z-index: 40;
+  display: none; gap: 22px; padding: 16px 20px;
+  background: var(--hs-card); border: 1px solid var(--hs-rule);
+  border-radius: 8px; box-shadow: 0 18px 40px -12px rgba(30, 14, 4, 0.55);
+  min-width: 520px;
+}
+.kg-hs__navitem:hover .kg-hs__mega,
+.kg-hs__navitem:focus-within .kg-hs__mega { display: flex; }
+.kg-hs__megacol { display: flex; flex-direction: column; gap: 2px; min-width: 118px; }
+.kg-hs__megahead {
+  margin: 0 0 5px; font-size: 10px; letter-spacing: 0.13em; text-transform: uppercase;
+  color: var(--hs-ink-mute); font-weight: 700;
+}
+.kg-hs__megalink {
+  background: none; border: 0; padding: 4px 6px; margin-left: -6px; cursor: pointer;
+  font: inherit; font-size: 13px; color: var(--hs-rust); text-align: left; border-radius: 5px;
+}
+.kg-hs__megalink:hover { background: var(--hs-card-2); text-decoration: underline; }
+
+/* Body: wide main column, narrow info rail. */
+.kg-hs__body {
+  display: grid; grid-template-columns: minmax(0, 1fr) 172px;
+  gap: 18px; padding: 14px 16px 20px;
+  border-top: 1px solid var(--hs-rule); margin-top: 8px;
+}
+.kg-hs__main { min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.kg-hs__rail { display: flex; flex-direction: column; gap: 12px; }
+
+@media (max-width: 760px) {
+  .kg-hs__body { grid-template-columns: minmax(0, 1fr); }
+  .kg-hs__rail { flex-direction: row; flex-wrap: wrap; }
+  .kg-hs__rail > * { flex: 1 1 200px; }
+  .kg-hs__mega { min-width: 0; right: auto; left: 0; flex-wrap: wrap; }
+}
+
+/* ------------------------------- components -------------------------------- */
+
+.kg-ui-panel {
+  border: 1px solid var(--hs-rule); border-radius: 7px; overflow: hidden;
+  background: var(--hs-card);
+}
+.kg-ui-panel__bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: var(--hs-bar); color: var(--hs-bar-ink); padding: 7px 12px;
+}
+.kg-ui-panel__title { font-weight: 700; font-size: 12.5px; letter-spacing: 0.02em; }
+.kg-ui-panel__right { font-size: 11.5px; color: #cdb391; }
+.kg-ui-panel__toggle {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: 100%; background: none; border: 0; padding: 0; cursor: pointer;
+  color: inherit; font: inherit;
+}
+.kg-ui-panel__sign { font-size: 15px; line-height: 1; opacity: 0.85; }
+.kg-ui-panel__body { padding: 12px 14px; background: var(--hs-card); font-size: 13.5px; line-height: 1.55; }
+.kg-ui-panel__body > :first-child { margin-top: 0; }
+.kg-ui-panel__body > :last-child { margin-bottom: 0; }
+
+.kg-ui-tabs {
+  display: flex; flex-wrap: wrap;
+  border: 1px solid var(--hs-rule); border-radius: 7px; overflow: hidden;
+  background: var(--hs-card-2);
+}
+.kg-ui-tabs__tab {
+  flex: 0 0 auto; background: none; border: 0; cursor: pointer; font: inherit;
+  font-size: 12.5px; font-weight: 600; color: var(--hs-ink-soft);
+  padding: 8px 15px; border-right: 1px solid var(--hs-rule);
+  display: flex; align-items: center; gap: 6px;
+}
+.kg-ui-tabs__tab:last-child { border-right: 0; }
+.kg-ui-tabs__tab:hover { background: var(--hs-card); color: var(--hs-ink); }
+.kg-ui-tabs__tab--active,
+.kg-ui-tabs__tab--active:hover { background: var(--hs-bar); color: var(--hs-bar-ink); }
+.kg-ui-tabs__count {
+  font-size: 10.5px; background: rgba(255,255,255,0.16); border-radius: 999px;
+  padding: 1px 6px; font-variant-numeric: tabular-nums;
+}
+.kg-ui-tabs__tab:not(.kg-ui-tabs__tab--active) .kg-ui-tabs__count { background: rgba(0,0,0,0.09); }
+
+.kg-ui-notice {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 13px; border-radius: 6px; font-size: 13px; line-height: 1.5;
+  border: 1px solid transparent;
+}
+.kg-ui-notice__icon {
+  flex: 0 0 auto; width: 18px; height: 18px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11.5px; font-weight: 700; margin-top: 1px; color: #fff;
+}
+.kg-ui-notice__body { flex: 1; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.kg-ui-notice__fix {
+  background: none; border: 0; padding: 0; cursor: pointer; font: inherit;
+  font-weight: 700; text-decoration: underline; color: inherit;
+}
+.kg-ui-notice__x {
+  background: none; border: 0; cursor: pointer; font-size: 17px; line-height: 1;
+  color: inherit; opacity: 0.55; padding: 0 2px;
+}
+.kg-ui-notice__x:hover { opacity: 1; }
+.kg-ui-notice--info    { background: var(--hs-info-bg); color: var(--hs-info-ink); border-color: rgba(43,90,122,0.22); }
+.kg-ui-notice--info    .kg-ui-notice__icon { background: var(--hs-info-ink); }
+.kg-ui-notice--success { background: var(--hs-good-bg); color: var(--hs-good); border-color: rgba(63,107,52,0.24); }
+.kg-ui-notice--success .kg-ui-notice__icon { background: var(--hs-good); }
+.kg-ui-notice--error,
+.kg-ui-notice--warn    { background: var(--hs-bad-bg); color: var(--hs-bad); border-color: rgba(165,47,47,0.24); }
+.kg-ui-notice--error   .kg-ui-notice__icon,
+.kg-ui-notice--warn    .kg-ui-notice__icon { background: var(--hs-bad); }
+
+.kg-ui-note {
+  background: var(--hs-card-2); border: 1px solid var(--hs-rule-2);
+  border-radius: 6px; padding: 11px 14px; font-size: 13px; line-height: 1.6;
+  color: var(--hs-ink-soft);
+}
+.kg-ui-note__title {
+  margin: 0 0 4px; font-weight: 700; font-size: 12px; color: var(--hs-ink);
+  letter-spacing: 0.02em;
+}
+.kg-ui-note__body > :first-child { margin-top: 0; }
+.kg-ui-note__body > :last-child { margin-bottom: 0; }
+
+.kg-ui-meter { margin-bottom: 9px; }
+.kg-ui-meter:last-child { margin-bottom: 0; }
+.kg-ui-meter__head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  font-size: 12px; margin-bottom: 3px;
+}
+.kg-ui-meter__label { color: var(--hs-ink-soft); }
+.kg-ui-meter__label[tabindex] { cursor: help; }
+.kg-ui-meter__q {
+  display: inline-block; margin-left: 4px; font-size: 9px; font-weight: 700;
+  width: 12px; height: 12px; line-height: 12px; text-align: center; border-radius: 50%;
+  background: var(--hs-rule); color: var(--hs-ink-soft);
+}
+.kg-ui-meter__value { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--hs-ink); }
+.kg-ui-meter__track {
+  height: 11px; border-radius: 999px; background: var(--hs-rule-2);
+  border: 1px solid var(--hs-rule); overflow: hidden;
+}
+.kg-ui-meter__fill { height: 100%; border-radius: 999px; transition: width 0.25s ease; }
+.kg-ui-meter__fill--energy { background: linear-gradient(180deg, #f0913c, #d96a12); }
+.kg-ui-meter__fill--good   { background: linear-gradient(180deg, #6aa84f, #46812f); }
+.kg-ui-meter__fill--warn   { background: linear-gradient(180deg, #e0b93c, #bd9310); }
+.kg-ui-meter__fill--bad    { background: linear-gradient(180deg, #d5645f, #ab3a35); }
+.kg-ui-meter--empty .kg-ui-meter__value { color: var(--hs-ink-mute); }
+
+.kg-ui-tablewrap { overflow-x: auto; border: 1px solid var(--hs-rule); border-radius: 6px; }
+.kg-ui-table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.kg-ui-table th {
+  background: var(--hs-card-2); text-align: left; font-weight: 700; font-size: 11.5px;
+  padding: 8px 11px; border-bottom: 1px solid var(--hs-rule); color: var(--hs-ink-soft);
+  white-space: nowrap;
+}
+.kg-ui-table td { padding: 8px 11px; border-bottom: 1px solid var(--hs-rule-2); }
+.kg-ui-table tbody tr:last-child td { border-bottom: 0; }
+.kg-ui-table tbody tr:nth-child(even) { background: rgba(140, 110, 70, 0.05); }
+.kg-ui-table__right { text-align: right; font-variant-numeric: tabular-nums; }
+.kg-ui-table__sort {
+  background: none; border: 0; padding: 0; cursor: pointer; font: inherit;
+  font-weight: 700; font-size: 11.5px; color: var(--hs-rust);
+}
+.kg-ui-table__sort:hover { text-decoration: underline; }
+.kg-ui-table__sort--on { text-decoration: underline; color: var(--hs-ink); }
+.kg-ui-empty {
+  margin: 0; padding: 16px; text-align: center; font-size: 13px;
+  color: var(--hs-ink-mute); background: var(--hs-card-2);
+  border: 1px dashed var(--hs-rule); border-radius: 6px;
+}
+
+.kg-ui-backdrop {
+  position: fixed; inset: 0; z-index: 90; background: rgba(24, 12, 4, 0.62);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 40px 16px; overflow-y: auto;
+}
+.kg-ui-modal {
+  width: 100%; max-width: 460px; background: var(--hs-card);
+  border: 1px solid var(--hs-rule); border-radius: 8px; overflow: hidden;
+  box-shadow: 0 24px 60px -16px rgba(0, 0, 0, 0.6);
+}
+.kg-ui-modal--wide { max-width: 720px; }
+.kg-ui-modal__bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: var(--hs-bar); color: var(--hs-bar-ink); padding: 9px 14px;
+}
+.kg-ui-modal__title { font-weight: 700; font-size: 13.5px; }
+.kg-ui-modal__x {
+  background: none; border: 0; cursor: pointer; color: inherit;
+  font-size: 20px; line-height: 1; opacity: 0.75; padding: 0 2px;
+}
+.kg-ui-modal__x:hover { opacity: 1; }
+.kg-ui-modal__body { padding: 15px 17px; font-size: 13.5px; line-height: 1.6; }
+.kg-ui-modal__foot {
+  padding: 11px 17px; background: var(--hs-card-2);
+  border-top: 1px solid var(--hs-rule); display: flex; gap: 9px; justify-content: flex-end;
+}
+
+.kg-ui-sidebox {
+  border: 1px solid var(--hs-rule); border-radius: 7px; overflow: hidden;
+  background: var(--hs-card);
+}
+.kg-ui-sidebox__title {
+  margin: 0; background: var(--hs-bar); color: var(--hs-bar-ink);
+  padding: 6px 10px; font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+}
+.kg-ui-sidebox__body { padding: 9px 10px; font-size: 12px; line-height: 1.5; }
+.kg-ui-sidebox__body > :first-child { margin-top: 0; }
+.kg-ui-sidebox__body > :last-child { margin-bottom: 0; }
+.kg-ui-sidebox--slot .kg-ui-sidebox__body {
+  min-height: 62px; display: flex; align-items: center; justify-content: center;
+  text-align: center; color: var(--hs-ink-mute); font-size: 11px;
+  border: 1px dashed var(--hs-rule); margin: 8px; padding: 8px;
+}
+
+.kg-ui-links { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+.kg-ui-links__link {
+  background: none; border: 0; padding: 2px 0; cursor: pointer; font: inherit;
+  font-size: 12px; color: var(--hs-rust); text-align: left; width: 100%;
+}
+.kg-ui-links__link:hover { text-decoration: underline; }
+.kg-ui-links__here { display: block; padding: 2px 0; font-size: 12px; color: var(--hs-ink-mute); }
+
+.kg-hs__sessionbtn {
+  background: none; border: 0; padding: 0; cursor: pointer; font: inherit;
+  font-size: 12px; color: var(--hs-rust);
+}
+.kg-hs__sessionbtn:hover { text-decoration: underline; }
+
+.kg-ui-tile {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 12px 10px; border-radius: 7px; font: inherit; font-size: 12px;
+  border: 1px solid var(--hs-rule); background: var(--hs-card-2);
+  color: var(--hs-ink); cursor: pointer; text-align: center;
+}
+.kg-ui-tile:hover { border-color: var(--hs-rust); }
+.kg-ui-tile--locked { cursor: not-allowed; opacity: 0.72; }
+.kg-ui-tile--locked:hover { border-color: var(--hs-rule); }
+.kg-ui-tile__lock { font-size: 15px; }
+.kg-ui-tile__label { font-weight: 600; }
+.kg-ui-tile__req { font-size: 10.5px; color: var(--hs-ink-mute); }
+
+/* Buttons inside the homestead card follow its palette, not the dark-app one
+   the other two layouts use. */
+.kg-app--home .kg-btn {
+  background: var(--hs-bar); color: var(--hs-bar-ink);
+  border: 1px solid rgba(0,0,0,0.25); box-shadow: none;
+}
+.kg-app--home .kg-btn:hover:not(:disabled) { background: #4d3622; }
+.kg-app--home .kg-btn--gold { background: linear-gradient(180deg, #b5860f, #8d670a); color: #fff; }
+.kg-app--home .kg-btn--ghost,
+.kg-app--home .kg-btn--sm,
+.kg-app--home .kg-btn--sm2 { background: var(--hs-card-2); color: var(--hs-ink); }
+.kg-app--home .kg-btn--sm:hover:not(:disabled),
+.kg-app--home .kg-btn--sm2:hover:not(:disabled) { background: var(--hs-card); border-color: var(--hs-rust); }
+.kg-app--home .kg-btn:disabled { opacity: 0.5; }
+
+/* The existing screens render inside this card. They were written against the
+   dark-app tokens, so remap those onto the homestead palette rather than
+   restyling every screen — phases 4 onward replace them one at a time, and
+   until then they should at least not be dark boxes on a cream page. */
+.kg-app--home {
+  --paper: var(--hs-card); --paper-dark: var(--hs-card-2); --raise: var(--hs-card-2);
+  --ink: var(--hs-ink); --ink-soft: var(--hs-ink-soft);
+  --border: var(--hs-rule); --metal: var(--hs-rule-2); --stitch: var(--hs-rule-2);
+  --accent: var(--hs-rust); --gold: var(--hs-brass); --olive: var(--hs-good);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kg-ui-meter__fill { transition: none; }
+}

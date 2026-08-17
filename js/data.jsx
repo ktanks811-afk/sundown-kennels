@@ -388,9 +388,75 @@ function navChildrenFor(navEntry, adminUnlocked) {
    changes — and it's switchable from Settings so nothing is lost either way. */
 const LAYOUT_KEY = "kennel-layout";
 const LAYOUTS = [
+  { id: "home",    label: "Homestead", blurb: "The new look — tiled ground, one centred page, Atlas menu and an info rail." },
   { id: "frame",   label: "Game frame", blurb: "Menu bar across the top, bordered page, info rail on the right." },
   { id: "classic", label: "Sidebar", blurb: "The older look — one plain column of links down the left." },
 ];
+
+/* ----------------------------- homestead layout ---------------------------- */
+
+/* Primary nav across the top of the page card. Six entries, because a nav you
+   can read at a glance is the whole point of this shell — everything else
+   hangs off Atlas. `menu` marks the one that opens the mega-dropdown. */
+const HOME_NAV = [
+  { id: "kennel",  label: "Ranch",  icon: "⌂", tab: "kennel" },
+  { id: "atlas",   label: "Atlas",  icon: "✦", menu: true },
+  { id: "market",  label: "Market", icon: "$", tab: "market" },
+  { id: "work",    label: "Work",   icon: "◆", tab: "hunt" },
+  { id: "records", label: "Records", icon: "§", tab: "registry" },
+  { id: "account", label: "You",    icon: "☺", tab: "profile" },
+];
+
+/* The Atlas dropdown. Three labelled columns plus a leader-board block, all
+   plain text links. Destinations that do not exist yet are absent rather than
+   dead — a link that goes nowhere is worse than no link. */
+const ATLAS_MENU = [
+  { heading: "Explore", items: [
+    { id: "rescue", label: "Adoption Center" },
+    { id: "hunt",   label: "Hunting" },
+    { id: "trials", label: "Trials & Shows" },
+    { id: "horses", label: "Horses" },
+    { id: "cattle", label: "Cattle" },
+  ] },
+  { heading: "Information", items: [
+    { id: "registry", label: "Stud Book" },
+    { id: "property", label: "Your Property" },
+    { id: "breed",    label: "Breeding" },
+    { id: "log",      label: "Ledger" },
+  ] },
+  { heading: "Social", items: [
+    { id: "trade",  label: "Player Market" },
+    { id: "rivals", label: "Challenges" },
+  ] },
+  { heading: "Leader Boards", items: [
+    { id: "leaderboard", label: "Top Players" },
+    { id: "rankings",    label: "County Ranks" },
+    { id: "hof",         label: "Hall of Fame" },
+    { id: "racerecords", label: "Race Records" },
+  ] },
+];
+
+/* The rail's Quick Links. The current page renders muted and inert rather than
+   disappearing, so the list never changes shape underneath you. */
+const HOME_QUICK_LINKS = [
+  { id: "overview",  label: "Overview" },
+  { id: "kennel",    label: "The Yard" },
+  { id: "inventory", label: "Inventory" },
+  { id: "shop",      label: "Supply Store" },
+  { id: "log",       label: "Activity" },
+  { id: "profile",   label: "Your Account" },
+];
+
+/* Which top-level nav entry owns a screen, so the right one lights up. */
+const HOME_NAV_OWNER = {
+  overview: "kennel", kennel: "kennel", property: "kennel", breed: "kennel",
+  hunt: "work", trials: "work", horses: "work", cattle: "work",
+  market: "market", shop: "market", inventory: "market", rescue: "market",
+  trade: "market",
+  registry: "records", rankings: "records", hof: "records",
+  racerecords: "records", log: "records", leaderboard: "records", rivals: "records",
+  profile: "account", settings: "account", danger: "account", admin: "account",
+};
 
 /* Each menu is a dropdown; columns group its links the way a stud book would. */
 const MENUS = [

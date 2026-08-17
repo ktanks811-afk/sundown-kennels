@@ -135,6 +135,46 @@ async function main() {
     return menus;
   }
 
+  /* Homestead is the default layout, so leaving it out would mean the layout
+     almost everyone sees is the one nothing tests. Walks the primary nav and
+     every link in the Atlas dropdown. */
+  async function walkHomestead() {
+    const nav = await page.locator(".kg-hs__navbtn").count();
+    for (let i = 0; i < nav; i++) {
+      const label = (await page.locator(".kg-hs__navbtn").nth(i).innerText()).trim();
+      await page.locator(".kg-hs__navbtn").nth(i).click();
+      await page.mouse.move(5, 700);
+      await page.waitForTimeout(250);
+      visited++;
+      await recordRoute(`homestead/${label}`);
+    }
+    // The Atlas menu only renders on hover, so open it before reading its links.
+    await page.locator(".kg-hs__navitem", { has: page.locator(".kg-hs__mega") }).first().hover();
+    await page.waitForTimeout(200);
+    const links = await page.locator(".kg-hs__megalink").count();
+    for (let j = 0; j < links; j++) {
+      await page.locator(".kg-hs__navitem", { has: page.locator(".kg-hs__mega") }).first().hover();
+      await page.waitForTimeout(120);
+      const link = page.locator(".kg-hs__megalink").nth(j);
+      const label = (await link.innerText()).trim();
+      await link.click();
+      await page.mouse.move(5, 700);
+      await page.waitForTimeout(220);
+      visited++;
+      await recordRoute(`homestead/Atlas > ${label}`);
+    }
+    // The rail's Quick Links use the shared LinkStack.
+    const quick = await page.locator(".kg-hs__rail .kg-ui-links__link").count();
+    for (let k = 0; k < Math.min(quick, 6); k++) {
+      const l = page.locator(".kg-hs__rail .kg-ui-links__link").nth(0);
+      if (!(await l.count())) break;
+      await l.click();
+      await page.waitForTimeout(200);
+      visited++;
+    }
+    return nav + links;
+  }
+
   async function setLayout(which) {
     await page.evaluate((v) => window.localStorage.setItem("kennel-layout", v), which);
     await page.reload({ waitUntil: "networkidle" });
@@ -174,6 +214,10 @@ async function main() {
 
     return problems;
   }
+
+  await setLayout("home");
+  const homeStops = await walkHomestead();
+  console.log(`Homestead layout: ${homeStops} nav entries and Atlas links walked.`);
 
   await setLayout("frame");
   const menus = await walkFrame();
@@ -231,8 +275,9 @@ async function main() {
     process.exit(1);
   }
   // A pass with nothing clicked is not a pass.
-  if (menus === 0 || tabs === 0 || visited < 20) {
-    console.error(`\nSmoke test reached almost nothing: ${menus} menus, ${tabs} nav entries, ${visited} screens visited.`);
+  if (homeStops === 0 || menus === 0 || tabs === 0 || visited < 20) {
+    console.error(`\nSmoke test reached almost nothing: ${homeStops} homestead stops, ` +
+      `${menus} menus, ${tabs} nav entries, ${visited} screens visited.`);
     console.error("Either a layout stopped rendering or its selectors changed.");
     process.exit(1);
   }
@@ -247,7 +292,7 @@ async function main() {
     for (const p of navProblems) console.error(" - " + p);
     process.exit(1);
   }
-  console.log(`\nSmoke test passed: onboarding + ${visited} screen visits across both layouts, ` +
+  console.log(`\nSmoke test passed: onboarding + ${visited} screen visits across all three layouts, ` +
     `${seenPaths.size} routes, zero console errors.`);
 }
 
