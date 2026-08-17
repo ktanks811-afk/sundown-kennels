@@ -1276,6 +1276,18 @@ function KennelGame() {
     const cfg = LIVESTOCK_CONFIG[kind];
     update((prev) => addLog({ ...prev, [cfg.marketKey]: [...prev[cfg.marketKey], ...generateAnimalMarket(kind, 3, prev.day)].slice(-24) }, "info", `Scouted new ${cfg.labelPlural.toLowerCase()} at the market.`));
   }
+  // Attaches (or clears, with dataUrl === null) a player-supplied photo on
+  // one dog/horse/cow. Purely cosmetic — no log entry, no cash — so it's a
+  // plain array-map update rather than going through addLog.
+  function setAnimalPhoto(kind, animalId, dataUrl) {
+    update((prev) => {
+      if (kind === "dog") {
+        return { ...prev, dogs: prev.dogs.map((d) => (d.id === animalId ? { ...d, photo: dataUrl } : d)) };
+      }
+      const cfg = LIVESTOCK_CONFIG[kind];
+      return { ...prev, [cfg.arrayKey]: prev[cfg.arrayKey].map((a) => (a.id === animalId ? { ...a, photo: dataUrl } : a)) };
+    });
+  }
   function doSellAnimal(kind, animal, atAuction) {
     const cfg = LIVESTOCK_CONFIG[kind];
     if (atAuction && !canHaul(state)) return;
@@ -1674,8 +1686,18 @@ function KennelGame() {
           </div>
         </div>
 
-        <DogProfileModal dog={viewDog} onClose={() => setViewDog(null)} />
-        <AnimalProfileModal target={viewAnimal} onClose={() => setViewAnimal(null)} />
+        <DogProfileModal dog={viewDog} onClose={() => setViewDog(null)}
+          onSetPhoto={(dataUrl) => {
+            if (!viewDog) return;
+            setAnimalPhoto("dog", viewDog.id, dataUrl);
+            setViewDog((prev) => (prev ? { ...prev, photo: dataUrl } : prev));
+          }} />
+        <AnimalProfileModal target={viewAnimal} onClose={() => setViewAnimal(null)}
+          onSetPhoto={(dataUrl) => {
+            if (!viewAnimal) return;
+            setAnimalPhoto(viewAnimal.kind, viewAnimal.animal.id, dataUrl);
+            setViewAnimal((prev) => (prev ? { ...prev, animal: { ...prev.animal, photo: dataUrl } } : prev));
+          }} />
       </div>
     );
   }
@@ -1783,8 +1805,18 @@ function KennelGame() {
           </aside>
         </div>
 
-        <DogProfileModal dog={viewDog} onClose={() => setViewDog(null)} />
-        <AnimalProfileModal target={viewAnimal} onClose={() => setViewAnimal(null)} />
+        <DogProfileModal dog={viewDog} onClose={() => setViewDog(null)}
+          onSetPhoto={(dataUrl) => {
+            if (!viewDog) return;
+            setAnimalPhoto("dog", viewDog.id, dataUrl);
+            setViewDog((prev) => (prev ? { ...prev, photo: dataUrl } : prev));
+          }} />
+        <AnimalProfileModal target={viewAnimal} onClose={() => setViewAnimal(null)}
+          onSetPhoto={(dataUrl) => {
+            if (!viewAnimal) return;
+            setAnimalPhoto(viewAnimal.kind, viewAnimal.animal.id, dataUrl);
+            setViewAnimal((prev) => (prev ? { ...prev, animal: { ...prev.animal, photo: dataUrl } } : prev));
+          }} />
         <LitterPicker litter={pendingLitter} selectedIds={selectedPupIds} onConfirm={confirmLitter}
           onToggle={(id) => setSelectedPupIds((prev) => {
             if (prev.includes(id)) return prev.filter((x) => x !== id);
@@ -1868,8 +1900,18 @@ function KennelGame() {
         {screens}
       </main>
       </div>
-      <DogProfileModal dog={viewDog} onClose={() => setViewDog(null)} />
-      <AnimalProfileModal target={viewAnimal} onClose={() => setViewAnimal(null)} />
+      <DogProfileModal dog={viewDog} onClose={() => setViewDog(null)}
+        onSetPhoto={(dataUrl) => {
+          if (!viewDog) return;
+          setAnimalPhoto("dog", viewDog.id, dataUrl);
+          setViewDog((prev) => (prev ? { ...prev, photo: dataUrl } : prev));
+        }} />
+      <AnimalProfileModal target={viewAnimal} onClose={() => setViewAnimal(null)}
+        onSetPhoto={(dataUrl) => {
+          if (!viewAnimal) return;
+          setAnimalPhoto(viewAnimal.kind, viewAnimal.animal.id, dataUrl);
+          setViewAnimal((prev) => (prev ? { ...prev, animal: { ...prev.animal, photo: dataUrl } } : prev));
+        }} />
       <LitterPicker litter={pendingLitter} selectedIds={selectedPupIds} onConfirm={confirmLitter}
         onToggle={(id) => setSelectedPupIds((prev) => {
           if (prev.includes(id)) return prev.filter((x) => x !== id);

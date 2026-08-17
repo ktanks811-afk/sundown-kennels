@@ -527,7 +527,67 @@ function LitterPicker({ litter, selectedIds, onToggle, onConfirm }) {
   );
 }
 
-function DogProfileModal({ dog, onClose }) {
+/* Suggests a ChatGPT prompt built from the animal's real breed and coat
+   color, and lets the player attach whatever picture they generate there
+   (or any photo) as its portrait — the only path to something genuinely
+   photoreal, since no image-generation model is wired into this game.
+   Downscaled hard to a small square JPEG on the way in so a save full of
+   photos doesn't blow past localStorage/cloud-save size limits. */
+function suggestedPortraitPrompt(kind, animal, colorText) {
+  const species = kind === "dog" ? "dog" : kind === "horse" ? "horse" : "cow";
+  // Some breed names already end in the species word (Catahoula Leopard
+  // Dog) — don't stack a second "dog" on top of it.
+  const needsSpecies = !animal.breed.toLowerCase().endsWith(species);
+  const sex = animal.sex === "M" ? "male" : "female";
+  return `A realistic photo of a ${sex} ${animal.breed}${needsSpecies ? " " + species : ""}, ${colorText.toLowerCase()} coat, standing outdoors on a ranch.`;
+}
+function PhotoUploader({ kind, animal, colorText, onUpload }) {
+  const [copied, setCopied] = useState(false);
+  const inputRef = useRef(null);
+  const prompt = suggestedPortraitPrompt(kind, animal, colorText);
+
+  function handleFile(e) {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file || !file.type.startsWith("image/")) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const size = 280;
+        const canvas = document.createElement("canvas");
+        canvas.width = size; canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        const scale = Math.max(size / img.width, size / img.height);
+        const w = img.width * scale, h = img.height * scale;
+        ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+        onUpload(canvas.toDataURL("image/jpeg", 0.82));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  }
+  function copyPrompt() {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(prompt).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1800); });
+    }
+  }
+
+  return (
+    <div className="kg-photonudge">
+      <p className="kg-hint" style={{ margin: "10px 0 6px" }}>Want a real picture instead? Generate one on ChatGPT with this prompt, then upload it here.</p>
+      <p className="kg-photonudge__prompt">{prompt}</p>
+      <div className="kg-photonudge__actions">
+        <button type="button" className="kg-btn kg-btn--sm2 kg-btn--ghost" onClick={copyPrompt}>{copied ? "Copied!" : "Copy prompt"}</button>
+        <a className="kg-btn kg-btn--sm2 kg-btn--ghost" href="https://chatgpt.com" target="_blank" rel="noopener noreferrer">Open ChatGPT ↗</a>
+        <button type="button" className="kg-btn kg-btn--sm2" onClick={() => inputRef.current && inputRef.current.click()}>Upload photo</button>
+        <input ref={inputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleFile} />
+      </div>
+    </div>
+  );
+}
+
+function DogProfileModal({ dog, onClose, onSetPhoto }) {
   const closeRef = useRef(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -568,7 +628,17 @@ function DogProfileModal({ dog, onClose }) {
             <h2>{dog.sex === "M" ? "♂" : "♀"} {dog.name} <span className="kg-portrait-hint" aria-hidden="true">▢</span></h2>
           </button>
           <p className="kg-card__breed">{dog.breed} · {colorLabel(dog.colorGenes)}</p>
-          {showPortrait && <AnimalPortrait kind="dog" animal={dog} size={180} />}
+          {showPortrait && (dog.photo ? (
+            <>
+              <img src={dog.photo} alt={`${dog.name}, a ${dog.breed}`} className="kg-portrait kg-portrait--photo" width={180} height={180} />
+              <button type="button" className="kg-linklike" onClick={() => onSetPhoto(null)}>Remove photo</button>
+            </>
+          ) : (
+            <>
+              <AnimalPortrait kind="dog" animal={dog} size={180} />
+              <PhotoUploader kind="dog" animal={dog} colorText={colorLabel(dog.colorGenes)} onUpload={onSetPhoto} />
+            </>
+          ))}
         </div>
 
         <div className="kg-modal__tags">
@@ -790,7 +860,7 @@ function AnimalCard({ kind, animal, price, sellerName, footer, onView }) {
 
 /* The livestock equivalent of DogProfileModal — horses and cattle had cards
    but nothing to click into, so their pedigree and condition were invisible. */
-function AnimalProfileModal({ target, onClose }) {
+function AnimalProfileModal({ target, onClose, onSetPhoto }) {
   const closeRef = useRef(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -828,7 +898,17 @@ function AnimalProfileModal({ target, onClose }) {
             <h2>{animal.sex === "M" ? "♂" : "♀"} {animal.name} <span className="kg-portrait-hint" aria-hidden="true">▢</span></h2>
           </button>
           <p className="kg-card__breed">{animal.breed} · {cfg.colorLabel(animal)}</p>
-          {showPortrait && <AnimalPortrait kind={kind} animal={animal} size={180} />}
+          {showPortrait && (animal.photo ? (
+            <>
+              <img src={animal.photo} alt={`${animal.name}, a ${animal.breed}`} className="kg-portrait kg-portrait--photo" width={180} height={180} />
+              <button type="button" className="kg-linklike" onClick={() => onSetPhoto(null)}>Remove photo</button>
+            </>
+          ) : (
+            <>
+              <AnimalPortrait kind={kind} animal={animal} size={180} />
+              <PhotoUploader kind={kind} animal={animal} colorText={cfg.colorLabel(animal)} onUpload={onSetPhoto} />
+            </>
+          ))}
         </div>
 
         <div className="kg-modal__tags">
