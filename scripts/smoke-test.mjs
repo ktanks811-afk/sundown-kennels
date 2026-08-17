@@ -34,6 +34,17 @@ async function main() {
   page.on("console", (msg) => { if (msg.type() === "error") errors.push(msg.text()); });
   page.on("pageerror", (err) => errors.push("uncaught exception: " + err.message));
 
+  // A failed fetch logs as "Failed to load resource: ... 404 ()" with no URL,
+  // which is useless when the build goes red. Record what actually failed, and
+  // whether it was ours or one of the CDNs, so the log names the culprit.
+  const badRequests = [];
+  page.on("response", (res) => {
+    if (res.status() >= 400) badRequests.push(`${res.status()} ${res.url()}`);
+  });
+  page.on("requestfailed", (req) => {
+    badRequests.push(`no response (${(req.failure() || {}).errorText || "unknown"}) ${req.url()}`);
+  });
+
   await page.goto(`http://localhost:${PORT}/index.html`, { waitUntil: "networkidle", timeout: 30000 });
   await page.waitForTimeout(1000);
 
@@ -155,6 +166,10 @@ async function main() {
   if (errors.length) {
     console.error(`\n${errors.length} console error(s) during the smoke test:`);
     for (const e of errors) console.error(" - " + e);
+    if (badRequests.length) {
+      console.error(`\nFailed requests (${badRequests.length}) — likely the source of the above:`);
+      for (const r of badRequests) console.error(" - " + r);
+    }
     process.exit(1);
   }
   // A pass with nothing clicked is not a pass.
