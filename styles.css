@@ -420,6 +420,17 @@ html, body { margin:0; padding:0; background:#0a0605; }
 .kg-acct__setting strong { font-size:14.5px; font-weight:600; }
 .kg-acct__setting .kg-acct__hint { margin:3px 0 0; }
 .kg-acct__seg { display:flex; gap:4px; background: var(--paper-dark); border:1px solid var(--border); border-radius:999px; padding:3px; }
+/* Segmented controls look like sub-tabs but are not navigation — they need
+   their own class so anything walking .kg-subtab (the CI smoke test, for one)
+   doesn't flip the player's settings on its way past. */
+.kg-seg__btn {
+  font-family:inherit; font-size:13px; font-weight:500; padding:8px 14px; cursor:pointer;
+  color: var(--ink-soft); background:transparent; border:1px solid transparent; border-radius:999px;
+  transition: background 0.15s, color 0.15s;
+}
+.kg-seg__btn:hover { background: rgba(255,186,133,0.07); color: var(--ink); }
+.kg-seg__btn--active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-line); font-weight:600; }
+[data-theme="light"] .kg-seg__btn:hover { background: rgba(74,45,26,0.06); }
 
 .kg-notice--good { background: rgba(70,179,122,0.10); border-color: rgba(70,179,122,0.32); color: var(--olive); }
 .kg-notice--bad  { background: rgba(224,72,74,0.10); border-color: rgba(224,72,74,0.32); color: var(--rust); }

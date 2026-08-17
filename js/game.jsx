@@ -69,7 +69,9 @@ function KennelGame() {
   });
   const [adminTarget, setAdminTarget] = useState("");
   const [layout, setLayout] = useState(() => {
-    try { return window.localStorage.getItem(LAYOUT_KEY) === "frame" ? "frame" : "classic"; } catch { return "classic"; }
+    // Frame is the default now. An explicit "classic" choice is still honoured,
+    // so anyone who already picked the old one keeps it.
+    try { return window.localStorage.getItem(LAYOUT_KEY) === "classic" ? "classic" : "frame"; } catch { return "frame"; }
   });
   useEffect(() => {
     try { window.localStorage.setItem(LAYOUT_KEY, layout); } catch {}
@@ -1664,7 +1666,7 @@ function KennelGame() {
                 </p>
                 <div className="kg-acct__seg" style={{ display: "inline-flex" }}>
                   {LAYOUTS.map((l) => (
-                    <button key={l.id} className={"kg-subtab " + (layout === l.id ? "kg-subtab--active" : "")}
+                    <button key={l.id} className={"kg-seg__btn " + (layout === l.id ? "kg-seg__btn--active" : "")}
                       onClick={() => setLayout(l.id)}>{l.label}</button>
                   ))}
                 </div>
@@ -1760,8 +1762,8 @@ function KennelGame() {
                         <p className="kg-acct__hint">Night suits the sundown palette; day is easier in bright light.</p>
                       </div>
                       <div className="kg-acct__seg">
-                        <button className={"kg-subtab " + (theme === "dark" ? "kg-subtab--active" : "")} onClick={() => setTheme("dark")}>Night</button>
-                        <button className={"kg-subtab " + (theme === "light" ? "kg-subtab--active" : "")} onClick={() => setTheme("light")}>Day</button>
+                        <button className={"kg-seg__btn " + (theme === "dark" ? "kg-seg__btn--active" : "")} onClick={() => setTheme("dark")}>Night</button>
+                        <button className={"kg-seg__btn " + (theme === "light" ? "kg-seg__btn--active" : "")} onClick={() => setTheme("light")}>Day</button>
                       </div>
                     </div>
 
@@ -1775,7 +1777,7 @@ function KennelGame() {
                       </div>
                       <div className="kg-acct__seg">
                         {LAYOUTS.map((l) => (
-                          <button key={l.id} className={"kg-subtab " + (layout === l.id ? "kg-subtab--active" : "")}
+                          <button key={l.id} className={"kg-seg__btn " + (layout === l.id ? "kg-seg__btn--active" : "")}
                             onClick={() => setLayout(l.id)}>{l.label}</button>
                         ))}
                       </div>
@@ -1802,9 +1804,9 @@ function KennelGame() {
                         <p className="kg-acct__hint">Turn this off and your kennel stops appearing in the public rankings. You can still trade and take challenges.</p>
                       </div>
                       <div className="kg-acct__seg">
-                        <button className={"kg-subtab " + ((!profile || profile.show_on_leaderboard !== false) ? "kg-subtab--active" : "")}
+                        <button className={"kg-seg__btn " + ((!profile || profile.show_on_leaderboard !== false) ? "kg-seg__btn--active" : "")}
                           disabled={accountBusy} onClick={() => saveProfile({ show_on_leaderboard: true })}>Public</button>
-                        <button className={"kg-subtab " + ((profile && profile.show_on_leaderboard === false) ? "kg-subtab--active" : "")}
+                        <button className={"kg-seg__btn " + ((profile && profile.show_on_leaderboard === false) ? "kg-seg__btn--active" : "")}
                           disabled={accountBusy} onClick={() => saveProfile({ show_on_leaderboard: false })}>Hidden</button>
                       </div>
                     </div>
@@ -3013,7 +3015,7 @@ function KennelGame() {
           <div className="kg-menubar__inner">
             {MENUS.map((m) => (
               <div key={m.id} className={"kg-menu " + (openMenu && openMenu.id === m.id ? "kg-menu--current" : "")}>
-                <button className="kg-menu__btn" onClick={() => setTab(m.columns[0].items[0].id)}>
+                <button className="kg-menu__btn" onClick={(e) => { setTab(m.columns[0].items[0].id); e.currentTarget.blur(); }}>
                   <span aria-hidden="true">{m.icon}</span> {m.label}
                 </button>
                 <div className="kg-menu__panel" role="menu">
@@ -3023,14 +3025,14 @@ function KennelGame() {
                       {col.items.map((it) => (
                         <button key={it.id} role="menuitem"
                           className={"kg-menu__item " + (tab === it.id ? "kg-menu__item--active" : "")}
-                          onClick={() => setTab(it.id)}>{it.label}</button>
+                          onClick={(e) => { setTab(it.id); e.currentTarget.blur(); }}>{it.label}</button>
                       ))}
                     </div>
                   ))}
                   {m.id === "account" && adminUnlocked && (
                     <div className="kg-menu__col">
                       <p className="kg-menu__heading">Tools</p>
-                      <button role="menuitem" className={"kg-menu__item " + (tab === "admin" ? "kg-menu__item--active" : "")} onClick={() => setTab("admin")}>Admin</button>
+                      <button role="menuitem" className={"kg-menu__item " + (tab === "admin" ? "kg-menu__item--active" : "")} onClick={(e) => { setTab("admin"); e.currentTarget.blur(); }}>Admin</button>
                     </div>
                   )}
                 </div>

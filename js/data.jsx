@@ -388,8 +388,8 @@ function navChildrenFor(navEntry, adminUnlocked) {
    changes — and it's switchable from Settings so nothing is lost either way. */
 const LAYOUT_KEY = "kennel-layout";
 const LAYOUTS = [
-  { id: "classic", label: "Sidebar", blurb: "The current look — one column of links down the left." },
   { id: "frame",   label: "Game frame", blurb: "Menu bar across the top, bordered page, info rail on the right." },
+  { id: "classic", label: "Sidebar", blurb: "The older look — one plain column of links down the left." },
 ];
 
 /* Each menu is a dropdown; columns group its links the way a stud book would. */
