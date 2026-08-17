@@ -68,7 +68,9 @@ function KennelGame() {
   });
   const [adminTarget, setAdminTarget] = useState("");
   const [layout, setLayout] = useState(() => {
-    try { return window.localStorage.getItem(LAYOUT_KEY) === "frame" ? "frame" : "classic"; } catch { return "classic"; }
+    // Frame is the default now. An explicit "classic" choice is still honoured,
+    // so anyone who already picked the old one keeps it.
+    try { return window.localStorage.getItem(LAYOUT_KEY) === "classic" ? "classic" : "frame"; } catch { return "frame"; }
   });
   useEffect(() => {
     try { window.localStorage.setItem(LAYOUT_KEY, layout); } catch {}
@@ -2836,7 +2838,7 @@ function KennelGame() {
           <div className="kg-menubar__inner">
             {MENUS.map((m) => (
               <div key={m.id} className={"kg-menu " + (openMenu && openMenu.id === m.id ? "kg-menu--current" : "")}>
-                <button className="kg-menu__btn" onClick={() => setTab(m.columns[0].items[0].id)}>
+                <button className="kg-menu__btn" onClick={(e) => { setTab(m.columns[0].items[0].id); e.currentTarget.blur(); }}>
                   <span aria-hidden="true">{m.icon}</span> {m.label}
                 </button>
                 <div className="kg-menu__panel" role="menu">
@@ -2846,14 +2848,14 @@ function KennelGame() {
                       {col.items.map((it) => (
                         <button key={it.id} role="menuitem"
                           className={"kg-menu__item " + (tab === it.id ? "kg-menu__item--active" : "")}
-                          onClick={() => setTab(it.id)}>{it.label}</button>
+                          onClick={(e) => { setTab(it.id); e.currentTarget.blur(); }}>{it.label}</button>
                       ))}
                     </div>
                   ))}
                   {m.id === "account" && adminUnlocked && (
                     <div className="kg-menu__col">
                       <p className="kg-menu__heading">Tools</p>
-                      <button role="menuitem" className={"kg-menu__item " + (tab === "admin" ? "kg-menu__item--active" : "")} onClick={() => setTab("admin")}>Admin</button>
+                      <button role="menuitem" className={"kg-menu__item " + (tab === "admin" ? "kg-menu__item--active" : "")} onClick={(e) => { setTab("admin"); e.currentTarget.blur(); }}>Admin</button>
                     </div>
                   )}
                 </div>
