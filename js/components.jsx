@@ -158,12 +158,13 @@ function RatingSeal({ rating }) {
    model is available in this environment), but a genuinely generated strip
    built from the dog's actual base color + pattern genes, seeded on its id
    so it's stable every time you look at it. */
-function CoatSwatch({ dog, width = 200, height = 26 }) {
-  const rng = mulberry32(hashStr(dog.id));
-  const baseHex = COLOR_HEX[dog.colorGenes.base] || COLOR_HEX.fawn;
+/* Shared by the flat coat-swatch bar and the click-to-reveal portrait
+   below — same pattern math, just handed a different canvas size, so a
+   dog's swatch and its portrait always agree on what it actually looks
+   like. */
+function coatPatternShapes(pattern, colorGenes, baseHex, width, height, rng) {
   const darker = shade(baseHex, -30);
-  const lighter = shade(baseHex, 26);
-  const pattern = dog.colorGenes.pattern;
+  const scale = width / 200;
   const shapes = [];
   if (pattern === "brindle") {
     for (let i = 0; i < 14; i++) {
@@ -171,34 +172,178 @@ function CoatSwatch({ dog, width = 200, height = 26 }) {
       shapes.push(<rect key={i} x={x} y={-4} width={2.5 + rng() * 3} height={height + 8} fill={darker} opacity="0.6" transform={`rotate(22 ${x} ${height / 2})`} />);
     }
   } else if (pattern === "merle") {
-    const patchFill = dog.colorGenes.merleAlleles === 2 ? "#ece4d3" : darker;
-    const count = dog.colorGenes.merleAlleles === 2 ? 11 : 7;
+    const patchFill = colorGenes.merleAlleles === 2 ? "#ece4d3" : darker;
+    const count = colorGenes.merleAlleles === 2 ? 11 : 7;
     for (let i = 0; i < count; i++) {
-      const cx = rng() * width, cy = rng() * height, r = 5 + rng() * 9;
-      shapes.push(<ellipse key={i} cx={cx} cy={cy} rx={r} ry={r * 0.7} fill={patchFill} opacity={dog.colorGenes.merleAlleles === 2 ? 0.6 : 0.5} />);
+      const cx = rng() * width, cy = rng() * height, r = (5 + rng() * 9) * scale;
+      shapes.push(<ellipse key={i} cx={cx} cy={cy} rx={r} ry={r * 0.7} fill={patchFill} opacity={colorGenes.merleAlleles === 2 ? 0.6 : 0.5} />);
     }
   } else if (pattern === "piebald") {
     for (let i = 0; i < 5; i++) {
-      const cx = rng() * width, cy = rng() * height, r = 9 + rng() * 14;
+      const cx = rng() * width, cy = rng() * height, r = (9 + rng() * 14) * scale;
       shapes.push(<ellipse key={i} cx={cx} cy={cy} rx={r} ry={r * 0.75} fill={COLOR_HEX.white} opacity="0.92" />);
     }
   } else if (pattern === "saddle") {
     shapes.push(<rect key="s" x={width * 0.32} y={0} width={width * 0.36} height={height} fill={darker} opacity="0.88" />);
+  } else if (pattern === "belt") {
+    shapes.push(<rect key="b" x={width * 0.38} y={0} width={width * 0.22} height={height} fill={COLOR_HEX.white} opacity="0.95" />);
   } else if (pattern === "tricolor") {
     shapes.push(<rect key="w" x={0} y={0} width={width} height={height} fill={COLOR_HEX.white} />);
     shapes.push(<rect key="a" x={0} y={0} width={width * 0.4} height={height} fill={baseHex} />);
     shapes.push(<rect key="b" x={width * 0.6} y={0} width={width * 0.4} height={height} fill={shade(baseHex, 20)} />);
   } else if (pattern === "ticked") {
     shapes.push(<rect key="w" x={0} y={0} width={width} height={height} fill={COLOR_HEX.white} />);
-    for (let i = 0; i < 70; i++) {
+    for (let i = 0; i < Math.round(70 * scale * scale); i++) {
       const cx = rng() * width, cy = rng() * height;
-      shapes.push(<circle key={i} cx={cx} cy={cy} r={1.1 + rng()} fill={baseHex} opacity="0.75" />);
+      shapes.push(<circle key={i} cx={cx} cy={cy} r={(1.1 + rng()) * scale} fill={baseHex} opacity="0.75" />);
     }
   }
+  return shapes;
+}
+function CoatSwatch({ dog, width = 200, height = 26 }) {
+  const rng = mulberry32(hashStr(dog.id));
+  const baseHex = COLOR_HEX[dog.colorGenes.base] || COLOR_HEX.fawn;
+  const pattern = dog.colorGenes.pattern;
+  const shapes = coatPatternShapes(pattern, dog.colorGenes, baseHex, width, height, rng);
   return (
     <svg className="kg-card__swatch" width="100%" viewBox={`0 0 ${width} ${height}`} height={height} preserveAspectRatio="none">
       <rect x="0" y="0" width={width} height={height} fill={pattern === "tricolor" || pattern === "ticked" ? "none" : baseHex} />
       {shapes}
+    </svg>
+  );
+}
+
+/* Simple geometric side-profile silhouettes (not detailed art) shared by
+   the click-to-reveal portrait for every species — one 220x140 box each,
+   facing right. */
+const SILHOUETTES = {
+  dog: [
+    { t: "ellipse", cx: 95, cy: 88, rx: 52, ry: 26 },
+    { t: "ellipse", cx: 150, cy: 75, rx: 16, ry: 20 },
+    { t: "ellipse", cx: 172, cy: 52, rx: 20, ry: 18 },
+    { t: "ellipse", cx: 193, cy: 57, rx: 11, ry: 7 },
+    { t: "polygon", points: "158,38 168,14 178,40" },
+    { t: "rect", x: 55, y: 104, w: 9, h: 32 },
+    { t: "rect", x: 75, y: 104, w: 9, h: 32 },
+    { t: "rect", x: 115, y: 104, w: 9, h: 32 },
+    { t: "rect", x: 138, y: 104, w: 9, h: 32 },
+    { t: "polygon", points: "44,72 20,50 30,90 46,86" },
+  ],
+  horse: [
+    { t: "ellipse", cx: 100, cy: 80, rx: 50, ry: 22 },
+    { t: "ellipse", cx: 158, cy: 55, rx: 15, ry: 30, rotate: -18 },
+    { t: "ellipse", cx: 184, cy: 28, rx: 14, ry: 11 },
+    { t: "ellipse", cx: 200, cy: 30, rx: 8, ry: 5 },
+    { t: "polygon", points: "175,18 180,6 188,18" },
+    { t: "rect", x: 60, y: 98, w: 8, h: 38 },
+    { t: "rect", x: 82, y: 98, w: 8, h: 38 },
+    { t: "rect", x: 120, y: 98, w: 8, h: 38 },
+    { t: "rect", x: 142, y: 98, w: 8, h: 38 },
+    { t: "polygon", points: "50,68 24,90 34,120 52,100" },
+  ],
+  cattle: [
+    { t: "rect", x: 40, y: 60, w: 110, h: 45, rxc: 14 },
+    { t: "ellipse", cx: 165, cy: 62, rx: 20, ry: 18 },
+    { t: "polygon", points: "150,45 145,25 158,42" },
+    { t: "polygon", points: "178,45 186,24 172,42" },
+    { t: "rect", x: 55, y: 100, w: 11, h: 30 },
+    { t: "rect", x: 85, y: 100, w: 11, h: 30 },
+    { t: "rect", x: 118, y: 100, w: 11, h: 30 },
+    { t: "rect", x: 145, y: 100, w: 11, h: 30 },
+    { t: "polygon", points: "35,70 15,95 25,118 40,105" },
+  ],
+};
+function renderSilhouette(kind, fill) {
+  return SILHOUETTES[kind].map((s, i) => {
+    if (s.t === "ellipse") return <ellipse key={i} cx={s.cx} cy={s.cy} rx={s.rx} ry={s.ry} fill={fill} transform={s.rotate ? `rotate(${s.rotate} ${s.cx} ${s.cy})` : undefined} />;
+    if (s.t === "polygon") return <polygon key={i} points={s.points} fill={fill} />;
+    return <rect key={i} x={s.x} y={s.y} width={s.w} height={s.h} rx={s.rxc || 3} fill={fill} />;
+  });
+}
+
+/* Normalizes each species' very different color-genetics shape (dogs:
+   base+pattern; horses: base+dilution+pattern; cattle: mostly fixed
+   per-breed color, a few breeds vary) down to the same {baseHex, pattern,
+   colorGenes} shape coatPatternShapes() already knows how to draw, so one
+   portrait renderer works for all three without gene-specific branches. */
+const HORSE_BASE_HEX = { chestnut: "#a1552f", bay: "#5b3a2a", black: "#242019" };
+const CATTLE_COLOR_HEX = {
+  "Black": "#242019", "Red": "#a1552f", "White": "#f1ead9", "Golden Red": "#c9a06b",
+  "Light Grey": "#9aa0a6", "Black w/ White Belt": "#242019", "Black & White": "#242019",
+  "Red & White": "#a1552f", "Dark Red": "#6b3316", "Roan": "#c39a8f", "Varies": "#a1552f",
+};
+function cattleShadeCoat(shadeName) {
+  const map = {
+    "Red & White": { baseHex: CATTLE_COLOR_HEX.Red, pattern: "piebald" },
+    "Black & White": { baseHex: CATTLE_COLOR_HEX.Black, pattern: "piebald" },
+    "Brindle": { baseHex: "#8a6a3a", pattern: "brindle" },
+    "Solid Red": { baseHex: CATTLE_COLOR_HEX.Red, pattern: "solid" },
+    "Solid Black": { baseHex: CATTLE_COLOR_HEX.Black, pattern: "solid" },
+    "Speckled Grey": { baseHex: CATTLE_COLOR_HEX["Light Grey"], pattern: "ticked" },
+    "Dun": { baseHex: "#c19a5b", pattern: "solid" },
+  };
+  const m = map[shadeName] || { baseHex: CATTLE_COLOR_HEX.Red, pattern: "solid" };
+  return { baseHex: m.baseHex, pattern: m.pattern, colorGenes: { merleAlleles: 0 } };
+}
+function speciesCoat(kind, animal) {
+  if (kind === "dog") {
+    const g = animal.colorGenes;
+    return { baseHex: COLOR_HEX[g.base] || COLOR_HEX.fawn, pattern: g.pattern, colorGenes: g };
+  }
+  if (kind === "horse") {
+    const g = animal.colorGenes;
+    let baseHex = HORSE_BASE_HEX[g.base] || HORSE_BASE_HEX.bay;
+    let pattern = "solid";
+    if (g.pattern === "grey" && g.greyAlleles > 0) baseHex = "#c9cdd2";
+    else {
+      if (g.dilution !== "none") baseHex = shade(baseHex, 24);
+      if (g.pattern === "roan" || g.pattern === "appaloosa") pattern = "ticked";
+      else if (g.pattern === "tobiano" || g.pattern === "overo") pattern = "piebald";
+    }
+    return { baseHex, pattern, colorGenes: { merleAlleles: 0 } };
+  }
+  // cattle
+  const b = CATTLE_BREEDS[animal.breed];
+  const g = animal.colorGenes || {};
+  if (!b) {
+    if (g.roan) {
+      const baseHex = g.roan === "solidWhite" ? CATTLE_COLOR_HEX.White : g.roan === "solidRed" ? CATTLE_COLOR_HEX["Dark Red"] : CATTLE_COLOR_HEX.Red;
+      return { baseHex, pattern: g.roan === "roan" ? "ticked" : "solid", colorGenes: { merleAlleles: 0 } };
+    }
+    if (g.shade) return cattleShadeCoat(g.shade);
+    return { baseHex: CATTLE_COLOR_HEX.Red, pattern: "solid", colorGenes: { merleAlleles: 0 } };
+  }
+  if (b.pattern === "roanCapable") {
+    if (g.roan === "solidWhite") return { baseHex: CATTLE_COLOR_HEX.White, pattern: "solid", colorGenes: { merleAlleles: 0 } };
+    if (g.roan === "solidRed") return { baseHex: CATTLE_COLOR_HEX["Dark Red"], pattern: "solid", colorGenes: { merleAlleles: 0 } };
+    return { baseHex: CATTLE_COLOR_HEX.Red, pattern: "ticked", colorGenes: { merleAlleles: 0 } };
+  }
+  if (b.pattern === "varies") return cattleShadeCoat(g.shade);
+  if (b.pattern === "pied") return { baseHex: CATTLE_COLOR_HEX[b.color] || CATTLE_COLOR_HEX.Black, pattern: "piebald", colorGenes: { merleAlleles: 0 } };
+  if (b.pattern === "belted") return { baseHex: CATTLE_COLOR_HEX[b.color] || CATTLE_COLOR_HEX.Black, pattern: "belt", colorGenes: { merleAlleles: 0 } };
+  return { baseHex: CATTLE_COLOR_HEX[b.color] || CATTLE_COLOR_HEX.Red, pattern: "solid", colorGenes: { merleAlleles: 0 } };
+}
+
+/* The click-to-reveal portrait itself — a species silhouette clipped
+   around the same coat pattern math the swatch bar uses, seeded from the
+   animal's own id so the same dog always renders the same picture.
+   Deliberately a stylized generated illustration, not a photoreal or 3D
+   render — there's no image-generation model wired into this game. */
+function AnimalPortrait({ kind, animal, size = 160 }) {
+  const rng = mulberry32(hashStr(animal.id));
+  const { baseHex, pattern, colorGenes } = speciesCoat(kind, animal);
+  const shapes = coatPatternShapes(pattern, colorGenes, baseHex, 220, 140, rng);
+  const selfCovering = pattern === "tricolor" || pattern === "ticked";
+  const clipId = "portrait-clip-" + animal.id;
+  return (
+    <svg className="kg-portrait" viewBox="0 0 220 140" width={size} height={Math.round(size * 140 / 220)}
+      role="img" aria-label={`Generated portrait of ${animal.name}, a ${animal.breed}`}>
+      <clipPath id={clipId}>{renderSilhouette(kind, "#000")}</clipPath>
+      <g clipPath={`url(#${clipId})`}>
+        <rect x="0" y="0" width="220" height="140" fill={selfCovering ? "none" : baseHex} />
+        {shapes}
+      </g>
+      <g fill="none" stroke="rgba(0,0,0,0.4)" strokeWidth="1.5">{renderSilhouette(kind, "none")}</g>
     </svg>
   );
 }
@@ -386,6 +531,7 @@ function DogProfileModal({ dog, onClose }) {
   const closeRef = useRef(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  const [showPortrait, setShowPortrait] = useState(false);
 
   // Escape to close, and park focus inside the dialog so keyboard users aren't
   // left tabbing through the page behind it. Keyed on the dog's id rather than
@@ -394,6 +540,7 @@ function DogProfileModal({ dog, onClose }) {
   const dogId = dog ? dog.id : null;
   useEffect(() => {
     if (!dogId) return;
+    setShowPortrait(false);
     const onKey = (e) => { if (e.key === "Escape") onCloseRef.current(); };
     const previouslyFocused = document.activeElement;
     document.addEventListener("keydown", onKey);
@@ -416,8 +563,12 @@ function DogProfileModal({ dog, onClose }) {
         <button className="kg-modal__close" ref={closeRef} onClick={onClose} aria-label="Close">✕</button>
         <div className="kg-modal__head">
           <CoatSwatch dog={dog} height={40} />
-          <h2>{dog.sex === "M" ? "♂" : "♀"} {dog.name}</h2>
+          <button type="button" className="kg-portrait-trigger" onClick={() => setShowPortrait((v) => !v)}
+            title={showPortrait ? "Hide portrait" : "Generate a portrait"}>
+            <h2>{dog.sex === "M" ? "♂" : "♀"} {dog.name} <span className="kg-portrait-hint" aria-hidden="true">▢</span></h2>
+          </button>
           <p className="kg-card__breed">{dog.breed} · {colorLabel(dog.colorGenes)}</p>
+          {showPortrait && <AnimalPortrait kind="dog" animal={dog} size={180} />}
         </div>
 
         <div className="kg-modal__tags">
@@ -644,9 +795,11 @@ function AnimalProfileModal({ target, onClose }) {
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   const id = target ? target.animal.id : null;
+  const [showPortrait, setShowPortrait] = useState(false);
 
   useEffect(() => {
     if (!id) return;
+    setShowPortrait(false);
     const onKey = (e) => { if (e.key === "Escape") onCloseRef.current(); };
     const previouslyFocused = document.activeElement;
     document.addEventListener("keydown", onKey);
@@ -670,8 +823,12 @@ function AnimalProfileModal({ target, onClose }) {
       <div className="kg-modal" role="dialog" aria-modal="true" aria-label={`${animal.name} — ${animal.breed}`} onClick={(e) => e.stopPropagation()}>
         <button className="kg-modal__close" ref={closeRef} onClick={onClose} aria-label="Close">✕</button>
         <div className="kg-modal__head">
-          <h2>{animal.sex === "M" ? "♂" : "♀"} {animal.name}</h2>
+          <button type="button" className="kg-portrait-trigger" onClick={() => setShowPortrait((v) => !v)}
+            title={showPortrait ? "Hide portrait" : "Generate a portrait"}>
+            <h2>{animal.sex === "M" ? "♂" : "♀"} {animal.name} <span className="kg-portrait-hint" aria-hidden="true">▢</span></h2>
+          </button>
           <p className="kg-card__breed">{animal.breed} · {cfg.colorLabel(animal)}</p>
+          {showPortrait && <AnimalPortrait kind={kind} animal={animal} size={180} />}
         </div>
 
         <div className="kg-modal__tags">

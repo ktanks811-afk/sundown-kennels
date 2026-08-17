@@ -719,6 +719,10 @@ html, body { margin:0; padding:0; background:#0a0605; }
 .kg-modal__close { position:absolute; top:14px; right:14px; background:rgba(255,186,133,0.07); border:1px solid var(--border); border-radius:7px; width:28px; height:28px; cursor:pointer; color: var(--ink-soft); transition: background 0.15s, color 0.15s; }
 .kg-modal__close:hover { background:rgba(255,186,133,0.15); color: var(--ink); }
 .kg-modal__head h2 { font-family:'Space Grotesk','Inter',sans-serif; font-weight:600; font-size:21px; margin: 4px 0 3px; letter-spacing:-0.025em; }
+.kg-portrait-trigger { display:block; width:100%; text-align:inherit; background:none; border:none; padding:0; margin:0; font:inherit; color:inherit; cursor:pointer; }
+.kg-portrait-hint { font-size:13px; color: var(--ink-soft); vertical-align: 2px; }
+.kg-portrait-trigger:hover .kg-portrait-hint { color: var(--gold); }
+.kg-portrait { display:block; margin:10px 0 4px; border-radius: var(--r-md); background: rgba(255,186,133,0.05); }
 .kg-modal__tags { display:flex; gap:6px; flex-wrap:wrap; margin: 12px 0 20px; }
 .kg-modal__section { font-family:'Space Grotesk','Inter',sans-serif; font-weight:600; font-size:13px; text-transform:uppercase; letter-spacing:0.08em; color: var(--ink-soft); margin: 22px 0 10px; border-top:1px solid var(--metal); padding-top:16px; }
 .kg-modal__facts { list-style:none; margin:0; padding:0; font-size:12.5px; color: var(--ink-soft); display:flex; flex-direction:column; gap:7px; line-height:1.5; }
