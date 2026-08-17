@@ -6,7 +6,9 @@
 function KennelGame() {
   const [state, setState] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState("overview");
+  /* Which screen is showing comes from the address bar, not component state,
+     so every screen has a shareable URL and the back button works. Declared
+     below the admin flag it depends on — see the useRoute call. */
   const [shopCat, setShopCat] = useState("feed");
   const [propShowAll, setPropShowAll] = useState(false);
   const [logFilter, setLogFilter] = useState("all");
@@ -68,6 +70,13 @@ function KennelGame() {
     try { return window.localStorage.getItem(ADMIN_UNLOCK_KEY) === "1"; } catch { return false; }
   });
   const [adminTarget, setAdminTarget] = useState("");
+
+  /* The route needs adminUnlocked to know whether /account/admin is allowed,
+     which is why this sits here rather than at the top with the other state. */
+  const route = useRoute(adminUnlocked);
+  const tab = route.screen;
+  const setTab = route.goToScreen;
+
   const [layout, setLayout] = useState(() => {
     // Frame is the default now. An explicit "classic" choice is still honoured,
     // so anyone who already picked the old one keeps it.
