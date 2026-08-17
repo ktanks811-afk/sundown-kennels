@@ -987,6 +987,22 @@ grant select on public.race_leaders to anon, authenticated;
 -- delta for the live project; this one is the whole schema from empty, and is
 -- what CI applies to a throwaway Postgres on every push.
 -- ============================================================================
+-- 1. A record of what has been applied
+-- ============================================================================
+-- SQL sitting in the repo does nothing until it is pasted into the dashboard,
+-- and there has been no way to tell from the outside which files made it. This
+-- table is that record.
+
+create table if not exists public.schema_migrations (
+  version     text primary key,
+  applied_at  timestamptz not null default now(),
+  note        text
+);
+
+grant select on public.schema_migrations to authenticated;
+
+
+-- ============================================================================
 -- 2. Casting helpers
 -- ============================================================================
 -- The projection below reads values out of a jsonb blob written by the game
