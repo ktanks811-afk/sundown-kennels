@@ -637,6 +637,29 @@ const ITEMS = {
   collarSilver: { name: "Silver Trial Collar", cat: "cosmetic", price: 90, desc: "Awarded look, bought price.",      collar: "#9fa6ad" },
 };
 
+/* Energy.
+
+   A day's worth of work in one animal. Entering a trial and working the
+   conditioning gear both draw on it, so a dog cannot be trained six times and
+   entered in four shows on the same day — the cap is what makes a roster of
+   dogs worth more than one very good one.
+
+   Refills in full on the day tick rather than trickling, so the decision is
+   "what does this dog do today", not "how long do I wait". */
+const ENERGY_MAX = 100;
+const ENERGY_COST = {
+  hunt: 35,
+  trial: 25,
+  training: 30,
+  grouphunt: 45,
+};
+function energyOf(animal) {
+  return typeof animal.energy === "number" ? animal.energy : ENERGY_MAX;
+}
+function hasEnergy(animal, kind) {
+  return energyOf(animal) >= (ENERGY_COST[kind] || 0);
+}
+
 /* Profession tracks.
 
    Five tracks, three points each, so fifteen points is a fully specialised

@@ -36,6 +36,7 @@ function AnimalProfileScreen({ game }) {
     state, tab, params, setTab,
     doRegister, doSell, doUseItem, doCleanAnimal,
     listDogForSale, postStudOffer, cancelStudOffer, studOffers, pvpListings, session,
+    enterTrial, withdrawEntry,
   } = game;
 
   const [subtab, setSubtab] = useState("about");
@@ -86,6 +87,7 @@ function AnimalProfileScreen({ game }) {
   const medOnHand = ITEM_IDS.filter((id) => ITEMS[id].cat === "med" && inv[id] > 0);
   const trainOnHand = ITEM_IDS.filter((id) => ITEMS[id].cat === "training" && inv[id] > 0);
 
+  const entry = (state.entries || []).find((e) => e.dogId === animal.id);
   const listedForSale = (pvpListings || []).find((l) => l.dog && l.dog.id === animal.id);
   const offeredAtStud = (studOffers || []).find((o) => o.dog && o.dog.id === animal.id);
 
@@ -138,16 +140,21 @@ function AnimalProfileScreen({ game }) {
     },
     {
       id: "compete", label: "Compete", icon: "🏆",
-      ready: !retired,
+      ready: !retired && !entry && (!isDog || hasEnergy(animal, "trial")),
       run: () => setTab(isDog ? "trials" : kind === "horse" ? "horses" : "cattle"),
-      blocked: `${animal.name} is retired from competition.`,
+      blocked: retired ? `${animal.name} is retired from competition.`
+        : entry ? `${animal.name} is already entered — results come in tomorrow.`
+        : `${animal.name} has not the energy to be entered today.`,
+      fix: entry ? null : { label: "Rest the kennel", onClick: () => setTab("overview") },
     },
     {
       id: "hunt", label: "Hunt", icon: "✦",
-      ready: isDog && !retired && animal.health >= 40,
+      ready: isDog && !retired && animal.health >= 40 && hasEnergy(animal, "hunt"),
       run: () => setTab("hunt"),
       blocked: !isDog ? "Only dogs hunt."
-        : retired ? `${animal.name} is retired.` : `${animal.name} is too beat up to work.`,
+        : retired ? `${animal.name} is retired.`
+        : !hasEnergy(animal, "hunt") ? `${animal.name} is worn out for today.`
+        : `${animal.name} is too beat up to work.`,
       fix: !isDog || retired ? null : { label: "Rest the kennel", onClick: () => setTab("overview") },
     },
   ];
@@ -202,6 +209,9 @@ function AnimalProfileScreen({ game }) {
           </Panel>
 
           <Panel title="Status">
+            <Meter label="Energy" value={energyOf(animal)} tone="energy"
+              hint={"Spent by hunting (" + ENERGY_COST.hunt + "), entering a trial (" + ENERGY_COST.trial +
+                    ") and conditioning gear (" + ENERGY_COST.training + "). Back to full each morning."} />
             <Meter label="Condition" value={animal.health} tone={animal.health < 40 ? "bad" : animal.health < 70 ? "warn" : "good"}
               hint="Condition falls with work and age, and comes back with feed, medicine and rest." />
             <Meter label={"Prime — " + prime.stage} value={Math.round(prime.mult * 100)}
@@ -372,6 +382,18 @@ function AnimalProfileScreen({ game }) {
                 <div><span>Titles</span><b>{(animal.titles || []).length ? animal.titles.join(", ") : "None yet"}</b></div>
                 <div><span>Offspring here</span><b>{kids.length}</b></div>
               </div>
+
+              <h4 className="kg-ap__h4">Current entries</h4>
+              {entry ? (
+                <div className="kg-ap__entry">
+                  <span>
+                    Entered in the <strong>{(TRIALS[entry.trial] || {}).label}</strong> — judged on day {entry.resolvesDay}.
+                  </span>
+                  <button className="kg-btn kg-btn--sm" onClick={() => withdrawEntry(entry.id)}>Withdraw</button>
+                </div>
+              ) : (
+                <p className="kg-hint" style={{ margin: "0 0 4px" }}>Not entered in anything right now.</p>
+              )}
 
               <h4 className="kg-ap__h4">Stats</h4>
               {keys.map((k) => (

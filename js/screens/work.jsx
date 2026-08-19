@@ -8,6 +8,7 @@
    component, not reusable pieces with an interface worth designing. The
    destructure below is the honest record of what this file depends on. */
 function WorkScreens({ game }) {
+  const [enterMsg, setEnterMsg] = useState(null);
   const { acceptStudRequestAction, bothMerleCarriers, breedPick, breedableF, breedableM,
     canFoundBloodline, cancelStudOffer, competitors, dam, declineStudRequest, doBreed,
     doCallOffGroupHunt, doEndGroupHuntSession, doHunt, doMiniGameTap, doReleaseCatchDogs,
@@ -16,7 +17,8 @@ function WorkScreens({ game }) {
     newBloodline, postStudOffer, requestDamPick, requestStud, session, setBreedPick,
     setGroupHunt, setHuntPick, setNewBloodline, setRequestDamPick, setStudDamId, setStudPick,
     setTrialPick, setViewDog, sire, state, studDam, studDamId, studMsg, studOffers, studPick,
-    studs, tab, tick, toggleBayPick, toggleCatchPick, trialPick } = game;
+    studs, tab, tick, toggleBayPick, toggleCatchPick, trialPick,
+    enterTrial, withdrawEntry } = game;
   return (
     <>
         {tab === "hunt" && (
@@ -312,20 +314,72 @@ function WorkScreens({ game }) {
                 </select>
               </div>
             )}
-            <h2 className="kg-subhead">Pick an opponent</h2>
-            {competitors.length === 0 ? <p className="kg-empty">No competitors available right now — check back after a day passes.</p> : (
-              <div className="kg-rows">
-                {competitors.map((opp) => {
-                  const myDog = state.dogs.find((d) => d.id === trialPick.dogId);
-                  return (
-                    <DogRow key={opp.id} dog={opp} onView={setViewDog} sellerName={"out of " + opp.kennelName}
-                      right={<button className="kg-btn kg-btn--sm" disabled={!myDog} onClick={() => doTrial(myDog, opp)}>
-                        {!myDog ? "Pick your dog first" : `Enter — ${fmtMoney(trialPurse(myDog, opp))}`}
-                      </button>} />
-                  );
-                })}
-              </div>
-            )}
+            {(() => {
+              const myDog = state.dogs.find((d) => d.id === trialPick.dogId);
+              const fee = myDog ? Math.round(trialPurse(myDog, myDog) * 0.3) : 0;
+              const standing = state.entries || [];
+              return (
+                <>
+                  {myDog && (
+                    <div className="kg-enterbar">
+                      <div>
+                        <strong>{myDog.name}</strong>
+                        <span className="kg-enterbar__meta">
+                          Entry {fmtMoney(fee)} · costs {ENERGY_COST.trial} energy · {energyOf(myDog)} left today
+                        </span>
+                      </div>
+                      <button className="kg-btn kg-btn--gold"
+                        onClick={() => {
+                          const res = enterTrial(myDog, trialPick.trial);
+                          setEnterMsg(res.ok
+                            ? { tone: "success", text: `${myDog.name} is entered. Results tomorrow.` }
+                            : { tone: "error", text: res.why });
+                        }}>
+                        Enter the {(TRIALS[trialPick.trial] || {}).label}
+                      </button>
+                    </div>
+                  )}
+
+                  {enterMsg && (
+                    <Notice tone={enterMsg.tone} onDismiss={() => setEnterMsg(null)}>{enterMsg.text}</Notice>
+                  )}
+
+                  <h2 className="kg-subhead">Standing entries</h2>
+                  {standing.length === 0 ? (
+                    <p className="kg-empty">
+                      Nothing entered. Trials are judged the day after you enter — put a dog in, then go
+                      hunt or rest, and the results are waiting when the day turns.
+                    </p>
+                  ) : (
+                    <div className="kg-rows">
+                      {standing.map((e) => (
+                        <div key={e.id} className="kg-enterrow">
+                          <span>
+                            <strong>{e.dogName}</strong> — {(TRIALS[e.trial] || {}).label}
+                            <span className="kg-enterbar__meta">judged on day {e.resolvesDay}</span>
+                          </span>
+                          <button className="kg-btn kg-btn--sm" onClick={() => withdrawEntry(e.id)}>Withdraw</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <h2 className="kg-subhead">Who else is running</h2>
+                  <p className="kg-hint">
+                    The field this week. You are judged against one of them, drawn when the results are read.
+                  </p>
+                  {competitors.length === 0 ? (
+                    <p className="kg-empty">No competitors available right now — check back after a day passes.</p>
+                  ) : (
+                    <div className="kg-rows">
+                      {competitors.slice(0, 8).map((opp) => (
+                        <DogRow key={opp.id} dog={opp} onView={setViewDog} sellerName={"out of " + opp.kennelName} />
+                      ))}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </section>
         )}
     </>

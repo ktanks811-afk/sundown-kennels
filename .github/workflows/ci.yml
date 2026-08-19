@@ -3,9 +3,12 @@ name: CI
 # Runs on every push and pull request — catches syntax errors, runtime
 # errors (via a real headless-browser playthrough), and Supabase schema
 # mistakes before they ever reach a live deploy.
+# Pushes to a branch with an open PR were running the whole suite twice, once
+# for the push and once for the PR, on the same commit. Only main runs on push
+# now; branch work is covered by its pull request.
 on:
   push:
-    branches: ["**"]
+    branches: [main]
   pull_request:
 
 jobs:
@@ -19,6 +22,9 @@ jobs:
           node-version: 20
       - run: npm install
       - run: npm run check:syntax
+      # Existed but was never wired in, so the group-hunt logic has been
+      # shipping untested since it was written.
+      - run: npm run test:grouphunt
 
   smoke-test:
     name: Browser smoke test
@@ -30,8 +36,19 @@ jobs:
         with:
           node-version: 20
       - run: npm install
+      # Cache the browser download. This step has twice hung for 45+ minutes
+      # fetching chromium, which a default 360-minute job timeout will happily
+      # sit through — the cache avoids the download entirely on a hit, and the
+      # timeout turns a stall into a fast, obvious failure instead of a wait.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: playwright-chromium-${{ runner.os }}-
       - run: npx playwright install --with-deps chromium
+        timeout-minutes: 6
       - run: npm run check:smoke
+        timeout-minutes: 15
 
   schema-check:
     name: Supabase schema check
