@@ -1518,3 +1518,61 @@ html[data-theme="light"], html[data-theme="light"] body { background:#f2ebdd; }
   .kg-ap__facts > div:nth-child(odd) { background: rgba(140, 110, 70, 0.055); }
   .kg-ap__name { font-size: 21px; }
 }
+
+/* ------------------------------ ranch (4b) -------------------------------- */
+
+.kg-ranch__head { display: flex; flex-direction: column; gap: 9px; margin-bottom: 2px; }
+
+.kg-ranch__wage {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin-top: 10px; padding: 7px 11px; border-radius: 6px; font-size: 13px;
+  background: var(--paper-dark); border: 1px solid var(--border);
+}
+.kg-ranch__wage strong { font-variant-numeric: tabular-nums; color: var(--gold); }
+
+.kg-ranch__profs { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 9px; }
+.kg-ranch__prof {
+  display: flex; flex-direction: column; gap: 5px;
+  padding: 11px 12px; border-radius: 7px;
+  background: var(--paper-dark); border: 1px solid var(--border);
+}
+.kg-ranch__profhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.kg-ranch__profblurb { margin: 0; font-size: 11.5px; font-style: italic; color: var(--ink-soft); line-height: 1.45; }
+.kg-ranch__profeffect { margin: 0 0 3px; font-size: 11.5px; font-weight: 600; color: var(--accent); }
+.kg-ranch__prof .kg-btn { margin-top: auto; }
+
+/* Pips rather than a number, so the shape of a build reads at a glance. */
+.kg-ranch__pips { display: inline-flex; gap: 3px; }
+.kg-ranch__pip {
+  width: 9px; height: 9px; border-radius: 50%;
+  border: 1px solid var(--border); background: transparent;
+}
+.kg-ranch__pip--on { background: var(--accent); border-color: var(--accent); }
+
+.kg-ranch__bonuses {
+  margin-top: 11px; padding: 8px 11px; border-radius: 6px; font-size: 12.5px;
+  background: var(--paper-dark); border: 1px solid var(--border);
+}
+
+.kg-ranch__bio {
+  width: 100%; font: inherit; font-size: 13px; line-height: 1.55; padding: 9px 11px;
+  color: var(--ink); background: var(--paper); border: 1px solid var(--border);
+  border-radius: 6px; resize: vertical;
+}
+.kg-ranch__biofoot {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin-top: 8px;
+}
+
+.kg-ranch__stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; }
+.kg-ranch__statgroup ul { list-style: none; margin: 0; padding: 0; }
+.kg-ranch__statgroup li {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  padding: 4px 7px; font-size: 12.5px; border-bottom: 1px solid var(--metal);
+}
+.kg-ranch__statgroup li:last-child { border-bottom: 0; }
+.kg-ranch__statgroup b { font-variant-numeric: tabular-nums; }
+/* Unearned rows stay visible but recede, so the list reads as things still to
+   do rather than as a wall of noise. */
+.kg-ranch__stat--zero { color: var(--ink-soft); }
+.kg-ranch__stat--zero b { opacity: 0.5; }

@@ -834,7 +834,10 @@ function KennelGame() {
     const healSpeed = up.vetShed ? 1.6 : 1;
     // Feed scales with the dog — a 200lb Boerboel does not eat like a Feist.
     const upkeep = Math.round(prev.dogs.reduce((sum, d) => sum + feedCostPerDay(d, up), 0) * days);
-    next.cash = Math.round((prev.cash - upkeep) * 100) / 100;
+    // A flat wage scaling with level, so a mature kennel has a floor under it
+    // and a bad hunting week is a setback rather than the start of a spiral.
+    const wages = dailySalary(prev) * days;
+    next.cash = Math.round((prev.cash - upkeep + wages) * 100) / 100;
 
     const deaths = [];
     const whelped = [];
@@ -949,7 +952,8 @@ function KennelGame() {
     const hunt = HUNTS[key];
     const result = resolveHunt(dog, key, state.day);
     const weightLbs = catchWeight(key, result.tier);
-    const payout = key === "hog" && weightLbs ? hogPayout(weightLbs) : result.payout;
+    const basePayout = key === "hog" && weightLbs ? hogPayout(weightLbs) : result.payout;
+    const payout = Math.round(basePayout * professionBonus(state, "houndsman"));
     update((prev) => {
       let next = tick(prev, 1, { [dog.id]: { healthDelta: -result.healthLoss, injury: result.injury || dog.injury || null } });
       next.cash = Math.round(next.cash + payout);
@@ -1260,8 +1264,32 @@ function KennelGame() {
     return gained;
   }
 
+  /* Profession points. Spending is guarded against both caps — the track max
+     and the points actually earned — because the button is not the only way in:
+     an older save with a hand-edited professions object should not be able to
+     hand itself fifteen points. */
+  function spendProfessionPoint(key) {
+    const def = PROFESSIONS[key];
+    if (!def) return;
+    if (professionPointsLeft(state) <= 0) return;
+    if (((state.professions || {})[key] || 0) >= def.max) return;
+    update((prev) => addLog({
+      ...prev,
+      professions: { ...(prev.professions || {}), [key]: ((prev.professions || {})[key] || 0) + 1 },
+    }, "info", `Put a point into ${def.name}.`));
+  }
+
+  function resetProfessions() {
+    update((prev) => addLog({ ...prev, professions: {} }, "info", "Profession points reset."));
+  }
+
+  function saveRanchBio(text) {
+    const trimmed = String(text || "").slice(0, 1200);
+    update((prev) => ({ ...prev, ranchBio: trimmed }));
+  }
+
   function doSell(dog) {
-    const value = computeValue(dog);
+    const value = Math.round(computeValue(dog) * professionBonus(state, "trader"));
     update((prev) => addLog({ ...prev, cash: Math.round(prev.cash + value), dogs: prev.dogs.filter((d) => d.id !== dog.id) }, "money", `Sold ${dog.name} to a trader for ${fmtMoney(value)}.`));
   }
   function buyProperty(landKey, houseKey, location) {
@@ -1329,7 +1357,9 @@ function KennelGame() {
   function doSellAnimal(kind, animal, atAuction) {
     const cfg = LIVESTOCK_CONFIG[kind];
     if (atAuction && !canHaul(state)) return;
-    const value = atAuction && cfg.auctionValue ? cfg.auctionValue(animal) : cfg.value(animal);
+    const value = Math.round(
+      (atAuction && cfg.auctionValue ? cfg.auctionValue(animal) : cfg.value(animal)) *
+      professionBonus(state, "trader"));
     update((prev) => addLog(
       { ...prev, cash: Math.round(prev.cash + value), [cfg.arrayKey]: prev[cfg.arrayKey].filter((a) => a.id !== animal.id) },
       "money", `${atAuction ? "Auctioned" : "Sold"} ${animal.name} for ${fmtMoney(value)}.`
@@ -1364,7 +1394,7 @@ function KennelGame() {
     const ev = cfg.events[eventKey];
     const oppBreed = cfg.breedNames[randInt(0, cfg.breedNames.length - 1)];
     const opp = cfg.generate(oppBreed, state.day);
-    const purse = Math.round(40 + cfg.value(animal) * 0.03);
+    const purse = Math.round((40 + cfg.value(animal) * 0.03) * professionBonus(state, "stockman"));
 
     // Timed events hand control to the player via the timing mini-game
     // before the clock gets read; judged events resolve the same way they
@@ -1468,7 +1498,7 @@ function KennelGame() {
       let msg = "";
       const dogs = prev.dogs.map((d) => {
         if (d.id !== dogId) return d;
-        const res = applyItem(d, itemId, prev.upgrades);
+        const res = applyItem(d, itemId, prev.upgrades, professionBonus(prev, "trainer"));
         msg = res.msg;
         return res.dog;
       });
@@ -1594,12 +1624,16 @@ function KennelGame() {
     doCleanAnimal,
     setViewDog: openDogProfile,
     setViewAnimal: openAnimalProfile,
+    spendProfessionPoint,
+    resetProfessions,
+    saveRanchBio,
   };
 
   /* Every screen, rendered the same in either layout. Only the chrome around
      them differs, so nothing can drift between the two. */
   const screens = (
     <>
+      <RanchTabs game={game} />
       <KennelScreens game={game} />
       <WorkScreens game={game} />
       <LivestockScreens game={game} />
@@ -1608,6 +1642,7 @@ function KennelGame() {
       <RecordsScreens game={game} />
       <AccountScreens game={game} />
       <AnimalProfileScreen game={game} />
+      <RanchPanels game={game} />
     </>
   );
 

@@ -17,6 +17,12 @@ const ROUTES = [
   { path: "/kennel",             screen: "kennel" },
   { path: "/property",           screen: "property" },
 
+  /* Ranch tabs that have no older screen behind them. Animals, Owner, Manage
+     and Settings map onto kennel/profile/property/settings above. */
+  { path: "/ranch/about",        screen: "ranchabout" },
+  { path: "/ranch/history",      screen: "ranchhistory" },
+  { path: "/ranch/stats",        screen: "ranchstats" },
+
   { path: "/hunt",               screen: "hunt" },
   { path: "/breed",              screen: "breed" },
   { path: "/trials",             screen: "trials" },

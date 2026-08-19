@@ -642,6 +642,8 @@ function initKennel(kennelName, starterDogs) {
     netWorthHistory: [],
     offers: [],
     fame: 0,
+    xp: 0,
+    professions: {},
     socialFeed: [],
     inventory: { kibble: 2, woundSalve: 1 },
     upgrades: {},
@@ -655,7 +657,63 @@ function initKennel(kennelName, starterDogs) {
   base.netWorthHistory = [{ day, netWorth: kennelNetWorth(base) }];
   return base;
 }
-function addLog(state, type, text) { return { ...state, log: [{ day: state.day, type, text }, ...state.log].slice(0, 60) }; }
+/* ------------------------- levels and professions -------------------------- */
+
+/* XP rides on the log rather than being sprinkled through every action. Every
+   notable thing the game does already funnels through addLog, so hooking it
+   here means nothing can award XP and forget to, and nothing can be added
+   later that silently awards none. */
+const XP_BY_LOG = { hunt: 14, catch: 14, breed: 18, money: 5, injury: 3, info: 1 };
+
+/* Each level costs a little more than the last. Deliberately shallow: this
+   paces the profession points, it is not meant to be a grind of its own. */
+function xpForLevel(level) { return 40 + 25 * (level - 1); }
+
+function levelFromXp(xp) {
+  let level = 1, spent = 0, need = xpForLevel(1);
+  while (xp >= spent + need && level < 99) {
+    spent += need;
+    level += 1;
+    need = xpForLevel(level);
+  }
+  return { level, into: Math.max(0, xp - spent), need, pct: Math.min(100, Math.round(((xp - spent) / need) * 100)) };
+}
+
+/* One point every other level, capped at the fifteen it takes to max all five
+   tracks — so a long-running kennel eventually has every option open, but
+   spends a long time choosing. */
+function professionPointsTotal(level) { return Math.min(15, Math.floor(level / 2)); }
+function professionPointsSpent(professions) {
+  return PROFESSION_KEYS.reduce((sum, k) => sum + ((professions || {})[k] || 0), 0);
+}
+function professionPointsLeft(state) {
+  const { level } = levelFromXp((state && state.xp) || 0);
+  return professionPointsTotal(level) - professionPointsSpent(state && state.professions);
+}
+
+/* The multiplier a track contributes, as a plain number to multiply by: a
+   Houndsman on 2 points returns 1.10. Everything that reads this treats a
+   missing professions object as zero points, so old saves just get 1. */
+function professionBonus(state, key) {
+  const points = ((state && state.professions) || {})[key] || 0;
+  const def = PROFESSIONS[key];
+  return def ? 1 + points * def.per : 1;
+}
+
+/* A flat daily wage that scales with level, so a mature kennel has a floor
+   under it and a bad hunting week is a setback rather than a spiral. */
+function dailySalary(state) {
+  const { level } = levelFromXp((state && state.xp) || 0);
+  return 12 + level * 6;
+}
+
+function addLog(state, type, text) {
+  return {
+    ...state,
+    xp: ((state.xp || 0) + (XP_BY_LOG[type] || 1)),
+    log: [{ day: state.day, type, text }, ...state.log].slice(0, 60),
+  };
+}
 
 /* Older saves predate the store, rescue pen, and upgrades. Rather than bump the
    storage key and wipe everyone's kennel, fill in whatever's missing on load. */
@@ -667,6 +725,8 @@ function migrateState(s) {
   if (!Array.isArray(out.rescue)) out.rescue = generateRescuePool(3, out.day || 1);
   if (typeof out.rescueRefreshedDay !== "number") out.rescueRefreshedDay = out.day || 1;
   if (typeof out.fame !== "number") out.fame = 0;
+  if (typeof out.xp !== "number") out.xp = 0;
+  if (!out.professions || typeof out.professions !== "object") out.professions = {};
   if (!Array.isArray(out.socialFeed)) out.socialFeed = [];
   if (!out.property || typeof out.property !== "object") out.property = STARTER_PROPERTY;
   else if (!out.property.pastureKey) out.property = { ...out.property, pastureKey: "none" };
