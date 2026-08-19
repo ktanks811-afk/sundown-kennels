@@ -9,6 +9,8 @@ import path from "node:path";
 import { chromium } from "playwright";
 
 const ROOT = process.cwd();
+// About | Animals | Owner | History | Stats | Manage | Settings
+const RANCH_TAB_COUNT = 7;
 const PORT = 8123;
 const MIME = { ".html": "text/html", ".jsx": "text/babel", ".js": "application/javascript", ".css": "text/css", ".png": "image/png", ".json": "application/json" };
 
@@ -181,6 +183,25 @@ async function main() {
     await page.waitForTimeout(900);
   }
 
+  /* The ranch tab strip is the only way into About, History and Stats, so
+     without walking it those three screens and their routes go untested. */
+  async function walkRanchTabs() {
+    await page.evaluate(() => { window.location.hash = "#/kennel"; });
+    await page.waitForTimeout(400);
+    const count = await page.locator(".kg-ranch__head .kg-ui-tabs__tab").count();
+    if (!count) return 0;
+    for (let i = 0; i < count; i++) {
+      const t = page.locator(".kg-ranch__head .kg-ui-tabs__tab").nth(i);
+      if (!(await t.count())) break;
+      const label = (await t.innerText()).trim();
+      await t.click();
+      await page.waitForTimeout(300);
+      visited++;
+      await recordRoute(`ranch/${label}`);
+    }
+    return count;
+  }
+
   /* The animal profile is the one page with a parameterised route, so it is
      also the only one that can break by resolving the wrong animal or none at
      all. Open one from the yard, walk its four tabs, and check a made-up id
@@ -265,6 +286,9 @@ async function main() {
   const tabs = await walkClassic();
   console.log(`Sidebar layout: ${tabs} nav entries walked.`);
 
+  const ranchTabs = await walkRanchTabs();
+  console.log(`Ranch: ${ranchTabs} tabs walked.`);
+
   const profileProblems = await checkAnimalProfile();
   console.log("Animal profile: opened from the yard, four tabs walked, stale id handled.");
 
@@ -314,6 +338,11 @@ async function main() {
     process.exit(1);
   }
   // A pass with nothing clicked is not a pass.
+  if (ranchTabs < RANCH_TAB_COUNT) {
+    console.error(`
+Ranch tab strip showed ${ranchTabs} tabs, expected ${RANCH_TAB_COUNT}.`);
+    process.exit(1);
+  }
   if (homeStops === 0 || menus === 0 || tabs === 0 || visited < 20) {
     console.error(`\nSmoke test reached almost nothing: ${homeStops} homestead stops, ` +
       `${menus} menus, ${tabs} nav entries, ${visited} screens visited.`);

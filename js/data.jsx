@@ -404,7 +404,6 @@ const HOME_NAV = [
   { id: "market",  label: "Market", icon: "$", tab: "market" },
   { id: "work",    label: "Work",   icon: "◆", tab: "hunt" },
   { id: "records", label: "Records", icon: "§", tab: "registry" },
-  { id: "account", label: "You",    icon: "☺", tab: "profile" },
 ];
 
 /* The Atlas dropdown. Three labelled columns plus a leader-board block, all
@@ -455,10 +454,27 @@ const HOME_NAV_OWNER = {
   trade: "market",
   registry: "records", rankings: "records", hof: "records",
   racerecords: "records", log: "records", leaderboard: "records", rivals: "records",
-  profile: "account", settings: "account", danger: "account", admin: "account",
+  // Owner, Settings and account management are ranch tabs now, so they light
+  // up Ranch rather than a "You" entry that no longer exists.
+  profile: "kennel", settings: "kennel", danger: "kennel", admin: "kennel",
   // An animal's page belongs to the ranch it lives on.
   animalprofile: "kennel",
+  ranchabout: "kennel", ranchhistory: "kennel", ranchstats: "kennel",
 };
+
+/* The ranch tab strip. Four of these are older screens that already had a
+   home; the other three are new. Kept in one place so the strip and the
+   router cannot drift apart. */
+const RANCH_TABS = [
+  { id: "ranchabout",   label: "About" },
+  { id: "kennel",       label: "Animals" },
+  { id: "profile",      label: "Owner" },
+  { id: "ranchhistory", label: "History" },
+  { id: "ranchstats",   label: "Stats" },
+  { id: "property",     label: "Manage" },
+  { id: "settings",     label: "Settings" },
+];
+const RANCH_TAB_IDS = RANCH_TABS.map((t) => t.id);
 
 /* Each menu is a dropdown; columns group its links the way a stud book would. */
 const MENUS = [
@@ -621,6 +637,43 @@ const ITEMS = {
   collarSilver: { name: "Silver Trial Collar", cat: "cosmetic", price: 90, desc: "Awarded look, bought price.",      collar: "#9fa6ad" },
 };
 
+/* Profession tracks.
+
+   Five tracks, three points each, so fifteen points is a fully specialised
+   kennel and nobody ever gets all of everything. Points arrive with levels and
+   can be reset, because a build you cannot change is a build you resent.
+
+   Every bonus here is applied somewhere in the simulation — none of these are
+   decorative. `per` is the multiplier added per point. */
+const PROFESSIONS = {
+  houndsman: {
+    name: "Houndsman", max: 3, per: 0.05,
+    blurb: "Reads sign, works the wind, brings them home sound.",
+    effect: "+5% hunt payout per point",
+  },
+  breeder: {
+    name: "Breeder", max: 3, per: 0.04,
+    blurb: "An eye for a pairing, and the patience to wait for it.",
+    effect: "+4% pup quality per point",
+  },
+  trainer: {
+    name: "Trainer", max: 3, per: 0.35,
+    blurb: "Gets more out of a session than the session should give.",
+    effect: "+35% conditioning gains per point",
+  },
+  trader: {
+    name: "Trader", max: 3, per: 0.06,
+    blurb: "Knows what a dog is worth, and who will pay it.",
+    effect: "+6% on everything you sell, per point",
+  },
+  stockman: {
+    name: "Stockman", max: 3, per: 0.07,
+    blurb: "Horses and cattle, kept right and shown well.",
+    effect: "+7% show and race purses per point",
+  },
+};
+const PROFESSION_KEYS = Object.keys(PROFESSIONS);
+
 /* One-time kennel upgrades. Each one changes a rule in the simulation. */
 const UPGRADES = {
   feedSilo:     { name: "Feed Silo",        price: 1200, desc: "Buy feed in bulk. Cuts daily upkeep by a quarter." },
@@ -635,7 +688,7 @@ function itemsInCategory(cat) { return ITEM_IDS.filter((id) => ITEMS[id].cat ===
 
 /* Apply a purchased item to a dog. Returns the updated dog plus a log line.
    Training gains are capped at 100 and scale with the Training Yard upgrade. */
-function applyItem(dog, itemId, upgrades) {
+function applyItem(dog, itemId, upgrades, trainerBonus) {
   const item = ITEMS[itemId];
   if (!item) return { dog, msg: null, ok: false };
   const up = upgrades || {};
@@ -654,10 +707,13 @@ function applyItem(dog, itemId, upgrades) {
 
   const gains = [];
   if (item.stat) {
+    // The Training Yard adds a flat point; the Trainer profession scales the
+    // whole gain on top of it, so the two stack rather than one hiding the other.
     const bonus = up.trainingYard && item.cat === "training" ? 1 : 0;
+    const scale = item.cat === "training" ? (trainerBonus || 1) : 1;
     Object.entries(item.stat).forEach(([k, amt]) => {
       const before = next.stats[k];
-      next.stats[k] = clamp(before + amt + bonus);
+      next.stats[k] = clamp(before + Math.round((amt + bonus) * scale));
       const real = next.stats[k] - before;
       if (real > 0) gains.push(`+${real} ${STAT_LABELS[k].toLowerCase()}`);
     });
