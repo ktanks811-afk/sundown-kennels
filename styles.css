@@ -1576,3 +1576,29 @@ html[data-theme="light"], html[data-theme="light"] body { background:#f2ebdd; }
    do rather than as a wall of noise. */
 .kg-ranch__stat--zero { color: var(--ink-soft); }
 .kg-ranch__stat--zero b { opacity: 0.5; }
+
+/* ---------------------- trial entries (phase 5) --------------------------- */
+/* Entering is now a commitment rather than a die roll, so the bar that does it
+   is deliberately heavier than a row button. */
+.kg-enterbar {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 10px; margin: 10px 0; padding: 11px 14px; border-radius: 7px;
+  background: var(--paper-dark); border: 1px solid var(--border);
+}
+.kg-enterbar__meta { display: block; font-size: 11.5px; color: var(--ink-soft); margin-top: 2px; }
+.kg-enterrow {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 10px; padding: 9px 12px; border-radius: 6px; font-size: 13px;
+  background: var(--paper-dark); border: 1px solid var(--border);
+}
+/* .kg-btn is full-width by default in this codebase, which turns a Withdraw
+   into a banner when it sits beside text in a flex row. */
+.kg-enterrow .kg-btn,
+.kg-ap__entry .kg-btn,
+.kg-enterbar .kg-btn { width: auto; flex: 0 0 auto; }
+
+.kg-ap__entry {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 9px; padding: 9px 11px; border-radius: 6px; font-size: 12.5px;
+  background: var(--paper-dark); border: 1px solid var(--border);
+}

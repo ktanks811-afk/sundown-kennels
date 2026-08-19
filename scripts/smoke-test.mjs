@@ -183,6 +183,68 @@ async function main() {
     await page.waitForTimeout(900);
   }
 
+  /* The whole point of phase 5 is that entering a trial is a commitment that
+     pays out later, not a die roll that pays out now. That is a claim about
+     behaviour over time, so it needs a test that actually spans a day:
+     enter, confirm money and energy left, turn the day, confirm a result
+     arrived and the entry cleared. */
+  async function checkTrialEntries() {
+    const problems = [];
+    const readState = () => page.evaluate(() => {
+      const raw = window.localStorage.getItem("kennel-save-v7");
+      if (!raw) return null;
+      const s = JSON.parse(raw);
+      return {
+        cash: s.cash,
+        day: s.day,
+        entries: (s.entries || []).length,
+        energies: (s.dogs || []).map((d) => (typeof d.energy === "number" ? d.energy : 100)),
+        results: (s.log || []).filter((l) => /won the |placed behind /.test(l.text)).length,
+      };
+    });
+
+    await page.evaluate(() => { window.location.hash = "#/trials"; });
+    await page.waitForTimeout(500);
+
+    const picker = page.locator(".kg-pairpick select").first();
+    if (!(await picker.count())) { problems.push("no entrant picker on the trials screen"); return problems; }
+    const values = await picker.locator("option").evaluateAll((os) => os.map((o) => o.value).filter(Boolean));
+    if (!values.length) { problems.push("no dog eligible to enter"); return problems; }
+    await picker.selectOption(values[0]);
+    await page.waitForTimeout(300);
+
+    const before = await readState();
+    const enterBtn = page.getByRole("button", { name: /^Enter the / });
+    if (!(await enterBtn.count())) { problems.push("no enter button after picking a dog"); return problems; }
+    await enterBtn.first().click();
+    await page.waitForTimeout(500);
+
+    const entered = await readState();
+    if (entered.entries !== before.entries + 1) problems.push(`entering did not queue an entry (${before.entries} -> ${entered.entries})`);
+    if (!(entered.cash < before.cash)) problems.push("entering did not charge an entry fee");
+    if (entered.day !== before.day) problems.push(`entering advanced the day (${before.day} -> ${entered.day}) — it should not`);
+    if (Math.min(...entered.energies) >= 100) problems.push("entering did not spend any energy");
+    if (entered.results !== before.results) problems.push("a result posted immediately instead of next day");
+    visited++;
+
+    // Turn the day. Rest is the one control that moves time without needing a
+    // fit dog, which matters because the entered dog just spent its energy.
+    await page.evaluate(() => { window.location.hash = "#/overview"; });
+    await page.waitForTimeout(400);
+    const rest = page.getByRole("button", { name: /rest a week/i });
+    if (!(await rest.count())) { problems.push("no rest control to turn the day with"); return problems; }
+    await rest.first().click();
+    await page.waitForTimeout(700);
+
+    const after = await readState();
+    if (after.day <= entered.day) problems.push("resting did not advance the day");
+    if (after.entries !== 0) problems.push(`entry did not resolve on the day tick (${after.entries} left)`);
+    if (after.results <= before.results) problems.push("no trial result posted after the day turned");
+    if (Math.min(...after.energies) < 100) problems.push("energy did not refill on the day tick");
+
+    return problems;
+  }
+
   /* The ranch tab strip is the only way into About, History and Stats, so
      without walking it those three screens and their routes go untested. */
   async function walkRanchTabs() {
@@ -286,6 +348,9 @@ async function main() {
   const tabs = await walkClassic();
   console.log(`Sidebar layout: ${tabs} nav entries walked.`);
 
+  const entryProblems = await checkTrialEntries();
+  console.log("Trials: entered, day turned, result posted, energy refilled.");
+
   const ranchTabs = await walkRanchTabs();
   console.log(`Ranch: ${ranchTabs} tabs walked.`);
 
@@ -353,6 +418,11 @@ Ranch tab strip showed ${ranchTabs} tabs, expected ${RANCH_TAB_COUNT}.`);
     console.error(`\n${deadEnds.length} nav destination(s) with no route of their own:`);
     for (const d of deadEnds) console.error(" - " + d);
     console.error("Add the screen id to ROUTES in js/router.jsx.");
+    process.exit(1);
+  }
+  if (entryProblems.length) {
+    console.error("\nThe trial entry loop is broken:");
+    for (const p of entryProblems) console.error(" - " + p);
     process.exit(1);
   }
   if (profileProblems.length) {

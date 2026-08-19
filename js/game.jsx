@@ -842,6 +842,7 @@ function KennelGame() {
     const deaths = [];
     const whelped = [];
     const healed = [];
+    const results = [];
     next.dogs = prev.dogs.map((d) => {
       const ov = overrides[d.id];
       let health = d.health + recovery * days;
@@ -864,7 +865,9 @@ function KennelGame() {
         if (pregnant <= 0) { whelped.push(d.id); pregnant = 0; }
       }
 
-      const aged = { ...d, ageDays: d.ageDays + days, health: clamp(health), breedCooldown: cooldown, injury, pregnantDaysLeft: pregnant };
+      // A full night's rest, not a trickle: the question each day is what this
+      // dog does, never how long you wait for the bar to creep up.
+      const aged = { ...d, ageDays: d.ageDays + days, health: clamp(health), breedCooldown: cooldown, injury, pregnantDaysLeft: pregnant, energy: ENERGY_MAX };
 
       // Old age. Rolled per day so a long rest doesn't dodge the odds.
       for (let i = 0; i < days; i++) {
@@ -874,6 +877,67 @@ function KennelGame() {
     }).filter(Boolean);
 
     next.pendingWhelps = whelped;
+
+    /* Anything entered on an earlier day is judged now.
+
+       Deliberately after the dogs have been aged and rested above, so a result
+       lands on the dog as it is today rather than as it was when it was
+       entered. An entry whose dog has since died or been sold is dropped
+       rather than paid out — next.dogs is the authority on who still exists. */
+    {
+      const due = (prev.entries || []).filter((e) => e.resolvesDay <= next.day);
+      const held = (prev.entries || []).filter((e) => e.resolvesDay > next.day);
+      let dogsAfter = next.dogs;
+      let cashDelta = 0;
+      let fameDelta = 0;
+
+      for (const entry of due) {
+        const myDog = dogsAfter.find((d) => d.id === entry.dogId);
+        if (!myDog) continue;
+        const trial = TRIALS[entry.trial];
+        if (!trial) continue;
+
+        const field = collectCompetitors(prev.aiKennels);
+        const oppDog = field.length ? field[randInt(0, field.length - 1)] : myDog;
+        const result = resolveTrial(myDog, oppDog, entry.trial);
+        const purse = trialPurse(myDog, oppDog);
+
+        if (result.won) {
+          cashDelta += purse;
+          fameDelta += entry.trial === "show" ? 5 : 2;
+        }
+
+        const gain = result.won ? randInt(2, 4) : randInt(1, 2);
+        const winsBefore = myDog.trialWins || 0;
+        const winsAfter = winsBefore + (result.won ? 1 : 0);
+        dogsAfter = dogsAfter.map((d) => d.id !== myDog.id ? d : {
+          ...d,
+          trialWins: winsAfter,
+          health: clamp(d.health - result.healthLoss),
+          stats: { ...d.stats, grip: clamp(d.stats.grip + gain), conformation: clamp(d.stats.conformation + gain) },
+        });
+
+        results.push({
+          won: result.won,
+          text: result.won
+            ? `${myDog.name} won the ${trial.label.toLowerCase()} against ${oppDog.name} (${oppDog.kennelName}) by ${result.margin} — ${fmtMoney(purse)}.`
+            : `${myDog.name} placed behind ${oppDog.name} (${oppDog.kennelName}) at the ${trial.label.toLowerCase()} by ${result.margin}.`,
+        });
+
+        const earnedBefore = titleFor(winsBefore), earnedAfter = titleFor(winsAfter);
+        if (earnedAfter && (!earnedBefore || earnedBefore.key !== earnedAfter.key)) {
+          results.push({
+            won: true,
+            text: `🏆 ${myDog.name} has earned the title of ${earnedAfter.label} — ${winsAfter} wins on the board.`,
+          });
+        }
+      }
+
+      next.dogs = dogsAfter;
+      next.entries = held;
+      if (cashDelta) next.cash = Math.round((next.cash + cashDelta) * 100) / 100;
+      if (fameDelta) next.fame = (next.fame || prev.fame || 0) + fameDelta;
+    }
 
     // Livestock ages on the same clock as the dogs.
     const horseAged = ageLivestock(prev.horses, "horse", days, recovery);
@@ -905,6 +969,10 @@ function KennelGame() {
     }
 
     // Anything that happened on its own while time passed gets its own line.
+    // Results first — they are what the player came back to read.
+    results.forEach((r) => {
+      next = addLog(next, r.won ? "money" : "info", r.text);
+    });
     healed.forEach((h) => {
       next = addLog(next, "info", `${h.name} is sound again — the ${(INJURIES[h.key] || {}).label || "injury"} has healed up.`);
     });
@@ -949,6 +1017,7 @@ function KennelGame() {
     const key = huntKey || huntPick.hunt;
     const dog = state.dogs.find((d) => d.id === id);
     if (!dog) return;
+    if (!hasEnergy(dog, "hunt")) return { ok: false, why: `${dog.name} is worn out for today.` };
     const hunt = HUNTS[key];
     const result = resolveHunt(dog, key, state.day);
     const weightLbs = catchWeight(key, result.tier);
@@ -957,6 +1026,10 @@ function KennelGame() {
     update((prev) => {
       let next = tick(prev, 1, { [dog.id]: { healthDelta: -result.healthLoss, injury: result.injury || dog.injury || null } });
       next.cash = Math.round(next.cash + payout);
+      // The tick refills every dog to full, so the cost of the hunt is taken
+      // after it — otherwise a day's work would always come back free.
+      next.dogs = next.dogs.map((d) => d.id === dog.id
+        ? { ...d, energy: Math.max(0, ENERGY_MAX - ENERGY_COST.hunt) } : d);
       if (result.tier !== "Poor") {
         next.catches = [...next.catches, { id: genId(), day: prev.day + 1, kennelName: prev.kennelName, dogName: dog.name, breed: dog.breed, huntType: hunt.label, tier: result.tier, weightLbs, payout }]
           .sort((a, b) => (b.weightLbs || b.payout) - (a.weightLbs || a.payout)).slice(0, 25);
@@ -1130,6 +1203,66 @@ function KennelGame() {
       if (doubleMerleWarned) note += " At least one double-merle pup — risk of deafness or vision problems.";
       if (grewBiggerCount) note += ` ${grewBiggerCount} pup${grewBiggerCount > 1 ? "s" : ""} threw a growth mutation.`;
       return addLog(next, "breed", `${offer.kennelName} bred their ${offer.requesterDog.name} with your ${target.name} — whelped ${pups.length}: ${names}.${note}`);
+    });
+  }
+
+  /* Entering a trial no longer resolves it.
+
+     The old doTrial paid out on the spot and ticked a day itself, so a trial
+     was a slot machine: pull, see the result, pull again. Entries now cost
+     money and the dog's energy today and post their result on the next day
+     tick, which is what turns the game into something you come back to.
+
+     Nothing here advances the day. The day moves when you hunt, rest or work
+     the stock, and whatever you entered is waiting when it does. */
+  function enterTrial(dog, trialKey) {
+    const trial = TRIALS[trialKey];
+    if (!dog || !trial) return { ok: false, why: "That trial is not running." };
+    if (state.entries.some((e) => e.dogId === dog.id)) {
+      return { ok: false, why: `${dog.name} is already entered in something.` };
+    }
+    if (isRetired(dog)) return { ok: false, why: `${dog.name} is retired from competition.` };
+    if (dog.injury) return { ok: false, why: `${dog.name} is hurt and cannot be entered.` };
+    if (!hasEnergy(dog, "trial")) {
+      return { ok: false, why: `${dog.name} has not got the energy left today.` };
+    }
+    const fee = Math.round(trialPurse(dog, dog) * 0.3);
+    if (state.cash < fee) return { ok: false, why: `The entry fee is ${fmtMoney(fee)} and you are short.` };
+
+    update((prev) => {
+      const entry = {
+        id: genId(),
+        dogId: dog.id,
+        dogName: dog.name,
+        trial: trialKey,
+        fee,
+        enteredDay: prev.day,
+        resolvesDay: prev.day + 1,
+      };
+      const next = {
+        ...prev,
+        cash: Math.round((prev.cash - fee) * 100) / 100,
+        entries: [...prev.entries, entry],
+        dogs: prev.dogs.map((d) => d.id === dog.id
+          ? { ...d, energy: Math.max(0, energyOf(d) - ENERGY_COST.trial) } : d),
+      };
+      return addLog(next, "info",
+        `${dog.name} is entered in the ${trial.label.toLowerCase()} — ${fmtMoney(fee)}. Results come in tomorrow.`);
+    });
+    return { ok: true };
+  }
+
+  function withdrawEntry(entryId) {
+    update((prev) => {
+      const entry = prev.entries.find((e) => e.id === entryId);
+      if (!entry) return prev;
+      // Half the fee back — pulling out late costs the organisers a slot.
+      const refund = Math.round(entry.fee * 0.5);
+      return addLog({
+        ...prev,
+        cash: Math.round((prev.cash + refund) * 100) / 100,
+        entries: prev.entries.filter((e) => e.id !== entryId),
+      }, "money", `Pulled ${entry.dogName} out — ${fmtMoney(refund)} of the fee back.`);
     });
   }
 
@@ -1490,6 +1623,9 @@ function KennelGame() {
     const item = ITEMS[itemId];
     const target = state.dogs.find((d) => d.id === dogId);
     if (!item || !target) return;
+    // Only conditioning costs energy. Feed and medicine are things done to a
+    // dog rather than work asked of it.
+    if (item.cat === "training" && !hasEnergy(target, "training")) return;
     if (!(state.inventory && state.inventory[itemId] > 0)) return;
     update((prev) => {
       const inv = { ...(prev.inventory || {}) };
@@ -1500,7 +1636,9 @@ function KennelGame() {
         if (d.id !== dogId) return d;
         const res = applyItem(d, itemId, prev.upgrades, professionBonus(prev, "trainer"));
         msg = res.msg;
-        return res.dog;
+        return item.cat === "training"
+          ? { ...res.dog, energy: Math.max(0, energyOf(d) - ENERGY_COST.training) }
+          : res.dog;
       });
       const type = item.cat === "med" ? "injury" : item.cat === "training" ? "hunt" : "info";
       return addLog({ ...prev, inventory: inv, dogs }, type, msg || `Used ${item.name}.`);
@@ -1627,6 +1765,8 @@ function KennelGame() {
     spendProfessionPoint,
     resetProfessions,
     saveRanchBio,
+    enterTrial,
+    withdrawEntry,
   };
 
   /* Every screen, rendered the same in either layout. Only the chrome around

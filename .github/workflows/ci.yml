@@ -19,6 +19,9 @@ jobs:
           node-version: 20
       - run: npm install
       - run: npm run check:syntax
+      # Existed but was never wired in, so the group-hunt logic has been
+      # shipping untested since it was written.
+      - run: npm run test:grouphunt
 
   smoke-test:
     name: Browser smoke test
