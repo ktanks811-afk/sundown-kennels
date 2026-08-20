@@ -10,7 +10,8 @@
     "test:care": "node scripts/test-care.mjs",
     "test:reachable": "node scripts/test-reachable.mjs",
     "art:manifest": "node scripts/build-art-manifest.mjs",
-    "art:prompts": "node scripts/make-art-prompts.mjs"
+    "art:prompts": "node scripts/make-art-prompts.mjs",
+    "art:generate": "node scripts/generate-art.mjs"
   },
   "devDependencies": {
     "@babel/core": "^7.24.0",
