@@ -1475,6 +1475,61 @@ function KennelGame() {
     }, "money", `${dog.name} vaccinated at ${clinic.name} for ${fmtMoney(clinic.price)}.`));
   }
 
+  /* One rule set for every arcade game: a daily cap, a streak that survives
+     between visits, and a payout that scales with it. `scale` lets a game pay
+     less for a sloppier win without inventing its own economy. */
+  function arcadePlay(gameId, won, scale) {
+    const def = ARCADE_GAMES.find((g) => g.id === gameId);
+    if (!def) return 0;
+    const row = arcadeStateFor(state, gameId);
+    if (row.plays >= def.cap) return 0;
+
+    const streak = won ? row.streak + 1 : 0;
+    const paid = won ? Math.round(arcadePayout(def.pay, row.streak) * (scale == null ? 1 : scale)) : 0;
+
+    update((prev) => {
+      const next = {
+        ...prev,
+        cash: Math.round((prev.cash + paid) * 100) / 100,
+        arcade: { ...(prev.arcade || {}), [gameId]: { day: prev.day, plays: row.plays + 1, streak } },
+      };
+      return paid
+        ? addLog(next, "money", `${def.name}: won ${fmtMoney(paid)}${streak > 1 ? ` — ${streak} in a row` : ""}.`)
+        : next;
+    });
+    return paid;
+  }
+
+  /* A registry entry is separate from papers and is not undoable — the whole
+     value of a stud book is that it is a record, not a setting. */
+  function registerInRegistry(key, dogId) {
+    const reg = REGISTRIES[key];
+    const dog = state.dogs.find((d) => d.id === dogId);
+    if (!reg || !dog || dog.registryKey || !dog.registered) return;
+    if (breedGroup(dog.breed) !== key) return;
+    if (state.cash < reg.fee) return;
+    update((prev) => addLog({
+      ...prev,
+      cash: Math.round((prev.cash - reg.fee) * 100) / 100,
+      dogs: prev.dogs.map((d) => d.id === dogId ? { ...d, registryKey: key } : d),
+    }, "money", `${dog.name} entered in the ${reg.name} for ${fmtMoney(reg.fee)}. Its pups carry the line now.`));
+  }
+
+  /* Surrendering a dog. It goes into the same pool the rescue pen draws from,
+     so an unwanted dog recirculates rather than being deleted. */
+  function doAbandon(dog) {
+    if (!dog || state.dogs.length <= 1) return;
+    update((prev) => addLog({
+      ...prev,
+      dogs: prev.dogs.filter((d) => d.id !== dog.id),
+      rescue: [...(prev.rescue || []), {
+        id: genId(), dog: { ...dog, price: undefined },
+        fee: Math.max(40, Math.round(computeValue(dog) * 0.15)),
+        story: `Surrendered by ${prev.kennelName}. Sound enough, just one too many.`,
+      }].slice(-8),
+    }, "info", `${dog.name} was surrendered to the adoption centre.`));
+  }
+
   function doSell(dog) {
     const value = Math.round(computeValue(dog) * professionBonus(state, "trader"));
     update((prev) => addLog({ ...prev, cash: Math.round(prev.cash + value), dogs: prev.dogs.filter((d) => d.id !== dog.id) }, "money", `Sold ${dog.name} to a trader for ${fmtMoney(value)}.`));
@@ -1823,6 +1878,9 @@ function KennelGame() {
     withdrawEntry,
     bankMove,
     vaccinateAt,
+    arcadePlay,
+    registerInRegistry,
+    doAbandon,
     buyItemId, setBuyItemId,
   };
 
@@ -1843,6 +1901,8 @@ function KennelGame() {
       <RanchPanels game={game} />
       <MarketPanels game={game} />
       <SearchScreen game={game} />
+      <ArcadeScreen game={game} />
+      <RegistriesScreen game={game} />
       <AchievementsScreen game={game} />
       <CareChecklist game={game} />
       {buyItemId && <PurchaseModal game={game} itemId={buyItemId} onClose={() => setBuyItemId(null)} />}

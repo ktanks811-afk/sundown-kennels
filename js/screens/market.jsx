@@ -8,9 +8,10 @@
    component, not reusable pieces with an interface worth designing. The
    destructure below is the honest record of what this file depends on. */
 function MarketScreens({ game }) {
+  const [abandonId, setAbandonId] = useState("");
   const { doAdopt, doBuy, doBuyItem, doBuyUpgrade, doUseItem, filters, itemTargets, kennelFull,
     refreshRescue, scoutMarket, setFilters, setItemTargets, setShopCat, setViewDog, shopCat,
-    shownMarket, state, tab, setBuyItemId } = game;
+    shownMarket, state, tab, setBuyItemId, doAbandon } = game;
   return (
     <>
         {tab === "market" && (
@@ -191,8 +192,38 @@ function MarketScreens({ game }) {
         })()}
         {tab === "rescue" && (
           <>
-            <h2 className="kg-subhead">County Shelter</h2>
+            <h2 className="kg-subhead">Adoption Center</h2>
             <p className="kg-hint">Unpapered dogs at a fraction of market price. Condition is rough and there's no pedigree behind them — but the genetics are real, and every so often something very good comes through the pen.</p>
+
+            {/* The other half of a shelter. A dog you cannot keep goes back into
+                the same pool this pen draws from, so it recirculates instead of
+                being deleted — and the last dog on the place can never go. */}
+            <Panel title="Surrender a dog" collapsible defaultOpen={false}>
+              {state.dogs.length <= 1 ? (
+                <p className="kg-hint" style={{ margin: 0 }}>
+                  You cannot surrender your last dog — there would be no kennel left.
+                </p>
+              ) : (
+                <>
+                  <p className="kg-hint" style={{ margin: "0 0 10px" }}>
+                    Sometimes it is one too many. A surrendered dog goes into the intake
+                    pen, where another kennel can take it on.
+                  </p>
+                  <div className="kg-pairpick">
+                    <select value={abandonId} onChange={(e) => setAbandonId(e.target.value)}>
+                      <option value="">Choose a dog</option>
+                      {state.dogs.map((d) => (
+                        <option key={d.id} value={d.id}>{d.name} — {breedShort(d.breed)}</option>
+                      ))}
+                    </select>
+                    <button className="kg-btn kg-btn--sm" disabled={!abandonId}
+                      onClick={() => { doAbandon(state.dogs.find((d) => d.id === abandonId)); setAbandonId(""); }}>
+                      Surrender
+                    </button>
+                  </div>
+                </>
+              )}
+            </Panel>
             <div className="kg-marketbar">
               <span className="kg-note">{(state.rescue || []).length} dog{(state.rescue || []).length === 1 ? "" : "s"} in intake · turns over every 10 days</span>
               <button className="kg-btn kg-btn--ghost" onClick={refreshRescue}>Check for new intakes</button>
