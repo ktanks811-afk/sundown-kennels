@@ -342,9 +342,9 @@ function AnimalProfileScreen({ game }) {
           {/* CoatSwatch reads the dog colour tables, so livestock get a plain
               swatch until the species artwork lands. */}
           <div className="kg-ap__portrait">
-            {isDog
-              ? <CoatSwatch dog={animal} width={280} height={54} />
-              : <div className="kg-ap__blank" aria-hidden="true" />}
+            {/* Falls back to the generated swatch until real art lands in
+                assets/ - see AnimalPortrait. */}
+            <AnimalPortrait kind={kind} animal={animal} width={280} />
             <p className="kg-ap__portraitnote">{coatText}</p>
           </div>
 

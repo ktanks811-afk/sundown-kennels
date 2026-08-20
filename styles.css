@@ -1700,3 +1700,6 @@ html[data-theme="light"], html[data-theme="light"] body { background:#f2ebdd; }
 .kg-arcade__spots .kg-ui-tile:disabled { opacity: 0.45; cursor: default; }
 .kg-arcade__answers { display: flex; flex-direction: column; gap: 7px; }
 .kg-arcade__answers .kg-btn { width: 100%; text-align: left; justify-content: flex-start; }
+
+/* Portrait art. Sized by width so a tall breed is not cropped to a short one. */
+.kg-portrait { display: block; max-width: 100%; height: auto; margin: 0 auto; }
