@@ -42,6 +42,8 @@ const ROUTES = [
   { path: "/online/leaderboard", screen: "leaderboard" },
 
   { path: "/search",             screen: "search" },
+  { path: "/arcade",             screen: "arcade" },
+  { path: "/registries",         screen: "registries" },
   { path: "/achievements",       screen: "achievements" },
   { path: "/today",              screen: "care" },
 

@@ -13,7 +13,10 @@ import vm from "node:vm";
 import assert from "node:assert/strict";
 
 const ROOT = process.cwd();
-const LOAD_ORDER = ["data.jsx", "genetics.jsx", "simulation.jsx"];
+// arcade.jsx is a screen file, but its payout and daily-cap helpers are plain
+// functions at the top of it. Defining a component does not run any JSX, so
+// loading it here costs nothing and the rules become testable.
+const LOAD_ORDER = ["data.jsx", "genetics.jsx", "simulation.jsx", "screens/arcade.jsx"];
 
 const React = { useState: () => {}, useEffect: () => {}, useCallback: () => {}, useRef: () => {} };
 const sandbox = { console, Math, Object, Array, Date, JSON, Boolean, String, Number, React };
@@ -28,11 +31,12 @@ for (const f of LOAD_ORDER) {
 // the global object, so these are not reachable by destructuring the sandbox.
 // Same trick test-grouphunt.mjs uses: hand them out from inside.
 vm.runInContext(`
-  globalThis.CARE = { ITEMS, PERSONALITIES, PERSONALITY_KEYS, MOOD_MAX, MOOD_DECAY_PER_DAY };
+  globalThis.CARE = { ITEMS, PERSONALITIES, PERSONALITY_KEYS, MOOD_MAX, MOOD_DECAY_PER_DAY, REGISTRIES, REGISTRY_KEYS, BREEDS, ARCADE_GAMES };
 `, sandbox);
-const { ITEMS, PERSONALITIES, PERSONALITY_KEYS, MOOD_MAX } = sandbox.CARE;
+const { ITEMS, PERSONALITIES, PERSONALITY_KEYS, MOOD_MAX, REGISTRIES, REGISTRY_KEYS, BREEDS, ARCADE_GAMES } = sandbox.CARE;
 // Function declarations do land on the global object, so these come straight off.
-const { applyItem, personalityOf, moodOf, isVaccinated, moodMultiplier } = sandbox;
+const { applyItem, personalityOf, moodOf, isVaccinated, moodMultiplier,
+        registryOffspringBonus, breedGroup, arcadePayout, arcadeStateFor } = sandbox;
 
 let failed = 0;
 function test(name, fn) {
@@ -116,6 +120,62 @@ test("a vaccination is dated from the day it is given", () => {
 
 test("moodOf treats an old dog with no mood field as content", () => {
   assert.equal(moodOf({ id: "x" }), MOOD_MAX);
+});
+
+/* ------------------------------ phase 8 rules ------------------------------ */
+
+test("every breed belongs to a group that has a registry", () => {
+  for (const name of Object.keys(BREEDS)) {
+    const g = breedGroup(name);
+    assert.ok(REGISTRIES[g], `${name} maps to "${g}", which has no registry`);
+  }
+});
+
+test("crossbred and made-up breed names still find a registry", () => {
+  for (const name of ["DogoBandog", "CorsoDogoBandog", "Catahoula x Plott Cross", "Something Unheard Of"]) {
+    assert.ok(REGISTRIES[breedGroup(name)], `${name} fell through to no registry`);
+  }
+});
+
+test("a registry entry pays on the pups, not on the dog itself", () => {
+  const sire = { id: "s", registryKey: "terrier" };
+  const plain = { id: "p" };
+  assert.equal(registryOffspringBonus(plain), 1, "a dog with no registered parents gets no bonus");
+  assert.ok(registryOffspringBonus({ id: "x", sire, dam: null }) > 1, "one registered parent should pay");
+});
+
+test("both registered parents pay more than one", () => {
+  const sire = { id: "s", registryKey: "terrier" };
+  const dam = { id: "d", registryKey: "terrier" };
+  const one = registryOffspringBonus({ id: "x", sire, dam: null });
+  const two = registryOffspringBonus({ id: "y", sire, dam });
+  assert.ok(two > one, "a pairing of two registered dogs should be worth planning");
+});
+
+test("an unknown registry key is ignored rather than breaking valuation", () => {
+  const sire = { id: "s", registryKey: "not-a-real-registry" };
+  assert.equal(registryOffspringBonus({ id: "x", sire }), 1);
+});
+
+test("arcade payouts rise with a streak but are capped", () => {
+  const base = 50;
+  assert.equal(arcadePayout(base, 0), base, "no streak pays the base rate");
+  assert.ok(arcadePayout(base, 5) > arcadePayout(base, 1), "a longer run should pay more");
+  assert.ok(arcadePayout(base, 1000) <= base * 3, "an endless run must not become the best job on the farm");
+});
+
+test("the daily cap resets on a new day and the streak survives it", () => {
+  const yesterday = { arcade: { throw: { day: 4, plays: 15, streak: 6 } }, day: 5 };
+  const row = arcadeStateFor(yesterday, "throw");
+  assert.equal(row.plays, 0, "plays reset with the day");
+  assert.equal(row.streak, 6, "the streak is the thing worth coming back for");
+});
+
+test("every arcade game has a cap, so none of them is a money printer", () => {
+  for (const g of ARCADE_GAMES) {
+    assert.ok(g.cap > 0 && g.cap <= 20, `${g.id} has a cap of ${g.cap}`);
+    assert.ok(g.pay > 0, `${g.id} pays nothing`);
+  }
 });
 
 process.exit(failed ? 1 : 0);

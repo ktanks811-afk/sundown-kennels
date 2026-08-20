@@ -649,6 +649,7 @@ function initKennel(kennelName, starterDogs) {
     xp: 0,
     entries: [],
     savings: 0,
+    arcade: {},
     professions: {},
     socialFeed: [],
     // A vaccine in the box from the start, so the item is discovered before the
@@ -742,6 +743,20 @@ function isVaccinated(dog, day) {
   return typeof dog.vaccinatedUntilDay === "number" && dog.vaccinatedUntilDay >= day;
 }
 
+/* What a pup is worth extra because its parents' lines are on a registry book.
+   Both parents count, so a pairing of two registered dogs is worth planning.
+   Applied at valuation rather than baked into the pup, so entering a registry
+   later still pays on pups already on the ground. */
+function registryOffspringBonus(dog, dogsById) {
+  let mult = 1;
+  for (const parent of [dog && dog.sire, dog && dog.dam]) {
+    const key = parent && (parent.registryKey ||
+      (dogsById && dogsById[parent.id] && dogsById[parent.id].registryKey));
+    if (key && REGISTRIES[key]) mult += REGISTRIES[key].offspringBonus;
+  }
+  return mult;
+}
+
 function addLog(state, type, text) {
   return {
     ...state,
@@ -763,6 +778,7 @@ function migrateState(s) {
   if (typeof out.xp !== "number") out.xp = 0;
   if (!Array.isArray(out.entries)) out.entries = [];
   if (typeof out.savings !== "number") out.savings = 0;
+  if (!out.arcade || typeof out.arcade !== "object") out.arcade = {};
   if (!out.professions || typeof out.professions !== "object") out.professions = {};
   if (!Array.isArray(out.socialFeed)) out.socialFeed = [];
   if (!out.property || typeof out.property !== "object") out.property = STARTER_PROPERTY;

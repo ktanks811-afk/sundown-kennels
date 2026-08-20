@@ -434,7 +434,11 @@ function computeValue(dog) {
   const rarity = computeRarity(dog);
   const papersMult = dog.registered ? 1.15 : 1;
   const culledMult = dog.culled ? 0.55 : 1;
-  return Math.round(rating * 16 * rarity.mult * papersMult * culledMult + dog.health * 2 + genBonus);
+  // A registry entry on either parent is worth real money on the pup - see
+  // registryOffspringBonus. Applied at valuation rather than baked in at
+  // birth, so entering a line later still pays on pups already on the ground.
+  const lineage = typeof registryOffspringBonus === "function" ? registryOffspringBonus(dog) : 1;
+  return Math.round(lineage * rating * 16 * rarity.mult * papersMult * culledMult + dog.health * 2 + genBonus);
 }
 
 function isInbred(sire, dam) {

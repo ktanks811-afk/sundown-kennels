@@ -12,36 +12,36 @@ const STAT_KEYS = ["gameness", "grip", "nose", "stamina", "speed", "conformation
 const STAT_LABELS = { gameness: "Gameness", grip: "Grip", nose: "Nose", stamina: "Stamina", speed: "Speed", conformation: "Conformation" };
 
 const BREEDS = {
-  "American Pit Bull Terrier": { short: "APBT", base: { gameness: 85, grip: 82, nose: 45, stamina: 75, speed: 65, conformation: 68 } },
-  "Catahoula Leopard Dog": { short: "Catahoula", base: { gameness: 62, grip: 55, nose: 80, stamina: 82, speed: 62, conformation: 65 } },
-  "Black Mouth Cur": { short: "BM Cur", base: { gameness: 70, grip: 62, nose: 72, stamina: 78, speed: 58, conformation: 64 } },
-  "Blue Lacy": { short: "Lacy", base: { gameness: 58, grip: 42, nose: 74, stamina: 70, speed: 87, conformation: 58 } },
-  "Plott Hound": { short: "Plott", base: { gameness: 68, grip: 48, nose: 92, stamina: 80, speed: 58, conformation: 63 } },
-  "Mountain Cur": { short: "Mtn Cur", base: { gameness: 63, grip: 54, nose: 76, stamina: 68, speed: 63, conformation: 60 } },
-  "American Bulldog": { short: "Am Bulldog", base: { gameness: 74, grip: 88, nose: 40, stamina: 62, speed: 50, conformation: 72 } },
-  "American Leopard Hound": { short: "Am Leopard Hound", base: { gameness: 65, grip: 50, nose: 85, stamina: 78, speed: 65, conformation: 62 } },
-  "Treeing Walker Coonhound": { short: "Walker", base: { gameness: 60, grip: 35, nose: 88, stamina: 80, speed: 78, conformation: 62 } },
-  "Redbone Coonhound": { short: "Redbone", base: { gameness: 62, grip: 38, nose: 85, stamina: 75, speed: 70, conformation: 63 } },
-  "Bluetick Coonhound": { short: "Bluetick", base: { gameness: 63, grip: 45, nose: 87, stamina: 76, speed: 68, conformation: 66 } },
-  "Dogo Argentino": { short: "Dogo", base: { gameness: 82, grip: 85, nose: 55, stamina: 78, speed: 68, conformation: 78 } },
-  "Cane Corso": { short: "Corso", base: { gameness: 70, grip: 80, nose: 45, stamina: 60, speed: 50, conformation: 82 } },
-  "Airedale Terrier": { short: "Airedale", base: { gameness: 68, grip: 62, nose: 68, stamina: 68, speed: 60, conformation: 66 } },
-  "American Staffordshire Terrier": { short: "AmStaff", base: { gameness: 78, grip: 78, nose: 42, stamina: 68, speed: 62, conformation: 80 } },
-  "Staffordshire Bull Terrier": { short: "Staffy", base: { gameness: 80, grip: 76, nose: 40, stamina: 64, speed: 60, conformation: 74 } },
-  "American Bully": { short: "Am Bully", base: { gameness: 60, grip: 70, nose: 38, stamina: 52, speed: 44, conformation: 86 } },
-  "Patterdale Terrier": { short: "Patterdale", base: { gameness: 88, grip: 68, nose: 70, stamina: 72, speed: 62, conformation: 55 } },
-  "Jagdterrier": { short: "Jagd", base: { gameness: 90, grip: 66, nose: 78, stamina: 74, speed: 64, conformation: 56 } },
-  "Mountain Feist": { short: "Feist", base: { gameness: 62, grip: 34, nose: 82, stamina: 66, speed: 80, conformation: 55 } },
-  "Black and Tan Coonhound": { short: "B&T", base: { gameness: 58, grip: 36, nose: 90, stamina: 78, speed: 62, conformation: 68 } },
-  "English Coonhound": { short: "English", base: { gameness: 60, grip: 38, nose: 86, stamina: 82, speed: 76, conformation: 64 } },
-  "Majestic Tree Hound": { short: "Majestic", base: { gameness: 62, grip: 44, nose: 91, stamina: 74, speed: 48, conformation: 70 } },
-  "Presa Canario": { short: "Presa", base: { gameness: 76, grip: 86, nose: 44, stamina: 62, speed: 52, conformation: 80 } },
-  "Boerboel": { short: "Boerboel", base: { gameness: 72, grip: 87, nose: 42, stamina: 60, speed: 46, conformation: 83 } },
-  "Dogue de Bordeaux": { short: "Bordeaux", base: { gameness: 66, grip: 84, nose: 40, stamina: 50, speed: 40, conformation: 81 } },
-  "Rhodesian Ridgeback": { short: "Ridgeback", base: { gameness: 74, grip: 60, nose: 72, stamina: 84, speed: 76, conformation: 76 } },
-  "Carolina Dog": { short: "Carolina", base: { gameness: 64, grip: 44, nose: 80, stamina: 80, speed: 74, conformation: 62 } },
-  "German Shorthaired Pointer": { short: "GSP", base: { gameness: 58, grip: 36, nose: 88, stamina: 86, speed: 80, conformation: 72 } },
-  "Beagle": { short: "Beagle", base: { gameness: 54, grip: 30, nose: 89, stamina: 70, speed: 58, conformation: 64 } },
+  "American Pit Bull Terrier": { group: "terrier", short: "APBT", base: { gameness: 85, grip: 82, nose: 45, stamina: 75, speed: 65, conformation: 68 } },
+  "Catahoula Leopard Dog": { group: "cur", short: "Catahoula", base: { gameness: 62, grip: 55, nose: 80, stamina: 82, speed: 62, conformation: 65 } },
+  "Black Mouth Cur": { group: "cur", short: "BM Cur", base: { gameness: 70, grip: 62, nose: 72, stamina: 78, speed: 58, conformation: 64 } },
+  "Blue Lacy": { group: "cur", short: "Lacy", base: { gameness: 58, grip: 42, nose: 74, stamina: 70, speed: 87, conformation: 58 } },
+  "Plott Hound": { group: "hound", short: "Plott", base: { gameness: 68, grip: 48, nose: 92, stamina: 80, speed: 58, conformation: 63 } },
+  "Mountain Cur": { group: "cur", short: "Mtn Cur", base: { gameness: 63, grip: 54, nose: 76, stamina: 68, speed: 63, conformation: 60 } },
+  "American Bulldog": { group: "bulldog", short: "Am Bulldog", base: { gameness: 74, grip: 88, nose: 40, stamina: 62, speed: 50, conformation: 72 } },
+  "American Leopard Hound": { group: "cur", short: "Am Leopard Hound", base: { gameness: 65, grip: 50, nose: 85, stamina: 78, speed: 65, conformation: 62 } },
+  "Treeing Walker Coonhound": { group: "hound", short: "Walker", base: { gameness: 60, grip: 35, nose: 88, stamina: 80, speed: 78, conformation: 62 } },
+  "Redbone Coonhound": { group: "hound", short: "Redbone", base: { gameness: 62, grip: 38, nose: 85, stamina: 75, speed: 70, conformation: 63 } },
+  "Bluetick Coonhound": { group: "hound", short: "Bluetick", base: { gameness: 63, grip: 45, nose: 87, stamina: 76, speed: 68, conformation: 66 } },
+  "Dogo Argentino": { group: "bulldog", short: "Dogo", base: { gameness: 82, grip: 85, nose: 55, stamina: 78, speed: 68, conformation: 78 } },
+  "Cane Corso": { group: "bulldog", short: "Corso", base: { gameness: 70, grip: 80, nose: 45, stamina: 60, speed: 50, conformation: 82 } },
+  "Airedale Terrier": { group: "terrier", short: "Airedale", base: { gameness: 68, grip: 62, nose: 68, stamina: 68, speed: 60, conformation: 66 } },
+  "American Staffordshire Terrier": { group: "terrier", short: "AmStaff", base: { gameness: 78, grip: 78, nose: 42, stamina: 68, speed: 62, conformation: 80 } },
+  "Staffordshire Bull Terrier": { group: "terrier", short: "Staffy", base: { gameness: 80, grip: 76, nose: 40, stamina: 64, speed: 60, conformation: 74 } },
+  "American Bully": { group: "terrier", short: "Am Bully", base: { gameness: 60, grip: 70, nose: 38, stamina: 52, speed: 44, conformation: 86 } },
+  "Patterdale Terrier": { group: "terrier", short: "Patterdale", base: { gameness: 88, grip: 68, nose: 70, stamina: 72, speed: 62, conformation: 55 } },
+  "Jagdterrier": { group: "terrier", short: "Jagd", base: { gameness: 90, grip: 66, nose: 78, stamina: 74, speed: 64, conformation: 56 } },
+  "Mountain Feist": { group: "cur", short: "Feist", base: { gameness: 62, grip: 34, nose: 82, stamina: 66, speed: 80, conformation: 55 } },
+  "Black and Tan Coonhound": { group: "hound", short: "B&T", base: { gameness: 58, grip: 36, nose: 90, stamina: 78, speed: 62, conformation: 68 } },
+  "English Coonhound": { group: "hound", short: "English", base: { gameness: 60, grip: 38, nose: 86, stamina: 82, speed: 76, conformation: 64 } },
+  "Majestic Tree Hound": { group: "hound", short: "Majestic", base: { gameness: 62, grip: 44, nose: 91, stamina: 74, speed: 48, conformation: 70 } },
+  "Presa Canario": { group: "bulldog", short: "Presa", base: { gameness: 76, grip: 86, nose: 44, stamina: 62, speed: 52, conformation: 80 } },
+  "Boerboel": { group: "bulldog", short: "Boerboel", base: { gameness: 72, grip: 87, nose: 42, stamina: 60, speed: 46, conformation: 83 } },
+  "Dogue de Bordeaux": { group: "bulldog", short: "Bordeaux", base: { gameness: 66, grip: 84, nose: 40, stamina: 50, speed: 40, conformation: 81 } },
+  "Rhodesian Ridgeback": { group: "gundog", short: "Ridgeback", base: { gameness: 74, grip: 60, nose: 72, stamina: 84, speed: 76, conformation: 76 } },
+  "Carolina Dog": { group: "cur", short: "Carolina", base: { gameness: 64, grip: 44, nose: 80, stamina: 80, speed: 74, conformation: 62 } },
+  "German Shorthaired Pointer": { group: "gundog", short: "GSP", base: { gameness: 58, grip: 36, nose: 88, stamina: 86, speed: 80, conformation: 72 } },
+  "Beagle": { group: "hound", short: "Beagle", base: { gameness: 54, grip: 30, nose: 89, stamina: 70, speed: 58, conformation: 64 } },
 };
 const BREED_NAMES = Object.keys(BREEDS);
 
@@ -405,6 +405,7 @@ const MARKET_NAV = [
     { id: "market", label: "Buy Dogs" },
     { id: "trade", label: "Player Market" },
     { id: "rescue", label: "Adoption Center" },
+    { id: "arcade", label: "Games" },
   ] },
   { heading: "Yours", items: [
     { id: "inventory", label: "Inventory" },
@@ -439,6 +440,7 @@ const ATLAS_MENU = [
   ] },
   { heading: "Information", items: [
     { id: "registry", label: "Stud Book" },
+    { id: "registries", label: "Breed Registries" },
     { id: "property", label: "Your Property" },
     { id: "breed",    label: "Breeding" },
     { id: "log",      label: "Ledger" },
@@ -487,6 +489,7 @@ const HOME_NAV_OWNER = {
   animalprofile: "kennel",
   ranchabout: "kennel", ranchhistory: "kennel", ranchstats: "kennel",
   care: "kennel", achievements: "records", search: "search",
+  arcade: "market", registries: "records",
 };
 
 /* The ranch tab strip. Four of these are older screens that already had a
@@ -718,6 +721,61 @@ const CLINICS = [
    by a bad week, and also money that cannot cover one. That is the whole
    decision, and the interest is small enough not to make it automatic. */
 const BANK_INTEREST_PER_DAY = 0.0015;
+
+/* Breed registries.
+
+   One per breed group. Registering a dog here is separate from the papers it
+   already carries: papers say what a dog is, a registry entry says the line is
+   being kept, and the value of that lands on the pups rather than the dog.
+
+   The bonus is deliberately on offspring only. A registry that made the dog in
+   front of you worth more would just be a button you press on everything; one
+   that pays out a generation later is a reason to plan. */
+const REGISTRIES = {
+  terrier: {
+    name: "Southern Bull & Terrier Registry",
+    blurb: "Keeps the bull-and-terrier lines honest, and has done since before anyone here was born.",
+    fee: 240, offspringBonus: 0.18,
+  },
+  cur: {
+    name: "Cur & Feist Breeders Association",
+    blurb: "Working stock only. They will ask what the dog has actually done.",
+    fee: 200, offspringBonus: 0.16,
+  },
+  hound: {
+    name: "National Treeing Hound Registry",
+    blurb: "Nose, voice and tree sense, recorded properly for once.",
+    fee: 220, offspringBonus: 0.17,
+  },
+  bulldog: {
+    name: "Working Bulldog Stud Book",
+    blurb: "Catch weight, structure and temperament, all on the record.",
+    fee: 300, offspringBonus: 0.2,
+  },
+  gundog: {
+    name: "Field & Gundog Register",
+    blurb: "Birds and blood trails. Smaller book, longer memory.",
+    fee: 260, offspringBonus: 0.18,
+  },
+};
+const REGISTRY_KEYS = Object.keys(REGISTRIES);
+const BREED_GROUP_LABELS = {
+  terrier: "Bull & Terrier", cur: "Curs & Feists", hound: "Treeing Hounds",
+  bulldog: "Working Bulldogs", gundog: "Gundogs",
+};
+
+function breedGroup(breedName) {
+  const b = BREEDS[breedName];
+  if (b && b.group) return b.group;
+  // Bandogs and crosses carry a made-up name, so fall back to whichever group
+  // the name reads as rather than leaving them with no registry at all.
+  const n = String(breedName || "");
+  if (/Bandog|Bully|Terrier|Staff/i.test(n)) return "terrier";
+  if (/Hound|Coon/i.test(n)) return "hound";
+  if (/Cur|Feist|Lacy|Catahoula/i.test(n)) return "cur";
+  if (/Bulldog|Corso|Presa|Boerboel|Bordeaux|Dogo/i.test(n)) return "bulldog";
+  return "cur";
+}
 
 /* Personality.
 
