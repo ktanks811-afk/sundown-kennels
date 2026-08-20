@@ -32,7 +32,11 @@ const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(
 const out = [];
 const w = (line = "") => out.push(line);
 
-const PER_SHEET = 6;
+/* Six for animals, nine for simple objects. A food sack survives being drawn at
+   256px in a way a Plott Hound does not, and past nine cells every model starts
+   merging subjects and repeating them. */
+const PER_ANIMAL_SHEET = 6;
+const PER_OBJECT_SHEET = 9;
 
 /* Baked into the front of every single sheet. Repeated rather than referenced,
    because the whole point is that a block can be pasted on its own. */
@@ -41,16 +45,17 @@ const STYLE =
   "minimal cel shading, no gradients, no textures, no photorealism. Warm earthy " +
   "palette. Characterful but anatomically honest - working animals, not mascots.";
 
-const SHEET_RULES =
-  "Arrange as a 3 across by 2 down grid, six cells, generous even white gutters " +
-  "between cells and a clear margin around the edge. Plain flat white background " +
-  "throughout. Every subject drawn at the same scale, same camera distance, same " +
-  "lighting, centred in its own cell. No text, no labels, no numbers, no borders, " +
+const sheetRules = (cols, rows) =>
+  `Arrange as a ${cols} across by ${rows} down grid, ${cols * rows} cells, generous even ` +
+  "white gutters between cells and a clear margin around the edge. Plain flat white " +
+  "background throughout. Every subject drawn at the same scale, same camera distance, " +
+  "same lighting, centred in its own cell. No text, no labels, no numbers, no borders, " +
   "no drop shadows, no ground shadows. Each cell must contain exactly one subject.";
 
 let sheetNo = 0;
-function sheet(title, subjectLine, cells, extra) {
+function sheet(title, subjectLine, cells, extra, grid) {
   sheetNo += 1;
+  const [cols, rows] = grid || [3, 2];
   w(`### Sheet ${sheetNo} — ${title}`);
   w();
   w("Cells, left to right, top to bottom:");
@@ -58,7 +63,7 @@ function sheet(title, subjectLine, cells, extra) {
   cells.forEach((c, i) => w(`${i + 1}. \`${c.file}\` — ${c.short}`));
   w();
   w("```");
-  w(`${STYLE} ${SHEET_RULES}`);
+  w(`${STYLE} ${sheetRules(cols, rows)}`);
   w();
   w(subjectLine);
   w();
@@ -98,68 +103,69 @@ w();
 /* ------------------------------------------------------------------- dogs -- */
 w("## Dogs");
 w();
-w("The game rolls a dog's colour and pattern from genetics, so these sheets cover");
-w("breed and build. Colour variants follow further down.");
+w("**Every dog is drawn in flat neutral grey.** That is deliberate and it is the whole");
+w("trick: the game already knows the exact colour it rolled for each dog, so the coat");
+w("gets recoloured in code. Thirty grey breeds plus seven pattern overlays covers all");
+w("211 appearances the genetics can produce, and the colour comes out exactly right");
+w("rather than approximately right.");
+w();
+w("They will look wrong when they come back. That is expected — send them anyway.");
 w();
 
 const dogCells = Object.entries(G.BREEDS).map(([name, b]) => {
   const hw = G.HEIGHT_WEIGHT[name] || {};
   const h = hw.mH ? `${hw.mH[0]}-${hw.mH[1]} inches at the shoulder` : "medium build";
   const wt = hw.mW ? `, ${hw.mW[0]}-${hw.mW[1]} lb` : "";
-  const prof = G.BREED_COLOR_PROFILE[name];
-  const colour = prof && prof.bases.length ? prof.bases[0] : "fawn";
-  const pattern = prof ? Object.keys(prof.patterns)[0] : "solid";
   const group = G.BREED_GROUP_LABELS[b.group] || b.group;
   return {
     file: `dogs/${slug(name)}.png`,
-    short: `${name} — adult male, ${colour}${pattern !== "solid" ? " " + pattern : ""}`,
+    short: `${name} — adult male, neutral grey`,
     prompt: `Adult male ${name}, a ${group.toLowerCase()} breed. ${h}${wt}. ` +
-      `${colour.charAt(0).toUpperCase() + colour.slice(1)} coat, ${pattern} pattern. ` +
+      `Coat a single flat neutral mid-grey with no markings and no colour at all, ` +
+      `so it can be recoloured later; keep the nose, eyes, claws and outline dark. ` +
       `Standing square in left-facing side profile, alert working expression, ` +
-      `fit hard condition with visible muscling, plain leather collar.`,
+      `fit hard working condition, no collar.`,
   };
 });
-chunk(dogCells, PER_SHEET).forEach((cells, i) => {
-  sheet(`dog breeds ${i * PER_SHEET + 1}–${i * PER_SHEET + cells.length}`,
-    "Six different dog breeds, one per cell, all standing in left-facing side profile:",
+chunk(dogCells, PER_ANIMAL_SHEET).forEach((cells, i) => {
+  sheet(`dog breeds ${i * PER_ANIMAL_SHEET + 1}–${i * PER_ANIMAL_SHEET + cells.length}`,
+    "Six different dog breeds, one per cell, all standing in left-facing side profile. " +
+    "Every dog is uncoloured — flat neutral grey coat, dark outlines:",
     cells);
 });
 
-/* ------------------------------------------------------------- dog coats --- */
-w("## Dog coat variants");
+/* ------------------------------------------------------- pattern overlays --- */
+w("## Coat pattern overlays");
 w();
-w("Every colour and pattern the genetics can actually roll. Same breed appears more");
-w("than once with different coats — that is the point, the picture has to match what");
-w("the profile says.");
+w("Seven textures, drawn once and reused across every breed. The game clips them to");
+w("the dog's silhouette and blends them over the tinted coat, which is why these are");
+w("breed-independent — they are wallpaper, not dogs.");
 w();
-
-const coatCells = [];
-for (const [name, prof] of Object.entries(G.BREED_COLOR_PROFILE)) {
-  for (const base of prof.bases) {
-    for (const pat of Object.keys(prof.patterns)) {
-      const patDesc = {
-        solid: "one even solid coat with no markings",
-        brindle: "tiger-striped brindle, darker stripes running over the base colour",
-        piebald: "large irregular white patches over roughly forty percent of the body, hard-edged",
-        merle: "mottled merle, irregular torn-edged lighter patches scattered over the base, one blue eye",
-        saddle: "a darker saddle marking across the back and sides with lighter legs and face",
-        tricolor: "black saddle, tan points on the face and legs, white chest and feet",
-        ticked: "fine dark speckled ticking scattered across the white areas",
-      }[pat] || pat;
-      const hw = G.HEIGHT_WEIGHT[name] || {};
-      coatCells.push({
-        file: `dogs/${slug(name)}--${base}--${pat}.png`,
-        short: `${name} — ${base}, ${pat}`,
-        prompt: `Adult ${name}${hw.mH ? `, ${hw.mH[0]}-${hw.mH[1]} inches at the shoulder` : ""}. ` +
-          `${base.charAt(0).toUpperCase() + base.slice(1)} base coat with ${patDesc}. ` +
-          `Left-facing side profile, standing square, working condition.`,
-      });
-    }
-  }
-}
-chunk(coatCells, PER_SHEET).forEach((cells, i) => {
-  sheet(`dog coats ${i * PER_SHEET + 1}–${i * PER_SHEET + cells.length}`,
-    "Six dogs, one per cell, each with a specific breed and coat:",
+const PATTERNS = {
+  brindle: "Tiger-striped brindle: irregular vertical dark stripes on a transparent background, " +
+    "stripes roughly a finger wide, denser over the middle and fading toward the edges, soft ends",
+  piebald: "Piebald: large irregular solid white patches with hard clean edges on a transparent " +
+    "background, patches covering roughly forty percent of the area",
+  merle: "Merle: irregular torn-edged mottled patches of two slightly different dark tones on a " +
+    "transparent background, scattered unevenly, organic and blotchy",
+  saddle: "Saddle marking: one large solid dark shape covering the centre of the frame with soft " +
+    "curved edges, transparent everywhere else",
+  tricolor: "Tricolour points: a dark solid saddle shape plus separate tan patches, transparent " +
+    "background, clearly separated colour zones",
+  ticked: "Ticking: fine small dark speckles scattered evenly on a transparent background, " +
+    "denser toward the lower half",
+  solid: "A completely empty transparent image with nothing drawn on it at all",
+};
+const patternCells = Object.entries(PATTERNS).map(([id, desc]) => ({
+  file: `patterns/${id}.png`,
+  short: `${id} overlay`,
+  prompt: `${desc}. Flat seamless texture swatch, square, no dog and no animal shape anywhere ` +
+    `in the image, no outline, no border.`,
+}));
+chunk(patternCells, PER_ANIMAL_SHEET).forEach((cells, i) => {
+  sheet(`coat pattern overlays ${i * PER_ANIMAL_SHEET + 1}\u2013${i * PER_ANIMAL_SHEET + cells.length}`,
+    "Six flat texture swatches, one per cell. These are patterns only \u2014 no animals, " +
+    "no shapes of animals, nothing but the texture:",
     cells);
 });
 
@@ -173,8 +179,8 @@ const horseCells = Object.entries(G.HORSE_BREEDS).map(([name, b]) => ({
     `breed-correct build and head. Bay coat with black points, black mane and tail. ` +
     `Untacked, standing square in left-facing side profile, calm alert expression.`,
 }));
-chunk(horseCells, PER_SHEET).forEach((cells, i) => {
-  sheet(`horse breeds ${i * PER_SHEET + 1}–${i * PER_SHEET + cells.length}`,
+chunk(horseCells, PER_ANIMAL_SHEET).forEach((cells, i) => {
+  sheet(`horse breeds ${i * PER_ANIMAL_SHEET + 1}–${i * PER_ANIMAL_SHEET + cells.length}`,
     "Six different horse breeds, one per cell, all in left-facing side profile:",
     cells);
 });
@@ -189,8 +195,8 @@ const cattleCells = Object.entries(G.CATTLE_BREEDS).map(([name, b]) => ({
     `${b.color || "Breed-typical"} coloured, ${b.pattern === "varies" ? "solid" : (b.pattern || "solid")} coat. ` +
     `Standing square in left-facing side profile.`,
 }));
-chunk(cattleCells, PER_SHEET).forEach((cells, i) => {
-  sheet(`cattle breeds ${i * PER_SHEET + 1}–${i * PER_SHEET + cells.length}`,
+chunk(cattleCells, PER_ANIMAL_SHEET).forEach((cells, i) => {
+  sheet(`cattle breeds ${i * PER_ANIMAL_SHEET + 1}–${i * PER_ANIMAL_SHEET + cells.length}`,
     "Six different cattle breeds, one per cell, all in left-facing side profile:",
     cells);
 });
@@ -204,10 +210,10 @@ const itemCells = Object.entries(G.ITEMS).map(([id, it]) => ({
   prompt: `${it.name} — ${it.desc} Single object, three-quarter view, centred, ` +
     `no hands and no animals in frame.`,
 }));
-chunk(itemCells, PER_SHEET).forEach((cells, i) => {
-  sheet(`items ${i * PER_SHEET + 1}–${i * PER_SHEET + cells.length}`,
-    "Six separate objects, one per cell, product-style with nothing else in frame:",
-    cells);
+chunk(itemCells, PER_OBJECT_SHEET).forEach((cells, i) => {
+  sheet(`items ${i * PER_OBJECT_SHEET + 1}–${i * PER_OBJECT_SHEET + cells.length}`,
+    "Nine separate objects, one per cell, product-style with nothing else in frame:",
+    cells, null, [3, 3]);
 });
 
 /* --------------------------------------------------------------- buildings -- */
@@ -228,10 +234,10 @@ const buildingCells = [
     prompt: `A ${(h.label || id).toLowerCase()} — rural American farmhouse. Three-quarter view, whole building in frame.`,
   })),
 ];
-chunk(buildingCells, PER_SHEET).forEach((cells, i) => {
-  sheet(`buildings ${i * PER_SHEET + 1}–${i * PER_SHEET + cells.length}`,
-    "Six separate buildings, one per cell, three-quarter view with no background scenery:",
-    cells);
+chunk(buildingCells, PER_OBJECT_SHEET).forEach((cells, i) => {
+  sheet(`buildings ${i * PER_ANIMAL_SHEET + 1}–${i * PER_ANIMAL_SHEET + cells.length}`,
+    "Nine separate buildings, one per cell, three-quarter view with no background scenery:",
+    cells, null, [3, 3]);
 });
 
 /* ---------------------------------------------------------------- vehicles -- */
@@ -249,8 +255,8 @@ const vehicleCells = [
       `Three-quarter view, left-facing, working condition.`,
   })),
 ];
-chunk(vehicleCells, PER_SHEET).forEach((cells, i) => {
-  sheet(`vehicles ${i * PER_SHEET + 1}–${i * PER_SHEET + cells.length}`,
+chunk(vehicleCells, PER_ANIMAL_SHEET).forEach((cells, i) => {
+  sheet(`vehicles ${i * PER_ANIMAL_SHEET + 1}–${i * PER_ANIMAL_SHEET + cells.length}`,
     "Six separate vehicles, one per cell, no background and no people:",
     cells);
 });
@@ -283,10 +289,10 @@ const sceneCells = [
       `Simple symbolic mark, no lettering.`,
   })),
 ];
-chunk(sceneCells, PER_SHEET).forEach((cells, i) => {
-  sheet(`scenes and badges ${i * PER_SHEET + 1}–${i * PER_SHEET + cells.length}`,
-    "Six separate images, one per cell:",
-    cells);
+chunk(sceneCells, PER_OBJECT_SHEET).forEach((cells, i) => {
+  sheet(`scenes and badges ${i * PER_ANIMAL_SHEET + 1}–${i * PER_ANIMAL_SHEET + cells.length}`,
+    "Nine separate images, one per cell:",
+    cells, null, [3, 3]);
 });
 
 /* ---------------------------------------------------------------- one-offs -- */
@@ -328,7 +334,7 @@ w();
 /* ---------------------------------------------------------------- totals ---- */
 const totals = [
   ["Dog breeds", dogCells.length],
-  ["Dog coat variants", coatCells.length],
+  ["Coat pattern overlays", patternCells.length],
   ["Horses", horseCells.length],
   ["Cattle", cattleCells.length],
   ["Items", itemCells.length],
@@ -342,12 +348,15 @@ w("## Totals");
 w();
 w("| Set | Images | Sheets |");
 w("| --- | ---: | ---: |");
-for (const [k, v] of totals) w(`| ${k} | ${v} | ${k === "One-offs" ? "—" : Math.ceil(v / PER_SHEET)} |`);
+for (const [k, v] of totals) w(`| ${k} | ${v} | ${k === "One-offs" ? "—" : Math.ceil(v / (["Items", "Buildings", "Scenes and badges"].includes(k) ? PER_OBJECT_SHEET : PER_ANIMAL_SHEET))} |`);
 w(`| **Everything** | **${grand}** | **${sheetNo}** |`);
 w();
-w("Sheet 1 through 5 are the thirty dog breeds. Those alone put a breed-correct");
-w("picture on every dog in the game, which is most of what a player reads on a card.");
-w("Do those first and check the style is right before going further.");
+w("Sheets 1 to 5 are the thirty dog breeds. Do those first and send them before going");
+w("any further \u2014 if the style comes back wrong, five sheets is a cheap thing to find it on.");
+w();
+w("Remember the dogs arrive grey. That is correct. The colour is applied in code from");
+w("the exact hex the genetics rolled, which is why it will match the description");
+w("instead of merely being close to it.");
 w();
 w("## Where they go");
 w();
@@ -361,4 +370,4 @@ const dest = path.join(ROOT, "docs", "art-prompts.md");
 fs.writeFileSync(dest, out.join("\n"));
 console.log(`wrote ${dest}`);
 console.log(`${grand} images across ${sheetNo} sheets + 3 one-offs`);
-for (const [k, v] of totals) console.log(`  ${k.padEnd(20)} ${String(v).padStart(4)}  ${k === "One-offs" ? "" : Math.ceil(v / PER_SHEET) + " sheets"}`);
+for (const [k, v] of totals) console.log(`  ${k.padEnd(22)} ${String(v).padStart(4)}`);

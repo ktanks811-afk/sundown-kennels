@@ -8,7 +8,9 @@
     "check:smoke": "node scripts/smoke-test.mjs",
     "test:grouphunt": "node scripts/test-grouphunt.mjs",
     "test:care": "node scripts/test-care.mjs",
-    "test:reachable": "node scripts/test-reachable.mjs"
+    "test:reachable": "node scripts/test-reachable.mjs",
+    "art:manifest": "node scripts/build-art-manifest.mjs",
+    "art:prompts": "node scripts/make-art-prompts.mjs"
   },
   "devDependencies": {
     "@babel/core": "^7.24.0",
