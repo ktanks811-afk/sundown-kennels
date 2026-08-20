@@ -86,6 +86,12 @@ function AnimalProfileScreen({ game }) {
   const feedOnHand = ITEM_IDS.filter((id) => ITEMS[id].cat === "feed" && inv[id] > 0);
   const medOnHand = ITEM_IDS.filter((id) => ITEMS[id].cat === "med" && inv[id] > 0);
   const trainOnHand = ITEM_IDS.filter((id) => ITEMS[id].cat === "training" && inv[id] > 0);
+  const toysOnHand = ITEM_IDS.filter((id) => ITEMS[id].cat === "toy" && inv[id] > 0);
+  const personality = personalityOf(animal);
+  // The toy this one actually wants, if it is in the box. Falls back to
+  // whatever is there, because half a benefit beats none.
+  const bestToy = toysOnHand.find((id) => ITEMS[id].forPersonality === personality) || toysOnHand[0];
+  const vaccinated = isVaccinated(animal, state.day);
 
   const entry = (state.entries || []).find((e) => e.dogId === animal.id);
   const listedForSale = (pvpListings || []).find((l) => l.dog && l.dog.id === animal.id);
@@ -121,6 +127,22 @@ function AnimalProfileScreen({ game }) {
       },
     },
     {
+      id: "play", label: "Play", icon: "🧸",
+      ready: !!bestToy && isDog,
+      run: () => {
+        doUseItem(bestToy, animal.id);
+        const matched = ITEMS[bestToy].forPersonality === personality;
+        setMsg({
+          tone: matched ? "success" : "info",
+          text: matched
+            ? `${animal.name} settled right into the ${ITEMS[bestToy].name.toLowerCase()}.`
+            : `${animal.name} played along, but a ${(PERSONALITIES[personality] || {}).name.toLowerCase()} dog wants something else — half the good.`,
+        });
+      },
+      blocked: !isDog ? "Livestock enrichment comes with the care update." : "Nothing in the toy box.",
+      fix: { label: "Toys & Enrichment", onClick: () => setTab("shop") },
+    },
+    {
       id: "vet", label: "Vet Care", icon: "✚",
       ready: medOnHand.length > 0 && isDog,
       run: () => useBest(medOnHand, "Patched up."),
@@ -140,12 +162,15 @@ function AnimalProfileScreen({ game }) {
     },
     {
       id: "compete", label: "Compete", icon: "🏆",
-      ready: !retired && !entry && (!isDog || hasEnergy(animal, "trial")),
+      ready: !retired && !entry && (!isDog || (hasEnergy(animal, "trial") && vaccinated)),
       run: () => setTab(isDog ? "trials" : kind === "horse" ? "horses" : "cattle"),
       blocked: retired ? `${animal.name} is retired from competition.`
         : entry ? `${animal.name} is already entered — results come in tomorrow.`
+        : isDog && !vaccinated ? `${animal.name} is not vaccinated — no secretary will take the entry.`
         : `${animal.name} has not the energy to be entered today.`,
-      fix: entry ? null : { label: "Rest the kennel", onClick: () => setTab("overview") },
+      fix: entry ? null
+        : isDog && !vaccinated ? { label: "Buy a vaccination", onClick: () => setTab("shop") }
+        : { label: "Rest the kennel", onClick: () => setTab("overview") },
     },
     {
       id: "hunt", label: "Hunt", icon: "✦",
@@ -212,11 +237,29 @@ function AnimalProfileScreen({ game }) {
             <Meter label="Energy" value={energyOf(animal)} tone="energy"
               hint={"Spent by hunting (" + ENERGY_COST.hunt + "), entering a trial (" + ENERGY_COST.trial +
                     ") and conditioning gear (" + ENERGY_COST.training + "). Back to full each morning."} />
+            <Meter label="Mood" value={moodOf(animal)}
+              tone={moodOf(animal) < 40 ? "bad" : moodOf(animal) < 70 ? "warn" : "good"}
+              hint={"Falls a little each day and comes back with play. A settled dog places better. " +
+                    ((PERSONALITIES[personality] || {}).name || "") + " dogs want the " +
+                    (Object.keys(ITEMS).filter((k) => ITEMS[k].forPersonality === personality)
+                      .map((k) => ITEMS[k].name.toLowerCase())[0] || "right toy") + "."} />
             <Meter label="Condition" value={animal.health} tone={animal.health < 40 ? "bad" : animal.health < 70 ? "warn" : "good"}
               hint="Condition falls with work and age, and comes back with feed, medicine and rest." />
             <Meter label={"Prime — " + prime.stage} value={Math.round(prime.mult * 100)}
               tone={prime.mult >= 0.99 ? "good" : prime.mult >= 0.9 ? "warn" : "bad"}
               hint="How close this one is to its physical peak. Everything it does is scaled by this." />
+            {isDog && !vaccinated && (
+              <p style={{ margin: "8px 0 0" }}>
+                <Notice tone="warn" fix={{ label: "Buy one", onClick: () => setTab("shop") }}>
+                  Vaccination has lapsed — no trial will take an entry.
+                </Notice>
+              </p>
+            )}
+            {isDog && vaccinated && (
+              <p className="kg-hint" style={{ margin: "8px 0 0" }}>
+                Vaccinated through day {animal.vaccinatedUntilDay}.
+              </p>
+            )}
             {animal.injury && <p className="kg-warn" style={{ margin: "8px 0 0" }}>Injured: {animal.injury}</p>}
             {retired && <p className="kg-hint" style={{ margin: "8px 0 0" }}>Retired from work — kept on as a pensioner.</p>}
           </Panel>
@@ -325,6 +368,7 @@ function AnimalProfileScreen({ game }) {
                 <div><span>Age</span><b>{ageLabel(animal.ageDays)} ({animal.ageDays} days)</b></div>
                 <div><span>Born</span><b>{animal.bornDay == null ? "Before your time" : "Day " + animal.bornDay}</b></div>
                 <div><span>Generation</span><b>{animal.generation}</b></div>
+                {isDog && <div><span>Personality</span><b>{(PERSONALITIES[personality] || {}).name}</b></div>}
                 <div><span>Colour</span><b>{coatText}</b></div>
                 {isDog && <div><span>Height</span><b>{animal.heightIn} in</b></div>}
                 {isDog && <div><span>Weight</span><b>{animal.weightLb} lb</b></div>}

@@ -25,6 +25,7 @@ jobs:
       # Existed but was never wired in, so the group-hunt logic has been
       # shipping untested since it was written.
       - run: npm run test:grouphunt
+      - run: npm run test:care
 
   smoke-test:
     name: Browser smoke test

@@ -867,7 +867,10 @@ function KennelGame() {
 
       // A full night's rest, not a trickle: the question each day is what this
       // dog does, never how long you wait for the bar to creep up.
-      const aged = { ...d, ageDays: d.ageDays + days, health: clamp(health), breedCooldown: cooldown, injury, pregnantDaysLeft: pregnant, energy: ENERGY_MAX };
+      // Mood drifts down on its own; energy comes back in full. One is a thing
+      // you keep on top of, the other a thing the night takes care of.
+      const mood = Math.max(0, moodOf(d) - MOOD_DECAY_PER_DAY * days);
+      const aged = { ...d, ageDays: d.ageDays + days, health: clamp(health), breedCooldown: cooldown, injury, pregnantDaysLeft: pregnant, energy: ENERGY_MAX, mood };
 
       // Old age. Rolled per day so a long rest doesn't dodge the odds.
       for (let i = 0; i < days; i++) {
@@ -899,7 +902,10 @@ function KennelGame() {
 
         const field = collectCompetitors(prev.aiKennels);
         const oppDog = field.length ? field[randInt(0, field.length - 1)] : myDog;
-        const result = resolveTrial(myDog, oppDog, entry.trial);
+        // Mood is applied here rather than inside resolveTrial so the pure
+        // scoring function stays a function of stats alone and remains testable.
+        const result = resolveTrial(
+          { ...myDog, stats: scaleStats(myDog.stats, moodMultiplier(myDog)) }, oppDog, entry.trial);
         const purse = trialPurse(myDog, oppDog);
 
         if (result.won) {
@@ -1225,6 +1231,10 @@ function KennelGame() {
     if (dog.injury) return { ok: false, why: `${dog.name} is hurt and cannot be entered.` };
     if (!hasEnergy(dog, "trial")) {
       return { ok: false, why: `${dog.name} has not got the energy left today.` };
+    }
+    if (!isVaccinated(dog, state.day)) {
+      return { ok: false, why: `${dog.name} is not vaccinated - no secretary will take the entry.`,
+               fix: { label: "Buy a vaccination", tab: "shop" } };
     }
     const fee = Math.round(trialPurse(dog, dog) * 0.3);
     if (state.cash < fee) return { ok: false, why: `The entry fee is ${fmtMoney(fee)} and you are short.` };
@@ -1634,7 +1644,7 @@ function KennelGame() {
       let msg = "";
       const dogs = prev.dogs.map((d) => {
         if (d.id !== dogId) return d;
-        const res = applyItem(d, itemId, prev.upgrades, professionBonus(prev, "trainer"));
+        const res = applyItem(d, itemId, prev.upgrades, professionBonus(prev, "trainer"), prev.day);
         msg = res.msg;
         return item.cat === "training"
           ? { ...res.dog, energy: Math.max(0, energyOf(d) - ENERGY_COST.training) }

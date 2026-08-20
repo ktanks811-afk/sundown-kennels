@@ -245,6 +245,57 @@ async function main() {
     return problems;
   }
 
+  /* The toy and mood rules are pure logic and live in scripts/test-care.mjs.
+     This one has to be here, because it is about the screen: a lapsed
+     vaccination must refuse the entry AND say where to fix it, and only a real
+     page can show whether the fix link is actually there. */
+  async function checkVaccinationGate() {
+    const problems = [];
+    await page.evaluate(() => {
+      const s = JSON.parse(window.localStorage.getItem("kennel-save-v7"));
+      s.entries = [];
+      s.dogs = s.dogs.map((d) => ({ ...d, vaccinatedUntilDay: 0, energy: 100 }));
+      window.localStorage.setItem("kennel-save-v7", JSON.stringify(s));
+    });
+    await page.reload({ waitUntil: "networkidle" });
+    await page.waitForTimeout(900);
+
+    await page.evaluate(() => { window.location.hash = "#/trials"; });
+    await page.waitForTimeout(500);
+    const picker = page.locator(".kg-pairpick select").first();
+    if (!(await picker.count())) { problems.push("no entrant picker"); return problems; }
+    const values = await picker.locator("option").evaluateAll((os) => os.map((o) => o.value).filter(Boolean));
+    if (!values.length) { problems.push("no dog available for the vaccination check"); return problems; }
+    await picker.selectOption(values[0]);
+    await page.waitForTimeout(300);
+    await page.getByRole("button", { name: /^Enter the / }).first().click();
+    await page.waitForTimeout(500);
+
+    const queued = await page.evaluate(() =>
+      (JSON.parse(window.localStorage.getItem("kennel-save-v7")).entries || []).length);
+    if (queued !== 0) problems.push("an unvaccinated dog was accepted into a trial");
+
+    const refusal = page.locator(".kg-ui-notice--error").first();
+    if (!(await refusal.count())) {
+      problems.push("no refusal shown for an unvaccinated entry");
+    } else {
+      const text = await refusal.innerText();
+      if (!/vaccinat/i.test(text)) problems.push(`refusal did not mention vaccination: ${text.slice(0, 70)}`);
+      if (!(await refusal.locator(".kg-ui-notice__fix").count())) problems.push("refusal offered no link to the fix");
+    }
+
+    // Put the kennel back so the entry test after this one has a fair start.
+    await page.evaluate(() => {
+      const s = JSON.parse(window.localStorage.getItem("kennel-save-v7"));
+      s.dogs = s.dogs.map((d) => ({ ...d, vaccinatedUntilDay: s.day + 365, energy: 100 }));
+      window.localStorage.setItem("kennel-save-v7", JSON.stringify(s));
+    });
+    await page.reload({ waitUntil: "networkidle" });
+    await page.waitForTimeout(900);
+    visited++;
+    return problems;
+  }
+
   /* The ranch tab strip is the only way into About, History and Stats, so
      without walking it those three screens and their routes go untested. */
   async function walkRanchTabs() {
@@ -348,6 +399,9 @@ async function main() {
   const tabs = await walkClassic();
   console.log(`Sidebar layout: ${tabs} nav entries walked.`);
 
+  const vaxProblems = await checkVaccinationGate();
+  console.log("Vaccination: a lapsed dog is refused, and told where to fix it.");
+
   const entryProblems = await checkTrialEntries();
   console.log("Trials: entered, day turned, result posted, energy refilled.");
 
@@ -418,6 +472,11 @@ Ranch tab strip showed ${ranchTabs} tabs, expected ${RANCH_TAB_COUNT}.`);
     console.error(`\n${deadEnds.length} nav destination(s) with no route of their own:`);
     for (const d of deadEnds) console.error(" - " + d);
     console.error("Add the screen id to ROUTES in js/router.jsx.");
+    process.exit(1);
+  }
+  if (vaxProblems.length) {
+    console.error("\nThe vaccination gate is broken:");
+    for (const p of vaxProblems) console.error(" - " + p);
     process.exit(1);
   }
   if (entryProblems.length) {

@@ -18,7 +18,7 @@ function WorkScreens({ game }) {
     setGroupHunt, setHuntPick, setNewBloodline, setRequestDamPick, setStudDamId, setStudPick,
     setTrialPick, setViewDog, sire, state, studDam, studDamId, studMsg, studOffers, studPick,
     studs, tab, tick, toggleBayPick, toggleCatchPick, trialPick,
-    enterTrial, withdrawEntry } = game;
+    enterTrial, withdrawEntry, setTab } = game;
   return (
     <>
         {tab === "hunt" && (
@@ -333,7 +333,7 @@ function WorkScreens({ game }) {
                           const res = enterTrial(myDog, trialPick.trial);
                           setEnterMsg(res.ok
                             ? { tone: "success", text: `${myDog.name} is entered. Results tomorrow.` }
-                            : { tone: "error", text: res.why });
+                            : { tone: "error", text: res.why, fix: res.fix });
                         }}>
                         Enter the {(TRIALS[trialPick.trial] || {}).label}
                       </button>
@@ -341,7 +341,10 @@ function WorkScreens({ game }) {
                   )}
 
                   {enterMsg && (
-                    <Notice tone={enterMsg.tone} onDismiss={() => setEnterMsg(null)}>{enterMsg.text}</Notice>
+                    <Notice tone={enterMsg.tone} onDismiss={() => setEnterMsg(null)}
+                      fix={enterMsg.fix ? { label: enterMsg.fix.label, onClick: () => setTab(enterMsg.fix.tab) } : null}>
+                      {enterMsg.text}
+                    </Notice>
                   )}
 
                   <h2 className="kg-subhead">Standing entries</h2>
