@@ -1,10 +1,12 @@
 // scripts/make-art-prompts.mjs
 //
-// Generates docs/art-prompts.md from the game's own data tables, so the list
-// is exactly what the game can actually produce - no invented breeds, no
-// colour combinations that never roll, nothing missed.
+// Generates docs/art-prompts.md from the game's own data tables, so the list is
+// exactly what the game can actually produce - no invented breeds, no colour
+// combinations that never roll, nothing missed. Re-run after adding content.
 //
-// Re-run it after adding breeds or items and the brief regenerates.
+// Output format: contact sheets. Each block is one complete, self-contained
+// prompt that produces a grid of six images. Nothing has to be pasted in front
+// of it and nothing is generated one at a time.
 import { transformSync } from "@babel/core";
 import fs from "node:fs";
 import path from "node:path";
@@ -20,7 +22,7 @@ for (const f of ["data.jsx", "genetics.jsx", "simulation.jsx"]) {
     { presets: ["@babel/preset-react"], filename: file }).code, sandbox, { filename: file });
 }
 vm.runInContext(`globalThis.G = {
-  BREEDS, BREED_COLOR_PROFILE, HEIGHT_WEIGHT, HORSE_BREEDS, CATTLE_BREEDS, HORSE_BASES,
+  BREEDS, BREED_COLOR_PROFILE, HEIGHT_WEIGHT, HORSE_BREEDS, CATTLE_BREEDS,
   ITEMS, UPGRADES, HUNTS, TRIALS, HORSE_SHOWS, LAND_SIZES, HOUSE_TYPES, LAND_LOCATIONS,
   TRUCKS, TRAILERS, SEASONS, CLINICS, REGISTRIES, BREED_GROUP_LABELS, PERSONALITIES
 };`, sandbox);
@@ -30,271 +32,333 @@ const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(
 const out = [];
 const w = (line = "") => out.push(line);
 
-/* Written once at the top and referenced by every prompt, rather than repeated
-   360 times - a generator that reads the same preamble each run is far more
-   likely to stay consistent than one fed 360 slightly different descriptions. */
-const STYLE = [
-  "Flat vector illustration, clean thick dark outline, limited flat colour areas, subtle cel shading only.",
-  "Strict left-facing side profile, standing square, whole animal in frame, hooves/paws on an invisible ground line.",
-  "Transparent background. No scenery, no text, no shadow on the ground, no border.",
-  "Warm earthy palette. Friendly and characterful but anatomically honest - a working animal, not a mascot.",
-  "Consistent camera distance and proportion across every image in the set.",
-].join(" ");
+const PER_SHEET = 6;
 
-w("# Art brief — Sundown Kennels Simulator");
-w();
-w("Generated from the game's own data tables by `scripts/make-art-prompts.mjs`.");
-w("Re-run that script after adding breeds or items and this file regenerates.");
-w();
-w("---");
-w();
-w("## The style, and why");
-w();
-w("**Flat vector illustration. Not photoreal, not cartoon-goofy.**");
-w();
-w("Four reasons, in order of how much they matter:");
-w();
-w("1. **It stays coherent across hundreds of images.** Photoreal AI animals drift badly");
-w("   between generations — different lighting, different camera, different level of");
-w("   detail. Two hundred photoreal dogs will not look like they belong to one game.");
-w("   Flat art with a fixed brief holds together.");
-w("2. **Flat colour areas can be tinted precisely.** This is what makes the image");
-w("   actually match the description — see the plan below.");
-w("3. **It matches the item icons already in the game**, which are flat SVG with a");
-w("   chunky outline.");
-w("4. **It reads at 200px on a card.** Photoreal detail is wasted at the size these");
-w("   are actually displayed.");
-w();
-w("Every prompt below should be prefixed with this style line:");
-w();
-w("```");
-w(STYLE);
-w("```");
-w();
-w("---");
-w();
+/* Baked into the front of every single sheet. Repeated rather than referenced,
+   because the whole point is that a block can be pasted on its own. */
+const STYLE =
+  "Flat vector illustration. Clean thick dark-brown outlines, flat colour fills, " +
+  "minimal cel shading, no gradients, no textures, no photorealism. Warm earthy " +
+  "palette. Characterful but anatomically honest - working animals, not mascots.";
 
-/* ---------------------------------------------------------------- the plan -- */
-let dogCombos = 0, dogPatternImages = 0;
-for (const [name, prof] of Object.entries(G.BREED_COLOR_PROFILE)) {
-  dogCombos += prof.bases.length * Object.keys(prof.patterns).length;
-  dogPatternImages += Object.keys(prof.patterns).length;
-}
+const SHEET_RULES =
+  "Arrange as a 3 across by 2 down grid, six cells, generous even white gutters " +
+  "between cells and a clear margin around the edge. Plain flat white background " +
+  "throughout. Every subject drawn at the same scale, same camera distance, same " +
+  "lighting, centred in its own cell. No text, no labels, no numbers, no borders, " +
+  "no drop shadows, no ground shadows. Each cell must contain exactly one subject.";
 
-w("## The important decision: how the image matches the dog");
-w();
-w(`The game can roll **${dogCombos} distinct dog appearances** (breed × base colour ×`);
-w("coat pattern). Generating all of them is possible but it is the wrong shape of work,");
-w("because an AI asked for \"a chocolate Plott Hound\" will give you *a* brown dog, not");
-w("the exact `#5b3a2a` the genetics rolled. The picture would be approximately right,");
-w("which on a page that also prints the exact colour name reads as a bug.");
-w();
-w("**Recommended: generate breed × pattern, tint the colour at runtime.**");
-w();
-w(`- Patterns are structural — brindle striping, piebald patches, merle mottling, a`);
-w("  saddle marking. Those need real art.");
-w("- Base colour is a flat fill. The game already knows the exact hex it rolled");
-w("  (`COLOR_HEX` in `data.jsx`), so it can recolour a flat coat region exactly.");
-w(`- That turns **${dogCombos} images into ${dogPatternImages}** — and the colour is then`);
-w("  *guaranteed* to match the description rather than approximately matching it.");
-w();
-w("For this to work, each image needs the coat as **one flat fill area in a neutral");
-w("mid-grey**, with markings, nose, eyes and outline on top in fixed colours. Say so in");
-w("the prompt — it is included below.");
-w();
-w("If you would rather not do the tinting work, Tier 2b lists all");
-w(`${dogCombos} colour-specific prompts instead. Both are here; use one or the other.`);
-w();
-w("---");
-w();
-
-/* ------------------------------------------------------------------ tier 1 -- */
-w("## Tier 1 — one hero image per breed (59 images)");
-w();
-w("Start here. Gets a breed-correct picture on every animal in the game. Colour will");
-w("not match yet, but breed, build and size will — which is most of what a player reads.");
-w();
-
-w("### Dogs (30)");
-w();
-for (const [name, b] of Object.entries(G.BREEDS)) {
-  const hw = G.HEIGHT_WEIGHT[name] || {};
-  const h = hw.mH ? `${hw.mH[0]}–${hw.mH[1]} in at the shoulder` : "medium build";
-  const wt = hw.mW ? `${hw.mW[0]}–${hw.mW[1]} lb` : "";
-  const group = G.BREED_GROUP_LABELS[b.group] || b.group;
-  w(`- \`dogs/${slug(name)}.png\` — **${name}** (${group}). Adult male in working`);
-  w(`  condition, ${h}${wt ? ", " + wt : ""}. Coat as ONE flat mid-grey fill for tinting;`);
-  w("  keep nose, eyes, claws and outline dark and unaffected.");
-}
-w();
-
-w("### Horses (15)");
-w();
-for (const [name, b] of Object.entries(G.HORSE_BREEDS)) {
-  const hands = b.hands ? `${b.hands[0]}–${b.hands[1]} hands` : "";
-  w(`- \`horses/${slug(name)}.png\` — **${name}**${hands ? `, ${hands}` : ""}. Adult, tacked`);
-  w("  up in nothing, standing square. Body as ONE flat mid-grey fill for tinting; mane,");
-  w("  tail, hooves and outline fixed dark.");
-}
-w();
-
-w("### Cattle (14)");
-w();
-for (const [name, b] of Object.entries(G.CATTLE_BREEDS)) {
-  w(`- \`cattle/${slug(name)}.png\` — **${name}**, mature animal.`);
-  w(`  Breed-correct horns and build. Standard colour for the breed is ${b.color || "breed-typical"}`);
-  w(`  (${b.pattern || "solid"}); paint it that way rather than grey — cattle colour is`);
-  w("  fixed per breed in this game, so these do not need tinting.");
-}
-w();
-w("---");
-w();
-
-/* ------------------------------------------------------------------ tier 2 -- */
-w(`## Tier 2a — dog coat patterns (${dogPatternImages} images) — RECOMMENDED`);
-w();
-w("One per breed × pattern, coat in neutral grey, tinted at runtime. Combined with");
-w(`Tier 1 this covers all ${dogCombos} appearances exactly.`);
-w();
-for (const [name, prof] of Object.entries(G.BREED_COLOR_PROFILE)) {
-  const pats = Object.keys(prof.patterns);
-  w(`**${name}** — ${pats.length} pattern${pats.length > 1 ? "s" : ""}`);
-  for (const pat of pats) {
-    const desc = {
-      solid: "one even coat, no markings",
-      brindle: "tiger-striped brindle over the whole body, stripes darker than the base",
-      piebald: "large irregular white patches over roughly 40% of the body, hard edges",
-      merle: "mottled merle — irregular lighter torn-edge patches over the base, one blue eye",
-      saddle: "a darker saddle marking over the back and sides, lighter legs and face",
-      tricolor: "black saddle, tan points on face and legs, white chest and feet",
-      ticked: "fine speckled ticking scattered over white areas",
-    }[pat] || pat;
-    w(`- \`dogs/${slug(name)}--${pat}.png\` — ${desc}. Base coat as one flat mid-grey`);
-    w("  fill; markings a fixed darker grey so both tint together predictably.");
-  }
+let sheetNo = 0;
+function sheet(title, subjectLine, cells, extra) {
+  sheetNo += 1;
+  w(`### Sheet ${sheetNo} — ${title}`);
+  w();
+  w("Cells, left to right, top to bottom:");
+  w();
+  cells.forEach((c, i) => w(`${i + 1}. \`${c.file}\` — ${c.short}`));
+  w();
+  w("```");
+  w(`${STYLE} ${SHEET_RULES}`);
+  w();
+  w(subjectLine);
+  w();
+  cells.forEach((c, i) => w(`${i + 1}. ${c.prompt}`));
+  if (extra) { w(); w(extra); }
+  w("```");
   w();
 }
+
+function chunk(arr, n) {
+  const outArr = [];
+  for (let i = 0; i < arr.length; i += n) outArr.push(arr.slice(i, i + n));
+  return outArr;
+}
+
+/* --------------------------------------------------------------- preamble -- */
+w("# Art sheets — Sundown Kennels Simulator");
+w();
+w("Generated from the game's own data tables by `scripts/make-art-prompts.mjs`.");
+w();
+w("**Each block below is one complete prompt that produces six images.** Paste a");
+w("block, get a sheet back, send me the sheet and I will cut it into the six files");
+w("named above it and wire them in. Nothing needs pasting in front of anything.");
+w();
+w("Work top to bottom. The sheets are ordered so that stopping at any point still");
+w("leaves the game better than it was — the dog breeds first, because that is what");
+w("a player looks at most.");
+w();
+w("**On style:** flat vector rather than photoreal. Not taste — photoreal AI animals");
+w("drift in lighting, camera and detail between generations, and two hundred of them");
+w("will not look like one game. Flat art with a fixed brief holds together, matches");
+w("the item icons already in the game, and reads at the size these are actually shown.");
+w();
 w("---");
 w();
 
-w(`## Tier 2b — every dog appearance spelled out (${dogCombos} images) — ALTERNATIVE`);
+/* ------------------------------------------------------------------- dogs -- */
+w("## Dogs");
 w();
-w("Use this **instead of** Tier 2a if you would rather not do runtime tinting. Colour");
-w("will be approximate rather than exact.");
+w("The game rolls a dog's colour and pattern from genetics, so these sheets cover");
+w("breed and build. Colour variants follow further down.");
 w();
+
+const dogCells = Object.entries(G.BREEDS).map(([name, b]) => {
+  const hw = G.HEIGHT_WEIGHT[name] || {};
+  const h = hw.mH ? `${hw.mH[0]}-${hw.mH[1]} inches at the shoulder` : "medium build";
+  const wt = hw.mW ? `, ${hw.mW[0]}-${hw.mW[1]} lb` : "";
+  const prof = G.BREED_COLOR_PROFILE[name];
+  const colour = prof && prof.bases.length ? prof.bases[0] : "fawn";
+  const pattern = prof ? Object.keys(prof.patterns)[0] : "solid";
+  const group = G.BREED_GROUP_LABELS[b.group] || b.group;
+  return {
+    file: `dogs/${slug(name)}.png`,
+    short: `${name} — adult male, ${colour}${pattern !== "solid" ? " " + pattern : ""}`,
+    prompt: `Adult male ${name}, a ${group.toLowerCase()} breed. ${h}${wt}. ` +
+      `${colour.charAt(0).toUpperCase() + colour.slice(1)} coat, ${pattern} pattern. ` +
+      `Standing square in left-facing side profile, alert working expression, ` +
+      `fit hard condition with visible muscling, plain leather collar.`,
+  };
+});
+chunk(dogCells, PER_SHEET).forEach((cells, i) => {
+  sheet(`dog breeds ${i * PER_SHEET + 1}–${i * PER_SHEET + cells.length}`,
+    "Six different dog breeds, one per cell, all standing in left-facing side profile:",
+    cells);
+});
+
+/* ------------------------------------------------------------- dog coats --- */
+w("## Dog coat variants");
+w();
+w("Every colour and pattern the genetics can actually roll. Same breed appears more");
+w("than once with different coats — that is the point, the picture has to match what");
+w("the profile says.");
+w();
+
+const coatCells = [];
 for (const [name, prof] of Object.entries(G.BREED_COLOR_PROFILE)) {
   for (const base of prof.bases) {
     for (const pat of Object.keys(prof.patterns)) {
-      w(`- \`dogs/${slug(name)}--${base}--${pat}.png\` — ${base} ${name}, ${pat} coat.`);
+      const patDesc = {
+        solid: "one even solid coat with no markings",
+        brindle: "tiger-striped brindle, darker stripes running over the base colour",
+        piebald: "large irregular white patches over roughly forty percent of the body, hard-edged",
+        merle: "mottled merle, irregular torn-edged lighter patches scattered over the base, one blue eye",
+        saddle: "a darker saddle marking across the back and sides with lighter legs and face",
+        tricolor: "black saddle, tan points on the face and legs, white chest and feet",
+        ticked: "fine dark speckled ticking scattered across the white areas",
+      }[pat] || pat;
+      const hw = G.HEIGHT_WEIGHT[name] || {};
+      coatCells.push({
+        file: `dogs/${slug(name)}--${base}--${pat}.png`,
+        short: `${name} — ${base}, ${pat}`,
+        prompt: `Adult ${name}${hw.mH ? `, ${hw.mH[0]}-${hw.mH[1]} inches at the shoulder` : ""}. ` +
+          `${base.charAt(0).toUpperCase() + base.slice(1)} base coat with ${patDesc}. ` +
+          `Left-facing side profile, standing square, working condition.`,
+      });
     }
   }
 }
+chunk(coatCells, PER_SHEET).forEach((cells, i) => {
+  sheet(`dog coats ${i * PER_SHEET + 1}–${i * PER_SHEET + cells.length}`,
+    "Six dogs, one per cell, each with a specific breed and coat:",
+    cells);
+});
+
+/* ----------------------------------------------------------------- horses -- */
+w("## Horses");
+w();
+const horseCells = Object.entries(G.HORSE_BREEDS).map(([name, b]) => ({
+  file: `horses/${slug(name)}.png`,
+  short: `${name}${b.hands ? ` — ${b.hands[0]}-${b.hands[1]} hands` : ""}`,
+  prompt: `Adult ${name} horse${b.hands ? `, ${b.hands[0]} to ${b.hands[1]} hands tall` : ""}, ` +
+    `breed-correct build and head. Bay coat with black points, black mane and tail. ` +
+    `Untacked, standing square in left-facing side profile, calm alert expression.`,
+}));
+chunk(horseCells, PER_SHEET).forEach((cells, i) => {
+  sheet(`horse breeds ${i * PER_SHEET + 1}–${i * PER_SHEET + cells.length}`,
+    "Six different horse breeds, one per cell, all in left-facing side profile:",
+    cells);
+});
+
+/* ----------------------------------------------------------------- cattle -- */
+w("## Cattle");
+w();
+const cattleCells = Object.entries(G.CATTLE_BREEDS).map(([name, b]) => ({
+  file: `cattle/${slug(name)}.png`,
+  short: `${name} — ${b.color || "breed-typical"}`,
+  prompt: `Mature ${name} cow, breed-correct build, horns and head shape. ` +
+    `${b.color || "Breed-typical"} coloured, ${b.pattern === "varies" ? "solid" : (b.pattern || "solid")} coat. ` +
+    `Standing square in left-facing side profile.`,
+}));
+chunk(cattleCells, PER_SHEET).forEach((cells, i) => {
+  sheet(`cattle breeds ${i * PER_SHEET + 1}–${i * PER_SHEET + cells.length}`,
+    "Six different cattle breeds, one per cell, all in left-facing side profile:",
+    cells);
+});
+
+/* ------------------------------------------------------------------ items -- */
+w("## Items and equipment");
+w();
+const itemCells = Object.entries(G.ITEMS).map(([id, it]) => ({
+  file: `items/${slug(id)}.png`,
+  short: it.name,
+  prompt: `${it.name} — ${it.desc} Single object, three-quarter view, centred, ` +
+    `no hands and no animals in frame.`,
+}));
+chunk(itemCells, PER_SHEET).forEach((cells, i) => {
+  sheet(`items ${i * PER_SHEET + 1}–${i * PER_SHEET + cells.length}`,
+    "Six separate objects, one per cell, product-style with nothing else in frame:",
+    cells);
+});
+
+/* --------------------------------------------------------------- buildings -- */
+w("## Buildings and places");
+w();
+const buildingCells = [
+  ...Object.entries(G.UPGRADES).map(([id, up]) => ({
+    file: `upgrades/${slug(id)}.png`, short: up.name,
+    prompt: `${up.name} — a small farm building. ${up.desc} Three-quarter view, whole structure in frame.`,
+  })),
+  ...G.CLINICS.map((c) => ({
+    file: `clinics/${slug(c.id)}.png`, short: c.name,
+    prompt: `${c.name} — a rural veterinary practice. ${c.blurb} ` +
+      `The building should look like what it costs. Three-quarter view.`,
+  })),
+  ...Object.entries(G.HOUSE_TYPES).map(([id, h]) => ({
+    file: `houses/${slug(id)}.png`, short: h.label || id,
+    prompt: `A ${(h.label || id).toLowerCase()} — rural American farmhouse. Three-quarter view, whole building in frame.`,
+  })),
+];
+chunk(buildingCells, PER_SHEET).forEach((cells, i) => {
+  sheet(`buildings ${i * PER_SHEET + 1}–${i * PER_SHEET + cells.length}`,
+    "Six separate buildings, one per cell, three-quarter view with no background scenery:",
+    cells);
+});
+
+/* ---------------------------------------------------------------- vehicles -- */
+w("## Trucks and trailers");
+w();
+const vehicleCells = [
+  ...Object.entries(G.TRUCKS).map(([id, t]) => ({
+    file: `trucks/${slug(id)}.png`, short: t.label || id,
+    prompt: `A ${(t.label || id).toLowerCase()} pickup truck, working farm vehicle with honest wear, ` +
+      `some dust and a few dents. Three-quarter front view, left-facing.`,
+  })),
+  ...Object.entries(G.TRAILERS).map(([id, t]) => ({
+    file: `trailers/${slug(id)}.png`, short: t.label || id,
+    prompt: `A ${(t.label || id).toLowerCase()} — livestock or dog-box trailer, unhitched. ` +
+      `Three-quarter view, left-facing, working condition.`,
+  })),
+];
+chunk(vehicleCells, PER_SHEET).forEach((cells, i) => {
+  sheet(`vehicles ${i * PER_SHEET + 1}–${i * PER_SHEET + cells.length}`,
+    "Six separate vehicles, one per cell, no background and no people:",
+    cells);
+});
+
+/* ------------------------------------------------------------------ scenes -- */
+w("## Scenes, events and badges");
+w();
+const sceneCells = [
+  ...Object.entries(G.HUNTS).map(([id, h]) => ({
+    file: `hunts/${slug(id)}.png`, short: h.label,
+    prompt: `${h.label} — a wide landscape scene of the country this hunt happens in. ` +
+      `${h.desc || ""} No dogs and no people in frame, just the ground and the cover.`,
+  })),
+  ...Object.entries(G.TRIALS).map(([id, t]) => ({
+    file: `trials/${slug(id)}.png`, short: t.label,
+    prompt: `${t.label} — the equipment and setting for this dog sport with no dog in frame. ${t.desc || ""}`,
+  })),
+  ...Object.entries(G.SEASONS).map(([id, s]) => ({
+    file: `seasons/${slug(id)}.png`, short: s.label || id,
+    prompt: `${s.label || id} — a rural southern landscape in that season, wide and simple, no animals.`,
+  })),
+  ...Object.entries(G.REGISTRIES).map(([id, r]) => ({
+    file: `registries/${slug(id)}.png`, short: r.name,
+    prompt: `A stamped registry seal or crest for the ${r.name}. Circular, embossed look, ` +
+      `dark brown and antique gold only, no photographic detail.`,
+  })),
+  ...Object.entries(G.PERSONALITIES).map(([id, p]) => ({
+    file: `personality/${slug(id)}.png`, short: p.name,
+    prompt: `A small round badge icon representing a "${p.name}" dog temperament. ${p.blurb} ` +
+      `Simple symbolic mark, no lettering.`,
+  })),
+];
+chunk(sceneCells, PER_SHEET).forEach((cells, i) => {
+  sheet(`scenes and badges ${i * PER_SHEET + 1}–${i * PER_SHEET + cells.length}`,
+    "Six separate images, one per cell:",
+    cells);
+});
+
+/* ---------------------------------------------------------------- one-offs -- */
+w("## One-offs");
+w();
+w("These are single images rather than sheets, because each needs the whole frame.");
+w();
+w("### `world/atlas-map.png` — the county map");
+w();
+w("```");
+w(`${STYLE} A hand-drawn illustrated county map in the style of an old survey ` +
+  `or a theme-park guide, top-down three-quarter perspective. Rural American ` +
+  `southern county: a kennel and farmhouse, a market square with several shops, ` +
+  `a veterinary clinic, an adoption centre, trial grounds with a show ring, and ` +
+  `wooded hunting country with a creek. Dirt roads connecting them. Buildings ` +
+  `clearly separated with space around each one so they can be made clickable. ` +
+  `No text and no labels anywhere. Warm parchment background.`);
+w("```");
+w();
+w("### `world/title-hero.png` — title screen banner");
+w();
+w("```");
+w(`${STYLE} A wide banner illustration, roughly 3 to 1, of a working dog kennel ` +
+  `at sundown in the rural American south. Long low kennel runs, a pickup truck, ` +
+  `pine treeline, warm orange sky. Empty space across the middle of the frame ` +
+  `where a logo will sit. No text, no lettering, no dogs in close-up.`);
+w("```");
+w();
+w("### `world/empty-pen.png` — placeholder for animals with no picture");
+w();
+w("```");
+w(`${STYLE} An empty kennel run with the gate standing open, seen straight on. ` +
+  `Quiet and neutral rather than sad. Plain flat background, no text, no animals.`);
+w("```");
 w();
 w("---");
 w();
 
-/* ------------------------------------------------------------------ tier 3 -- */
-w("## Tier 3 — the world");
-w();
-w("Everything that is not an animal. These are one-offs, so they can be richer than");
-w("the animal set — but keep the same flat-vector language.");
-w();
-
-const section = (title, note) => { w(`### ${title}`); w(); if (note) { w(note); w(); } };
-
-section("Items (31)", "Replaces the SVG icons currently drawn in `js/icons.jsx`. Square, centred, transparent.");
-for (const [id, it] of Object.entries(G.ITEMS)) {
-  w(`- \`items/${slug(id)}.png\` — **${it.name}**. ${it.desc}`);
-}
-w();
-
-section("Kennel upgrades (5)", "Small building illustrations for the store cards.");
-for (const [id, up] of Object.entries(G.UPGRADES)) {
-  w(`- \`upgrades/${slug(id)}.png\` — **${up.name}**. ${up.desc}`);
-}
-w();
-
-section("Hunts (4)", "Scene tiles for the hunt picker — quarry and country, no dogs in frame.");
-for (const [id, h] of Object.entries(G.HUNTS)) {
-  w(`- \`hunts/${slug(id)}.png\` — **${h.label}**. ${h.desc || ""}`);
-}
-w();
-
-section("Trials and shows", "Event tiles.");
-for (const [id, t] of Object.entries(G.TRIALS)) {
-  w(`- \`trials/${slug(id)}.png\` — **${t.label}**. ${t.desc || ""}`);
-}
-for (const [id, ev] of Object.entries(G.HORSE_SHOWS)) {
-  w(`- \`shows/${slug(id)}.png\` — **${ev.label || id}**. ${ev.desc || "Horse show event tile."}`);
-}
-w();
-
-section("Property (37)", "Land, houses and where the place sits.");
-for (const [id, l] of Object.entries(G.LAND_SIZES)) w(`- \`land/${slug(id)}.png\` — **${l.label || id}**`);
-for (const [id, h] of Object.entries(G.HOUSE_TYPES)) w(`- \`houses/${slug(id)}.png\` — **${h.label || id}**`);
-for (const [id, l] of Object.entries(G.LAND_LOCATIONS)) w(`- \`locations/${slug(id)}.png\` — **${l.label || id}**`);
-w();
-
-section("Trucks and trailers (19)", "Three-quarter view, working vehicles with some age on them.");
-for (const [id, t] of Object.entries(G.TRUCKS)) w(`- \`trucks/${slug(id)}.png\` — **${t.label || id}**`);
-for (const [id, t] of Object.entries(G.TRAILERS)) w(`- \`trailers/${slug(id)}.png\` — **${t.label || id}**`);
-w();
-
-section("Clinics (4)", "Small building portraits — each should look like its price.");
-for (const c of G.CLINICS) w(`- \`clinics/${slug(c.id)}.png\` — **${c.name}**. ${c.blurb}`);
-w();
-
-section("Registries (5)", "Crest or seal, not a building. Stamped-looking, single colour plus gold.");
-for (const [id, r] of Object.entries(G.REGISTRIES)) w(`- \`registries/${slug(id)}.png\` — **${r.name}**. ${r.blurb}`);
-w();
-
-section("Seasons (4)", "Small banner strips for the rail's Game Time box.");
-for (const [id, s] of Object.entries(G.SEASONS)) w(`- \`seasons/${slug(id)}.png\` — **${s.label || id}**`);
-w();
-
-section("Personalities (6)", "Small round badges for the animal profile.");
-for (const [id, p] of Object.entries(G.PERSONALITIES)) w(`- \`personality/${slug(id)}.png\` — **${p.name}**. ${p.blurb}`);
-w();
-
-section("One-offs (3)");
-w("- `world/atlas-map.png` — the illustrated county map for the Atlas page. Hand-drawn");
-w("  survey feel, labelled buildings for the kennel, market, clinics, adoption centre,");
-w("  trial grounds and the hunting country. Needs clickable regions, so keep the");
-w("  buildings well separated.");
-w("- `world/title-hero.png` — wide banner for the title screen, behind the logo.");
-w("- `world/empty-pen.png` — the placeholder shown where an animal has no picture yet.");
-w();
-w("---");
-w();
-
-/* --------------------------------------------------------------- the totals -- */
-const counts = {
-  "Tier 1 breed heroes": 30 + Object.keys(G.HORSE_BREEDS).length + Object.keys(G.CATTLE_BREEDS).length,
-  "Tier 2a coat patterns (recommended)": dogPatternImages,
-  "Tier 2b every appearance (alternative)": dogCombos,
-  "Tier 3 world art": Object.keys(G.ITEMS).length + Object.keys(G.UPGRADES).length +
-    Object.keys(G.HUNTS).length + Object.keys(G.TRIALS).length + Object.keys(G.HORSE_SHOWS).length +
-    Object.keys(G.LAND_SIZES).length + Object.keys(G.HOUSE_TYPES).length + Object.keys(G.LAND_LOCATIONS).length +
-    Object.keys(G.TRUCKS).length + Object.keys(G.TRAILERS).length + G.CLINICS.length +
-    Object.keys(G.REGISTRIES).length + Object.keys(G.SEASONS).length + Object.keys(G.PERSONALITIES).length + 3,
-};
+/* ---------------------------------------------------------------- totals ---- */
+const totals = [
+  ["Dog breeds", dogCells.length],
+  ["Dog coat variants", coatCells.length],
+  ["Horses", horseCells.length],
+  ["Cattle", cattleCells.length],
+  ["Items", itemCells.length],
+  ["Buildings", buildingCells.length],
+  ["Vehicles", vehicleCells.length],
+  ["Scenes and badges", sceneCells.length],
+  ["One-offs", 3],
+];
+const grand = totals.reduce((n, [, v]) => n + v, 0);
 w("## Totals");
 w();
-w("| Set | Images |");
-w("| --- | ---: |");
-for (const [k, v] of Object.entries(counts)) w(`| ${k} | ${v} |`);
-w(`| **Recommended path (1 + 2a + 3)** | **${counts["Tier 1 breed heroes"] + counts["Tier 2a coat patterns (recommended)"] + counts["Tier 3 world art"]}** |`);
+w("| Set | Images | Sheets |");
+w("| --- | ---: | ---: |");
+for (const [k, v] of totals) w(`| ${k} | ${v} | ${k === "One-offs" ? "—" : Math.ceil(v / PER_SHEET)} |`);
+w(`| **Everything** | **${grand}** | **${sheetNo}** |`);
 w();
-w("## Where to put them");
+w("Sheet 1 through 5 are the thirty dog breeds. Those alone put a breed-correct");
+w("picture on every dog in the game, which is most of what a player reads on a card.");
+w("Do those first and check the style is right before going further.");
 w();
-w("Drop them in `assets/` following the paths above — `assets/dogs/plott-hound.png`");
-w("and so on. The code already prefers a real file over a drawing wherever one exists");
-w("(`ItemIcon` in `js/icons.jsx` does this today), and the same pattern extends to");
-w("animals. Send them over and I will wire them up.");
+w("## Where they go");
+w();
+w("Send me the sheets. I will cut each one into the six files named above it, drop");
+w("them in `assets/`, and wire them in — the code already prefers a real image file");
+w("over a drawing wherever one exists.");
 w();
 
 fs.mkdirSync(path.join(ROOT, "docs"), { recursive: true });
 const dest = path.join(ROOT, "docs", "art-prompts.md");
 fs.writeFileSync(dest, out.join("\n"));
-console.log(`wrote ${dest} — ${out.length} lines`);
-for (const [k, v] of Object.entries(counts)) console.log(`  ${k.padEnd(40)} ${v}`);
+console.log(`wrote ${dest}`);
+console.log(`${grand} images across ${sheetNo} sheets + 3 one-offs`);
+for (const [k, v] of totals) console.log(`  ${k.padEnd(20)} ${String(v).padStart(4)}  ${k === "One-offs" ? "" : Math.ceil(v / PER_SHEET) + " sheets"}`);
