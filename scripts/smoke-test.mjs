@@ -296,6 +296,102 @@ async function main() {
     return problems;
   }
 
+  /* The market sidebar is the only way into Clinics and the Bank, so without
+     walking it those two screens and their routes go untested. */
+  async function walkMarketNav() {
+    await page.evaluate(() => { window.location.hash = "#/market"; });
+    await page.waitForTimeout(400);
+    const count = await page.locator(".kg-mk__link").count();
+    for (let i = 0; i < count; i++) {
+      const link = page.locator(".kg-mk__link").nth(i);
+      if (!(await link.count())) break;
+      const label = (await link.innerText()).trim();
+      await link.click();
+      await page.waitForTimeout(300);
+      visited++;
+      await recordRoute(`market/${label}`);
+    }
+    return count;
+  }
+
+  /* Two rules the market is actually for.
+
+     The bank is only worth using because savings are never touched by the feed
+     bill, so that is what gets checked - not that the number went up, but that
+     it survived a week that cost cash.
+
+     The purchase modal exists so buying is two steps with a receipt. A test
+     that only checked the inventory grew would pass on the old one-click
+     version it replaced. */
+  async function checkMarketRules() {
+    const problems = [];
+    const read = () => page.evaluate(() => {
+      const s = JSON.parse(window.localStorage.getItem("kennel-save-v7"));
+      return { cash: s.cash, savings: s.savings || 0, day: s.day,
+               inventory: Object.values(s.inventory || {}).reduce((a, b) => a + b, 0) };
+    });
+
+    // --- the bank ------------------------------------------------------
+    await page.evaluate(() => { window.location.hash = "#/market/bank"; });
+    await page.waitForTimeout(500);
+    const amountField = page.locator('.kg-ap__field input[type="number"]').first();
+    if (!(await amountField.count())) { problems.push("no amount field on the bank screen"); return problems; }
+    await amountField.fill("500");
+    await page.getByRole("button", { name: /^Deposit$/ }).last().click();
+    await page.waitForTimeout(500);
+
+    const banked = await read();
+    if (banked.savings < 500) problems.push(`deposit did not land in savings (${banked.savings})`);
+    visited++;
+
+    await page.evaluate(() => { window.location.hash = "#/overview"; });
+    await page.waitForTimeout(400);
+    await page.getByRole("button", { name: /rest a week/i }).first().click();
+    await page.waitForTimeout(800);
+
+    const rested = await read();
+    if (rested.day <= banked.day) problems.push("resting did not advance the day");
+    if (rested.savings < banked.savings) {
+      problems.push(`the feed bill ate into savings (${banked.savings} -> ${rested.savings}) - it must only take cash`);
+    }
+    if (!(rested.savings > banked.savings)) {
+      problems.push("savings earned no interest over a week");
+    }
+
+    // --- the purchase modal --------------------------------------------
+    await page.evaluate(() => { window.location.hash = "#/store/supplies"; });
+    await page.waitForTimeout(500);
+    const buy = page.getByRole("button", { name: /^Buy$/ }).first();
+    if (!(await buy.count())) { problems.push("nothing affordable in the store to buy"); return problems; }
+    const beforeBuy = await read();
+    await buy.click();
+    await page.waitForTimeout(400);
+
+    if (!(await page.locator(".kg-ui-modal").count())) {
+      problems.push("the Buy button did not open the purchase modal");
+      return problems;
+    }
+    const midBuy = await read();
+    if (midBuy.inventory !== beforeBuy.inventory) {
+      problems.push("opening the modal already bought the item - it should take a confirmation");
+    }
+
+    await page.getByRole("button", { name: /^Buy for / }).first().click();
+    await page.waitForTimeout(500);
+    const afterBuy = await read();
+    if (afterBuy.inventory <= beforeBuy.inventory) problems.push("confirming did not add the item");
+    if (!(await page.locator(".kg-ui-notice--success").count())) problems.push("no receipt after buying");
+    if (!(await page.getByRole("button", { name: /go to inventory/i }).count())) {
+      problems.push("the receipt offered no follow-up actions");
+    }
+    visited++;
+
+    const close = page.locator(".kg-ui-modal__x").first();
+    if (await close.count()) { await close.click(); await page.waitForTimeout(300); }
+
+    return problems;
+  }
+
   /* The ranch tab strip is the only way into About, History and Stats, so
      without walking it those three screens and their routes go untested. */
   async function walkRanchTabs() {
@@ -399,6 +495,12 @@ async function main() {
   const tabs = await walkClassic();
   console.log(`Sidebar layout: ${tabs} nav entries walked.`);
 
+  const marketTabs = await walkMarketNav();
+  console.log(`Market: ${marketTabs} sidebar destinations walked.`);
+
+  const marketProblems = await checkMarketRules();
+  console.log("Market rules: savings survive the feed bill, buying takes two steps.");
+
   const vaxProblems = await checkVaccinationGate();
   console.log("Vaccination: a lapsed dog is refused, and told where to fix it.");
 
@@ -472,6 +574,11 @@ Ranch tab strip showed ${ranchTabs} tabs, expected ${RANCH_TAB_COUNT}.`);
     console.error(`\n${deadEnds.length} nav destination(s) with no route of their own:`);
     for (const d of deadEnds) console.error(" - " + d);
     console.error("Add the screen id to ROUTES in js/router.jsx.");
+    process.exit(1);
+  }
+  if (marketProblems.length) {
+    console.error("\\nThe market rules are broken:");
+    for (const p of marketProblems) console.error(" - " + p);
     process.exit(1);
   }
   if (vaxProblems.length) {

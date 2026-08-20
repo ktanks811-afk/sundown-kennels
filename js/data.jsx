@@ -393,6 +393,25 @@ const LAYOUTS = [
   { id: "classic", label: "Sidebar", blurb: "The older look — one plain column of links down the left." },
 ];
 
+/* The market sidebar. Two labelled groups, the same shape the spec uses, so
+   every shop and listing type has one obvious home. */
+const MARKET_NAV = [
+  { heading: "Main Shops", items: [
+    { id: "shop", label: "Supply Store" },
+    { id: "clinic", label: "Clinics" },
+    { id: "bank", label: "Bank" },
+  ] },
+  { heading: "Animals", items: [
+    { id: "market", label: "Buy Dogs" },
+    { id: "trade", label: "Player Market" },
+    { id: "rescue", label: "Adoption Center" },
+  ] },
+  { heading: "Yours", items: [
+    { id: "inventory", label: "Inventory" },
+  ] },
+];
+const MARKET_TAB_IDS = MARKET_NAV.reduce((all, g) => all.concat(g.items.map((i) => i.id)), []);
+
 /* ----------------------------- homestead layout ---------------------------- */
 
 /* Primary nav across the top of the page card. Six entries, because a nav you
@@ -451,7 +470,7 @@ const HOME_NAV_OWNER = {
   overview: "kennel", kennel: "kennel", property: "kennel", breed: "kennel",
   hunt: "work", trials: "work", horses: "work", cattle: "work",
   market: "market", shop: "market", inventory: "market", rescue: "market",
-  trade: "market",
+  trade: "market", clinic: "market", bank: "market",
   registry: "records", rankings: "records", hof: "records",
   racerecords: "records", log: "records", leaderboard: "records", rivals: "records",
   // Owner, Settings and account management are ranch tabs now, so they light
@@ -646,6 +665,51 @@ const ITEMS = {
   bandanaRed:   { name: "Red Bandana",         cat: "cosmetic", price: 22, desc: "Tied at the throat. Classic.",     collar: "#a8342a" },
   collarSilver: { name: "Silver Trial Collar", cat: "cosmetic", price: 90, desc: "Awarded look, bought price.",      collar: "#9fa6ad" },
 };
+
+/* Clinics.
+
+   Vaccination deliberately does not have one fixed price. The action routes
+   into a choice of clinic, each with its own price and its own trade-off, so
+   the question is "who do I take this dog to" rather than "click the button".
+
+   These are county practices for now. Player-run clinics need a table and a
+   migration of their own; when that lands they join this same list and the
+   picker does not change. `bonusDays` is what the money is actually buying:
+   the good ones certify for longer than the cheap ones. */
+const CLINICS = [
+  {
+    id: "county",
+    name: "County Animal Clinic",
+    blurb: "Two vets and a waiting room full of farm dogs. Cheap, brisk, fine.",
+    price: 95, bonusDays: 0, travel: 0,
+  },
+  {
+    id: "riverbend",
+    name: "Riverbend Veterinary",
+    blurb: "Small-animal practice in town. Slower, gentler, and they keep proper records.",
+    price: 145, bonusDays: 120, travel: 0,
+  },
+  {
+    id: "haggerty",
+    name: "Haggerty Large Animal",
+    blurb: "Mostly cattle work. They will do a dog, and they do it properly.",
+    price: 180, bonusDays: 240, travel: 0,
+  },
+  {
+    id: "mobile",
+    name: "Mobile Round",
+    blurb: "The truck comes to you on its circuit. Costs more, saves the haul.",
+    price: 210, bonusDays: 60, travel: 0,
+  },
+];
+
+/* The bank.
+
+   Not a second wallet for its own sake: the daily feed bill is only ever taken
+   from cash, never from savings. Money put away is money that cannot be eaten
+   by a bad week, and also money that cannot cover one. That is the whole
+   decision, and the interest is small enough not to make it automatic. */
+const BANK_INTEREST_PER_DAY = 0.0015;
 
 /* Personality.
 
