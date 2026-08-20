@@ -1842,6 +1842,9 @@ function KennelGame() {
       <AnimalProfileScreen game={game} />
       <RanchPanels game={game} />
       <MarketPanels game={game} />
+      <SearchScreen game={game} />
+      <AchievementsScreen game={game} />
+      <CareChecklist game={game} />
       {buyItemId && <PurchaseModal game={game} itemId={buyItemId} onClose={() => setBuyItemId(null)} />}
     </>
   );

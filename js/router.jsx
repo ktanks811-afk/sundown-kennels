@@ -41,6 +41,10 @@ const ROUTES = [
   { path: "/online/challenges",  screen: "rivals" },
   { path: "/online/leaderboard", screen: "leaderboard" },
 
+  { path: "/search",             screen: "search" },
+  { path: "/achievements",       screen: "achievements" },
+  { path: "/today",              screen: "care" },
+
   { path: "/records/studbook",   screen: "registry" },
   { path: "/records/ranks",      screen: "rankings" },
   { path: "/records/hof",        screen: "hof" },
