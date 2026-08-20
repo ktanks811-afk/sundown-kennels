@@ -352,7 +352,8 @@ const TABS = [
    unchanged; several now sit behind one nav entry with sub-tabs. */
 const NAV = [
   { id: "overview", label: "Overview", icon: "◆", group: "Kennel" },
-  { id: "kennel",   label: "Kennel",   icon: "⌂", group: "Kennel" },
+  { id: "kennel",   label: "Kennel",   icon: "⌂", group: "Kennel",
+    children: [{ id: "kennel", label: "The yard" }, { id: "care", label: "Today" }, { id: "ranchabout", label: "About" }, { id: "ranchhistory", label: "History" }, { id: "ranchstats", label: "Stats" }] },
   { id: "property", label: "Property", icon: "⬒", group: "Kennel" },
   { id: "hunt",     label: "Hunt",     icon: "✦", group: "Work" },
   { id: "breed",    label: "Breed",    icon: "❖", group: "Work" },
@@ -361,12 +362,12 @@ const NAV = [
   { id: "cattle",   label: "Cattle",   icon: "◈", group: "Livestock" },
   { id: "market",   label: "Market",   icon: "$", group: "Trade" },
   { id: "store",    label: "Store",    icon: "▤", group: "Trade",
-    children: [{ id: "shop", label: "Buy supplies" }, { id: "inventory", label: "What you own" }] },
+    children: [{ id: "shop", label: "Buy supplies" }, { id: "inventory", label: "What you own" }, { id: "clinic", label: "Clinics" }, { id: "bank", label: "Bank" }, { id: "arcade", label: "Games" }] },
   { id: "rescue",   label: "Rescue",   icon: "♥", group: "Trade" },
   { id: "online",   label: "Online",   icon: "⇄", group: "Trade",
-    children: [{ id: "trade", label: "Dog market" }, { id: "rivals", label: "Challenges" }, { id: "leaderboard", label: "Leaderboard" }] },
+    children: [{ id: "trade", label: "Dog market" }, { id: "rivals", label: "Challenges" }, { id: "leaderboard", label: "Leaderboard" }, { id: "search", label: "Search" }] },
   { id: "records",  label: "Records",  icon: "§", group: "Records",
-    children: [{ id: "registry", label: "Stud book" }, { id: "rankings", label: "County ranks" }, { id: "hof", label: "Hall of Fame" }, { id: "racerecords", label: "Race records" }, { id: "log", label: "Ledger" }] },
+    children: [{ id: "registry", label: "Stud book" }, { id: "registries", label: "Breed registries" }, { id: "rankings", label: "County ranks" }, { id: "hof", label: "Hall of Fame" }, { id: "racerecords", label: "Race records" }, { id: "achievements", label: "Achievements" }, { id: "log", label: "Ledger" }] },
   { id: "account",  label: "Account",  icon: "☺", group: "You",
     children: [{ id: "profile", label: "Profile" }, { id: "settings", label: "Settings" }, { id: "danger", label: "Account" }] },
 ];
@@ -387,6 +388,8 @@ function navChildrenFor(navEntry, adminUnlocked) {
    and a right-hand info rail. Same screens throughout — only the furniture
    changes — and it's switchable from Settings so nothing is lost either way. */
 const LAYOUT_KEY = "kennel-layout";
+// Marks that the one-time move onto the homestead layout has happened.
+const LAYOUT_MIGRATED_KEY = "kennel-layout-moved";
 const LAYOUTS = [
   { id: "home",    label: "Homestead", blurb: "The new look — tiled ground, one centred page, Atlas menu and an info rail." },
   { id: "frame",   label: "Game frame", blurb: "Menu bar across the top, bordered page, info rail on the right." },
@@ -453,6 +456,7 @@ const ATLAS_MENU = [
     { id: "care", label: "Today" },
     { id: "achievements", label: "Achievements" },
     { id: "search", label: "Search" },
+    { id: "danger", label: "Manage Account" },
   ] },
   { heading: "Leader Boards", items: [
     { id: "leaderboard", label: "Top Players" },
@@ -510,10 +514,14 @@ const RANCH_TAB_IDS = RANCH_TABS.map((t) => t.id);
 const MENUS = [
   { id: "kennel", label: "Kennel", icon: "⌂", columns: [
     { heading: "Your dogs", items: [
-      { id: "overview", label: "Overview" }, { id: "kennel", label: "The Yard" }, { id: "breed", label: "Breeding" },
+      { id: "overview", label: "Overview" }, { id: "kennel", label: "The Yard" },
+      { id: "care", label: "Today" }, { id: "breed", label: "Breeding" },
     ] },
     { heading: "Your place", items: [
       { id: "property", label: "Property" }, { id: "shop", label: "Supply Store" }, { id: "inventory", label: "Inventory" },
+    ] },
+    { heading: "The ranch", items: [
+      { id: "ranchabout", label: "About" }, { id: "ranchhistory", label: "History" }, { id: "ranchstats", label: "Stats" },
     ] },
   ] },
   { id: "work", label: "Work", icon: "✦", columns: [
@@ -526,10 +534,12 @@ const MENUS = [
   ] },
   { id: "market", label: "Market", icon: "$", columns: [
     { heading: "Buy & sell", items: [
-      { id: "market", label: "Dog Market" }, { id: "rescue", label: "Rescue" },
+      { id: "market", label: "Dog Market" }, { id: "rescue", label: "Adoption Center" },
+      { id: "clinic", label: "Clinics" }, { id: "bank", label: "Bank" },
     ] },
     { heading: "Other players", items: [
       { id: "trade", label: "Player Market" }, { id: "rivals", label: "Challenges" },
+      { id: "search", label: "Search" }, { id: "arcade", label: "Games" },
     ] },
   ] },
   { id: "records", label: "Records", icon: "§", columns: [
@@ -539,6 +549,9 @@ const MENUS = [
     { heading: "Leader boards", items: [
       { id: "leaderboard", label: "Leaderboard" }, { id: "rankings", label: "County Ranks" },
       { id: "hof", label: "Hall of Fame" }, { id: "racerecords", label: "Race Records" },
+    ] },
+    { heading: "The book", items: [
+      { id: "registries", label: "Breed Registries" }, { id: "achievements", label: "Achievements" },
     ] },
   ] },
   { id: "account", label: "Account", icon: "☺", columns: [
