@@ -34,6 +34,8 @@ const ROUTES = [
   { path: "/store/supplies",     screen: "shop" },
   { path: "/store/inventory",    screen: "inventory" },
   { path: "/rescue",             screen: "rescue" },
+  { path: "/market/clinics",     screen: "clinic" },
+  { path: "/market/bank",        screen: "bank" },
 
   { path: "/online/market",      screen: "trade" },
   { path: "/online/challenges",  screen: "rivals" },

@@ -70,6 +70,8 @@ function KennelGame() {
     try { return window.localStorage.getItem(ADMIN_UNLOCK_KEY) === "1"; } catch { return false; }
   });
   const [adminTarget, setAdminTarget] = useState("");
+  // Which item the purchase modal is open on, if any.
+  const [buyItemId, setBuyItemId] = useState(null);
 
   /* The route needs adminUnlocked to know whether /account/admin is allowed,
      which is why this sits here rather than at the top with the other state. */
@@ -838,6 +840,12 @@ function KennelGame() {
     // and a bad hunting week is a setback rather than the start of a spiral.
     const wages = dailySalary(prev) * days;
     next.cash = Math.round((prev.cash - upkeep + wages) * 100) / 100;
+    /* Savings sit apart from all of that. The upkeep above never touches them,
+       which is the only reason the bank is worth using. */
+    const savings = prev.savings || 0;
+    next.savings = savings > 0
+      ? Math.round(savings * Math.pow(1 + BANK_INTEREST_PER_DAY, days) * 100) / 100
+      : savings;
 
     const deaths = [];
     const whelped = [];
@@ -1431,6 +1439,42 @@ function KennelGame() {
     update((prev) => ({ ...prev, ranchBio: trimmed }));
   }
 
+  /* Cash and savings are two pools on purpose - see BANK_INTEREST_PER_DAY.
+     Both directions are clamped against the pool they draw from, because the
+     input is a number field and a number field will happily hand you 1e9. */
+  function bankMove(direction, amount) {
+    const value = Math.max(0, Math.round(Number(amount) || 0));
+    if (!value) return;
+    update((prev) => {
+      const savings = prev.savings || 0;
+      if (direction === "deposit") {
+        const moved = Math.min(value, Math.floor(prev.cash));
+        if (moved <= 0) return prev;
+        return addLog({ ...prev, cash: Math.round((prev.cash - moved) * 100) / 100, savings: savings + moved },
+          "money", `Banked ${fmtMoney(moved)}.`);
+      }
+      const moved = Math.min(value, Math.floor(savings));
+      if (moved <= 0) return prev;
+      return addLog({ ...prev, cash: Math.round((prev.cash + moved) * 100) / 100, savings: savings - moved },
+        "money", `Drew ${fmtMoney(moved)} out of the bank.`);
+    });
+  }
+
+  /* Vaccination through a clinic rather than off the shelf. The clinic sets
+     both the price and how long the certificate runs, which is the whole
+     reason this is a choice rather than a button. */
+  function vaccinateAt(clinicId, dogId) {
+    const clinic = CLINICS.find((c) => c.id === clinicId);
+    const dog = state.dogs.find((d) => d.id === dogId);
+    if (!clinic || !dog || state.cash < clinic.price) return;
+    update((prev) => addLog({
+      ...prev,
+      cash: Math.round((prev.cash - clinic.price) * 100) / 100,
+      dogs: prev.dogs.map((d) => d.id !== dogId ? d
+        : { ...d, vaccinatedUntilDay: prev.day + 365 + clinic.bonusDays }),
+    }, "money", `${dog.name} vaccinated at ${clinic.name} for ${fmtMoney(clinic.price)}.`));
+  }
+
   function doSell(dog) {
     const value = Math.round(computeValue(dog) * professionBonus(state, "trader"));
     update((prev) => addLog({ ...prev, cash: Math.round(prev.cash + value), dogs: prev.dogs.filter((d) => d.id !== dog.id) }, "money", `Sold ${dog.name} to a trader for ${fmtMoney(value)}.`));
@@ -1777,6 +1821,9 @@ function KennelGame() {
     saveRanchBio,
     enterTrial,
     withdrawEntry,
+    bankMove,
+    vaccinateAt,
+    buyItemId, setBuyItemId,
   };
 
   /* Every screen, rendered the same in either layout. Only the chrome around
@@ -1784,6 +1831,7 @@ function KennelGame() {
   const screens = (
     <>
       <RanchTabs game={game} />
+      <MarketSidebar game={game} />
       <KennelScreens game={game} />
       <WorkScreens game={game} />
       <LivestockScreens game={game} />
@@ -1793,6 +1841,8 @@ function KennelGame() {
       <AccountScreens game={game} />
       <AnimalProfileScreen game={game} />
       <RanchPanels game={game} />
+      <MarketPanels game={game} />
+      {buyItemId && <PurchaseModal game={game} itemId={buyItemId} onClose={() => setBuyItemId(null)} />}
     </>
   );
 

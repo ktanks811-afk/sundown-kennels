@@ -10,7 +10,7 @@
 function MarketScreens({ game }) {
   const { doAdopt, doBuy, doBuyItem, doBuyUpgrade, doUseItem, filters, itemTargets, kennelFull,
     refreshRescue, scoutMarket, setFilters, setItemTargets, setShopCat, setViewDog, shopCat,
-    shownMarket, state, tab } = game;
+    shownMarket, state, tab, setBuyItemId } = game;
   return (
     <>
         {tab === "market" && (
@@ -115,7 +115,10 @@ function MarketScreens({ game }) {
                       </div>
                       <div className="kg-shopitem__foot">
                         {owned > 0 && <span className="kg-shopitem__owned">{owned} in stock</span>}
-                        <button className="kg-btn kg-btn--sm" disabled={state.cash < item.price} onClick={() => doBuyItem(id)}>
+                        {/* Opens the two-step purchase rather than buying on
+                            the spot: a single click was easy to do by accident
+                            and left no route from bought to used. */}
+                        <button className="kg-btn kg-btn--sm" disabled={state.cash < item.price} onClick={() => setBuyItemId(id)}>
                           {state.cash < item.price ? "Can't afford" : "Buy"}
                         </button>
                       </div>
