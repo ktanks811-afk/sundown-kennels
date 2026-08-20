@@ -80,10 +80,20 @@ function KennelGame() {
   const setTab = route.goToScreen;
 
   const [layout, setLayout] = useState(() => {
-    // Homestead is the default now. Any layout already chosen is still
-    // honoured, so nobody gets moved off the one they picked.
+    /* Homestead is the default. Anyone who picked a layout before homestead
+       existed is moved onto it once - they had chosen between two options that
+       did not include this one, so honouring that choice meant they never saw
+       the redesign they asked for. The move is recorded under its own key, so
+       a choice made after this point sticks for good and Settings still has
+       all three. */
     try {
       const saved = window.localStorage.getItem(LAYOUT_KEY);
+      const moved = window.localStorage.getItem(LAYOUT_MIGRATED_KEY) === "1";
+      if (!moved) {
+        window.localStorage.setItem(LAYOUT_MIGRATED_KEY, "1");
+        window.localStorage.setItem(LAYOUT_KEY, "home");
+        return "home";
+      }
       return LAYOUTS.some((l) => l.id === saved) ? saved : "home";
     } catch { return "home"; }
   });

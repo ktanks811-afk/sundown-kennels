@@ -26,6 +26,7 @@ jobs:
       # shipping untested since it was written.
       - run: npm run test:grouphunt
       - run: npm run test:care
+      - run: npm run test:reachable
 
   smoke-test:
     name: Browser smoke test
