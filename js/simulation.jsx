@@ -632,8 +632,12 @@ function initKennel(kennelName, starterDogs) {
     { ...generateRandomDog("Catahoula Leopard Dog"), name: "Ruby", sex: "F", ageDays: 380 },
   ];
   const name = (kennelName && kennelName.trim()) || "Sundown Kennels";
+  /* Founders come vaccinated - you would not buy a dog that was not, and a
+     brand-new kennel being told it cannot enter anything is a bad first hour.
+     Everything bred or bought afterwards has to be done properly. */
+  const vaccinatedStarters = starters.map((d) => ({ ...d, vaccinatedUntilDay: day + 365 }));
   const base = {
-    kennelName: name, day, cash: 2500, dogs: starters,
+    kennelName: name, day, cash: 2500, dogs: vaccinatedStarters,
     property: STARTER_PROPERTY,
     market: generateMarket(4, day),
     aiKennels: initAiKennels(),
@@ -646,7 +650,9 @@ function initKennel(kennelName, starterDogs) {
     entries: [],
     professions: {},
     socialFeed: [],
-    inventory: { kibble: 2, woundSalve: 1 },
+    // A vaccine in the box from the start, so the item is discovered before the
+    // first time an entry is refused for the want of one.
+    inventory: { kibble: 2, woundSalve: 1, vaccine: 1, ropeTug: 1 },
     upgrades: {},
     rescue: generateRescuePool(3, day),
     rescueRefreshedDay: day,
@@ -706,6 +712,33 @@ function professionBonus(state, key) {
 function dailySalary(state) {
   const { level } = levelFromXp((state && state.xp) || 0);
   return 12 + level * 6;
+}
+
+/* Personality is derived from the dog's id rather than stored.
+
+   Dogs arrive from six places - founders, litters, the market, rescue, rival
+   kennels and old saves - and assigning a field at each of those is six chances
+   to miss one. Hashing the id gives every dog that has ever existed a stable
+   personality with no migration, no plumbing, and the same answer every time
+   it is asked. An explicit `personality` still wins if one is ever set. */
+/* Scales a stat block by a multiplier without touching the original. Used to
+   feed a mood-adjusted copy of a dog into the pure scoring functions. */
+function scaleStats(stats, mult) {
+  const out = {};
+  for (const k of Object.keys(stats || {})) out[k] = Math.round(stats[k] * mult);
+  return out;
+}
+
+function personalityOf(dog) {
+  if (dog && dog.personality) return dog.personality;
+  const id = String((dog && dog.id) || "");
+  return PERSONALITY_KEYS[Math.abs(hashStr(id)) % PERSONALITY_KEYS.length];
+}
+
+/* Has to be current on the day it is checked, which is why this takes the day
+   rather than reading a boolean off the dog. */
+function isVaccinated(dog, day) {
+  return typeof dog.vaccinatedUntilDay === "number" && dog.vaccinatedUntilDay >= day;
 }
 
 function addLog(state, type, text) {

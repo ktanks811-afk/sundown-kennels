@@ -600,6 +600,7 @@ function dayOfSeason(day) { return ((day - 1) % SEASON_LENGTH) + 1; }
 const ITEM_CATEGORIES = [
   { id: "feed", label: "Feed & Nutrition", blurb: "Condition comes off the feed pan first. Better feed means faster recovery and slow, permanent gains." },
   { id: "med", label: "Veterinary", blurb: "Patch up a torn-up catch dog. Salve handles scrapes; a real vet kit puts a dog back to sound." },
+  { id: "toy", label: "Toys & Enrichment", blurb: "A settled dog works better. Match the toy to the personality - the wrong one still helps, at half." },
   { id: "training", label: "Training Gear", blurb: "Conditioning trades health for permanent stat gains. Don't work a hurt dog." },
   { id: "cosmetic", label: "Collars & Tack", blurb: "Purely cosmetic. Colors show on the dog's card and in the stud book." },
   { id: "kennel", label: "Kennel Upgrades", blurb: "One-time buys that change how the whole yard runs. Expensive, permanent, worth it." },
@@ -627,6 +628,15 @@ const ITEMS = {
   bayPen:       { name: "Bay Pen Session",     cat: "training", price: 145, desc: "Controlled bay work. Reads a dog's nerve.",            stat: { gameness: 3 },    health: -10 },
   treadmill:    { name: "Slat Mill",           cat: "training", price: 210, desc: "The old standby. Nothing builds wind like it.",        stat: { stamina: 4 },     health: -9 },
 
+  ropeTug:      { name: "Braided Tug Rope",   cat: "toy", price: 26, forPersonality: "bold",     mood: 34, desc: "Two ends and a fight in the middle." },
+  knottedBall:  { name: "Knotted Rope Ball",  cat: "toy", price: 24, forPersonality: "steady",   mood: 34, desc: "Heavy enough to carry all afternoon." },
+  puzzleBox:    { name: "Feed Puzzle Box",    cat: "toy", price: 38, forPersonality: "busy",     mood: 36, desc: "Kibble comes out once the trick is worked out." },
+  scentDummy:   { name: "Canvas Scent Dummy", cat: "toy", price: 30, forPersonality: "wary",     mood: 34, desc: "Something to find, which is easier than something to face." },
+  softFleece:   { name: "Fleece Snuggle Toy", cat: "toy", price: 22, forPersonality: "sweet",    mood: 32, desc: "Not for chewing. For keeping." },
+  rubberBone:   { name: "Hard Rubber Bone",   cat: "toy", price: 28, forPersonality: "stubborn", mood: 34, desc: "Outlasts most arguments." },
+
+  vaccine:      { name: "Annual Vaccination", cat: "med", price: 120, vaccinates: 365, desc: "Papers the trial secretary will actually accept." },
+
   collarBrass:  { name: "Brass-Buckle Collar", cat: "cosmetic", price: 35, desc: "Heavy leather, brass hardware.",   collar: "#b08d3f" },
   collarRed:    { name: "Red Working Collar",  cat: "cosmetic", price: 28, desc: "Easy to spot in thick cover.",     collar: "#c2422d" },
   collarOrange: { name: "Blaze Orange Collar", cat: "cosmetic", price: 32, desc: "Safety orange. Hunt season legal.", collar: "#e0742a" },
@@ -636,6 +646,41 @@ const ITEMS = {
   bandanaRed:   { name: "Red Bandana",         cat: "cosmetic", price: 22, desc: "Tied at the throat. Classic.",     collar: "#a8342a" },
   collarSilver: { name: "Silver Trial Collar", cat: "cosmetic", price: 90, desc: "Awarded look, bought price.",      collar: "#9fa6ad" },
 };
+
+/* Personality.
+
+   Every dog gets one at birth. It is not a stat and never scales anything on
+   its own - its whole job is deciding which toy actually settles this
+   particular dog. Six types, so a kennel of eight nearly always needs more
+   than one kind of toy in the box.
+
+   The wrong toy still works, at half value, with flavour text saying so. A
+   mismatch that simply did nothing would read as a bug. */
+const PERSONALITIES = {
+  bold:     { name: "Bold",     blurb: "First out of the box and last to quit." },
+  steady:   { name: "Steady",   blurb: "Hard to rattle, harder to hurry." },
+  busy:     { name: "Busy",     blurb: "Needs a job or invents one." },
+  wary:     { name: "Wary",     blurb: "Watches a while before committing." },
+  sweet:    { name: "Sweet",    blurb: "Would rather be beside you than anywhere." },
+  stubborn: { name: "Stubborn", blurb: "Has opinions, and keeps them." },
+};
+const PERSONALITY_KEYS = Object.keys(PERSONALITIES);
+
+/* Mood.
+
+   Falls a little every day and is put back by play. It bends how a dog works
+   rather than gating anything: a settled dog runs a touch better, a miserable
+   one noticeably worse, and nothing is ever hard-blocked by it. */
+const MOOD_MAX = 100;
+const MOOD_DECAY_PER_DAY = 6;
+function moodOf(animal) {
+  return typeof animal.mood === "number" ? animal.mood : MOOD_MAX;
+}
+/* 0.92 at rock bottom through 1.04 at content - deliberately narrow. Mood is
+   meant to be worth tending, not to dwarf the stats a dog was bred for. */
+function moodMultiplier(animal) {
+  return 0.92 + (moodOf(animal) / MOOD_MAX) * 0.12;
+}
 
 /* Energy.
 
@@ -711,7 +756,7 @@ function itemsInCategory(cat) { return ITEM_IDS.filter((id) => ITEMS[id].cat ===
 
 /* Apply a purchased item to a dog. Returns the updated dog plus a log line.
    Training gains are capped at 100 and scale with the Training Yard upgrade. */
-function applyItem(dog, itemId, upgrades, trainerBonus) {
+function applyItem(dog, itemId, upgrades, trainerBonus, today) {
   const item = ITEMS[itemId];
   if (!item) return { dog, msg: null, ok: false };
   const up = upgrades || {};
@@ -726,6 +771,30 @@ function applyItem(dog, itemId, upgrades, trainerBonus) {
   if (item.heal) {
     next.health = 100;
     return { dog: next, ok: true, msg: `${dog.name} got a full workup and came back sound.` };
+  }
+
+  /* A toy meant for a different sort of dog still gets played with, at half the
+     good it does. Saying so in the message is the point - a mismatch that
+     silently did nothing would read as the game being broken. */
+  if (item.mood) {
+    const type = personalityOf(dog);
+    const matched = item.forPersonality === type;
+    const gain = Math.round(item.mood * (matched ? 1 : 0.5));
+    next.mood = Math.min(MOOD_MAX, moodOf(dog) + gain);
+    const label = ((PERSONALITIES[type] || {}).name || "This").toLowerCase();
+    return {
+      dog: next, ok: true,
+      msg: matched
+        ? `${dog.name} settled right into the ${item.name.toLowerCase()} - plus ${gain} mood.`
+        : `${dog.name} had a go at the ${item.name.toLowerCase()}, but a ${label} dog wants something else - plus ${gain} mood, half what it could be.`,
+    };
+  }
+
+  /* Dated rather than a flag, so it lapses on its own and the trial secretary
+     has a real date to check rather than a boolean nobody ever clears. */
+  if (item.vaccinates) {
+    next.vaccinatedUntilDay = (today || 0) + item.vaccinates;
+    return { dog: next, ok: true, msg: `${dog.name} is vaccinated and papered for the season.` };
   }
 
   const gains = [];
