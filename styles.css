@@ -1650,3 +1650,40 @@ html[data-theme="light"], html[data-theme="light"] body { background:#f2ebdd; }
 .kg-mk__buyhead { display: flex; align-items: center; gap: 13px; }
 .kg-mk__after { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .kg-mk__after .kg-btn { width: auto; flex: 1 1 auto; }
+
+/* ------------------------- search & care (phase 7) ------------------------ */
+
+.kg-srch__filters {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px; margin-bottom: 10px;
+}
+.kg-srch__filters select {
+  width: 100%; font: inherit; font-size: 13px; padding: 6px 9px;
+  color: var(--ink); background: var(--paper); border: 1px solid var(--border); border-radius: 5px;
+}
+.kg-srch__pager {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  margin-top: 12px; font-size: 12.5px; color: var(--ink-soft);
+}
+.kg-srch__pager .kg-btn { width: auto; }
+
+.kg-ach { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+.kg-ach__pips { display: flex; gap: 4px; margin-top: 8px; }
+
+/* The checklist is scanned, not read: the marks carry the state, and the
+   column is narrow so a whole kennel fits on one screen. */
+.kg-care__col { text-align: center; width: 76px; }
+.kg-care__mark {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 19px; height: 19px; border-radius: 50%;
+  font-size: 12px; font-weight: 700; line-height: 1;
+}
+.kg-care__mark--done { background: rgba(70,129,47,0.18); color: var(--olive); }
+.kg-care__mark--part { background: rgba(224,185,60,0.2); color: var(--tan-ink, #9a6a08); }
+.kg-care__mark--todo { background: rgba(191,53,53,0.16); color: var(--rust); }
+.kg-care__row--done td:first-child { font-weight: 600; }
+.kg-care__legend {
+  display: flex; flex-wrap: wrap; gap: 16px; margin-top: 10px;
+  font-size: 12px; color: var(--ink-soft);
+}
+.kg-care__legend span { display: inline-flex; align-items: center; gap: 6px; }

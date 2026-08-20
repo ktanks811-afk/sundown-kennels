@@ -422,6 +422,7 @@ const HOME_NAV = [
   { id: "atlas",   label: "Atlas",  icon: "✦", menu: true },
   { id: "market",  label: "Market", icon: "$", tab: "market" },
   { id: "work",    label: "Work",   icon: "◆", tab: "hunt" },
+  { id: "search",  label: "Search", icon: "⌕", tab: "search" },
   { id: "records", label: "Records", icon: "§", tab: "registry" },
 ];
 
@@ -446,6 +447,11 @@ const ATLAS_MENU = [
     { id: "trade",  label: "Player Market" },
     { id: "rivals", label: "Challenges" },
   ] },
+  { heading: "Yours", items: [
+    { id: "care", label: "Today" },
+    { id: "achievements", label: "Achievements" },
+    { id: "search", label: "Search" },
+  ] },
   { heading: "Leader Boards", items: [
     { id: "leaderboard", label: "Top Players" },
     { id: "rankings",    label: "County Ranks" },
@@ -458,6 +464,7 @@ const ATLAS_MENU = [
    disappearing, so the list never changes shape underneath you. */
 const HOME_QUICK_LINKS = [
   { id: "overview",  label: "Overview" },
+  { id: "care",      label: "Today" },
   { id: "kennel",    label: "The Yard" },
   { id: "inventory", label: "Inventory" },
   { id: "shop",      label: "Supply Store" },
@@ -479,6 +486,7 @@ const HOME_NAV_OWNER = {
   // An animal's page belongs to the ranch it lives on.
   animalprofile: "kennel",
   ranchabout: "kennel", ranchhistory: "kennel", ranchstats: "kennel",
+  care: "kennel", achievements: "records", search: "search",
 };
 
 /* The ranch tab strip. Four of these are older screens that already had a
