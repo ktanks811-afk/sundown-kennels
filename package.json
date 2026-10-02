@@ -11,7 +11,10 @@
     "test:reachable": "node scripts/test-reachable.mjs",
     "art:manifest": "node scripts/build-art-manifest.mjs",
     "art:prompts": "node scripts/make-art-prompts.mjs",
-    "art:generate": "node scripts/generate-art.mjs"
+    "art:generate": "node scripts/generate-art.mjs",
+    "studio:art": "node scripts/studio-art.mjs",
+    "studio:assets": "node scripts/studio-assets.mjs",
+    "studio:serve": "npx --yes serve studio -l 4321"
   },
   "devDependencies": {
     "@babel/core": "^7.24.0",

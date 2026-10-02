@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Glitch Gaming Studios | Independent Game Development</title>
+  <meta name="description" content="Glitch Gaming Studios creates original web games, racing experiences, simulations, and interactive worlds." />
+  <meta name="theme-color" content="#050608" />
+  <meta name="color-scheme" content="dark" />
+
+  <!-- Open Graph / social cards. og:url and og:image are relative until the
+       site has a domain; swap in absolute URLs once it does (see README). -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Glitch Gaming Studios" />
+  <meta property="og:title" content="Glitch Gaming Studios | Independent Game Development" />
+  <meta property="og:description" content="Glitch Gaming Studios creates original web games, racing experiences, simulations, and interactive worlds." />
+  <meta property="og:image" content="assets/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Glitch Gaming Studios. Build. Play. Glitch." />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Glitch Gaming Studios" />
+  <meta name="twitter:description" content="Original web games, racing experiences, simulations, and interactive worlds." />
+  <meta name="twitter:image" content="assets/og-image.png" />
+
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="assets/favicon-32.png" sizes="32x32" type="image/png" />
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+  <link rel="manifest" href="site.webmanifest" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="preload" as="image" href="assets/art/hogs-and-dogs-1600.jpg" media="(min-width: 700px)" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Glitch Gaming Studios",
+    "slogan": "Build. Play. Glitch.",
+    "description": "Independent game development studio creating original web games, simulations, racing experiences, and interactive worlds."
+  }
+  </script>
+</head>
+<body class="is-loading">
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <!-- Loader: hidden as soon as the page is ready, skipped with reduced motion. -->
+  <div class="loader" aria-hidden="true">
+    <img src="assets/logo-mark.svg" alt="" width="72" height="72" />
+    <span class="loader__bar"><span></span></span>
+  </div>
+
+  <!-- Background layers: CSS grid + canvas particles. Purely decorative. -->
+  <div class="bg" aria-hidden="true">
+    <div class="bg__grid"></div>
+    <div class="bg__glow"></div>
+    <canvas class="bg__particles"></canvas>
+  </div>
+
+  <header class="nav" data-nav>
+    <div class="nav__inner">
+      <a class="brand" href="#home" aria-label="Glitch Gaming Studios, home">
+        <img src="assets/logo-mark.svg" alt="" width="36" height="36" />
+        <span class="brand__name" data-text="GLITCH GAMING STUDIOS">GLITCH GAMING STUDIOS</span>
+      </a>
+
+      <nav class="nav__links" id="site-menu" aria-label="Main">
+        <a href="#home" data-link="home">Home</a>
+        <a href="#games" data-link="games">Games</a>
+        <a href="#about" data-link="about">About</a>
+        <a href="#updates" data-link="updates">Updates</a>
+        <a href="#contact" data-link="contact">Contact</a>
+        <a class="btn btn--primary nav__cta" href="#games">Play our games</a>
+      </nav>
+
+      <button class="burger" type="button" aria-controls="site-menu" aria-expanded="false" aria-label="Open menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- HOME / HERO ───────────────────────────────────────────────────────── -->
+    <section class="hero" id="home" aria-labelledby="hero-title">
+      <div class="hero__art" aria-hidden="true">
+        <div class="hero__horizon"></div>
+        <div class="hero__floor"></div>
+        <div class="hero__streaks"><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="hero__scan"></div>
+      </div>
+
+      <div class="wrap hero__content">
+        <p class="eyebrow reveal"><span class="eyebrow__dot"></span>Glitch Gaming Studios</p>
+        <h1 class="hero__title reveal" id="hero-title">
+          <span class="glitch" data-text="WE BUILD WORLDS">WE BUILD WORLDS</span>
+          <span class="hero__title-2">YOU CAN PLAY.</span>
+        </h1>
+        <p class="hero__lede reveal">Independent game development focused on racing, simulation, competition, and experiences built to keep players coming back.</p>
+        <div class="hero__actions reveal">
+          <a class="btn btn--primary btn--lg" href="#games">Explore our games</a>
+          <a class="btn btn--ghost btn--lg" href="#about">About the studio</a>
+        </div>
+        <ul class="ticker reveal" aria-label="Our games" data-ticker></ul>
+      </div>
+
+      <a class="scroll-cue" href="#games" aria-label="Scroll to games"><span></span></a>
+    </section>
+
+    <!-- FEATURED GAMES ────────────────────────────────────────────────────── -->
+    <section class="section" id="games" aria-labelledby="games-title">
+      <div class="wrap">
+        <header class="section__head reveal">
+          <p class="kicker">01 / Games</p>
+          <h2 id="games-title">Featured games</h2>
+          <p class="section__sub">Games currently being built by Glitch Gaming Studios.</p>
+        </header>
+        <div class="games" data-games>
+          <noscript>
+            <p><a href="https://hogs-and-dogs.vercel.app">Hogs &amp; Dogs</a> (playable now) and Roll For Glory (coming soon).</p>
+          </noscript>
+        </div>
+      </div>
+    </section>
+
+    <!-- STUDIO STATS ──────────────────────────────────────────────────────── -->
+    <section class="stats-band" aria-label="Studio at a glance">
+      <div class="wrap">
+        <dl class="stats" data-stats></dl>
+      </div>
+    </section>
+
+    <!-- ABOUT ─────────────────────────────────────────────────────────────── -->
+    <section class="section" id="about" aria-labelledby="about-title">
+      <div class="wrap about">
+        <div class="about__copy">
+          <header class="section__head section__head--left reveal">
+            <p class="kicker">02 / Studio</p>
+            <h2 id="about-title">About Glitch</h2>
+          </header>
+          <p class="about__lead reveal">Glitch Gaming Studios is an independent game development studio focused on creating original games with personality, progression, and replayability.</p>
+          <p class="reveal">The studio is building a growing collection of games across different genres, from ranch and hunting simulation to street racing. Each one is designed around systems that reward coming back: things to build, things to earn, and a reputation that's yours.</p>
+
+          <h3 class="focus__title reveal">Our focus</h3>
+          <ul class="focus reveal">
+            <li>Game Development</li>
+            <li>Web Games</li>
+            <li>Simulation</li>
+            <li>Racing</li>
+            <li>Interactive Worlds</li>
+            <li>Experimental Ideas</li>
+          </ul>
+        </div>
+
+        <div class="panel hud reveal" aria-hidden="true">
+          <div class="hud__top"><span>SYS://GLITCH</span><span class="hud__live">ONLINE</span></div>
+          <div class="hud__core">
+            <img src="assets/logo-mark.svg" alt="" width="120" height="120" loading="lazy" />
+            <span class="hud__ring"></span><span class="hud__ring hud__ring--2"></span>
+          </div>
+          <div class="hud__rows">
+            <div><span>BUILD</span><i style="--w:86%"></i></div>
+            <div><span>PLAY</span><i style="--w:72%"></i></div>
+            <div><span>GLITCH</span><i style="--w:94%"></i></div>
+          </div>
+          <div class="hud__foot">BUILD. PLAY. GLITCH.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FOUNDER ───────────────────────────────────────────────────────────── -->
+    <section class="section section--tight" aria-labelledby="founder-title">
+      <div class="wrap founder">
+        <header class="section__head section__head--left reveal">
+          <p class="kicker">03 / Founder</p>
+          <h2 id="founder-title">Built from the ground up</h2>
+          <p class="section__sub">Glitch Gaming Studios is a creator-led studio focused on turning ideas into playable experiences.</p>
+        </header>
+        <article class="panel founder__card reveal" data-founder></article>
+      </div>
+    </section>
+
+    <!-- DEV LOG ───────────────────────────────────────────────────────────── -->
+    <section class="section" id="updates" aria-labelledby="updates-title">
+      <div class="wrap">
+        <header class="section__head reveal">
+          <p class="kicker">04 / Updates</p>
+          <h2 id="updates-title">Dev log</h2>
+          <p class="section__sub">Development notes from the studio.</p>
+        </header>
+        <div class="log" data-log></div>
+      </div>
+    </section>
+
+    <!-- CONTACT ───────────────────────────────────────────────────────────── -->
+    <section class="section" id="contact" aria-labelledby="contact-title">
+      <div class="wrap contact">
+        <div class="contact__copy">
+          <header class="section__head section__head--left reveal">
+            <p class="kicker">05 / Contact</p>
+            <h2 id="contact-title">Let's build something</h2>
+          </header>
+          <p class="reveal">Have a project, collaboration idea, or just want to follow what we're building?</p>
+          <div class="contact__actions reveal">
+            <a class="btn btn--primary" href="#contact-form">Contact</a>
+            <a class="btn btn--ghost" href="#footer-social">Follow the studio</a>
+          </div>
+        </div>
+
+        <form class="panel form reveal" id="contact-form" novalidate data-contact>
+          <div class="field">
+            <label for="cf-name">Name</label>
+            <input id="cf-name" name="name" type="text" autocomplete="name" required maxlength="120" />
+          </div>
+          <div class="field">
+            <label for="cf-email">Email</label>
+            <input id="cf-email" name="email" type="email" autocomplete="email" inputmode="email" required maxlength="200" />
+          </div>
+          <div class="field">
+            <label for="cf-message">Message</label>
+            <textarea id="cf-message" name="message" rows="5" required maxlength="4000"></textarea>
+          </div>
+          <!-- Honeypot: real people never see or fill this. -->
+          <div class="hp" aria-hidden="true">
+            <label for="cf-website">Website</label>
+            <input id="cf-website" name="website" type="text" tabindex="-1" autocomplete="off" />
+          </div>
+          <button class="btn btn--primary btn--block" type="submit">Send message</button>
+          <p class="form__status" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer__inner">
+      <div class="footer__brand">
+        <a class="brand" href="#home">
+          <img src="assets/logo-mark.svg" alt="" width="32" height="32" loading="lazy" />
+          <span class="brand__name">GLITCH GAMING STUDIOS</span>
+        </a>
+        <p class="footer__tag">BUILD. PLAY. GLITCH.</p>
+      </div>
+      <nav class="footer__links" aria-label="Footer">
+        <a href="#games">Games</a>
+        <a href="#about">About</a>
+        <a href="#updates">Dev Updates</a>
+        <a href="#contact">Contact</a>
+      </nav>
+      <ul class="social" id="footer-social" aria-label="Social" data-social></ul>
+    </div>
+    <div class="wrap footer__legal">
+      <p>© 2026 Glitch Gaming Studios. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <!-- Game detail and dev log posts open in this dialog. -->
+  <dialog class="modal" data-modal aria-labelledby="modal-title">
+    <div class="modal__inner" data-modal-body></div>
+    <button class="modal__close" type="button" data-modal-close aria-label="Close" autofocus>×</button>
+  </dialog>
+
+  <noscript>
+    <style>.reveal{opacity:1!important;transform:none!important}.loader{display:none!important}</style>
+  </noscript>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
