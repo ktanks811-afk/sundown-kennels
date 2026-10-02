@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <title>Glitch Gaming Studios</title>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3dffa8"/>
+      <stop offset="0.55" stop-color="#2de2ff"/>
+      <stop offset="1" stop-color="#8b5cff"/>
+    </linearGradient>
+    <!-- The G is drawn once and cut into three bands. The thin band above the
+         crossbar is knocked sideways and split into colour channels: the glitch. -->
+    <path id="G" d="M43.5 20.5 A15 15 0 1 0 47 32 H33" fill="none" stroke-width="6.5" stroke-linecap="butt"/>
+    <clipPath id="above"><rect x="0" y="0" width="64" height="23.5"/></clipPath>
+    <clipPath id="slice"><rect x="0" y="23.5" width="64" height="5"/></clipPath>
+    <clipPath id="below"><rect x="0" y="28.5" width="64" height="35.5"/></clipPath>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="15" fill="#07080c"/>
+  <rect x="2.75" y="2.75" width="58.5" height="58.5" rx="14.25" fill="none" stroke="url(#g)" stroke-opacity="0.55" stroke-width="1.5"/>
+  <use href="#G" stroke="url(#g)" clip-path="url(#above)"/>
+  <g clip-path="url(#slice)">
+    <use href="#G" stroke="#8b5cff" transform="translate(-3.5 0)"/>
+    <use href="#G" stroke="#2de2ff" transform="translate(2.5 0)" opacity="0.9"/>
+  </g>
+  <use href="#G" stroke="url(#g)" clip-path="url(#below)"/>
+</svg>
