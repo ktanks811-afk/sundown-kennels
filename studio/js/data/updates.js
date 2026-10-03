@@ -6,7 +6,7 @@
 // been announced. Replace them with real posts as you write them:
 //
 //   date         ISO date string ("2026-11-04") — or null to show "Date TBA"
-//   category     short tag, e.g. "Hogs & Dogs", "Studio", "Roll For Glory"
+//   category     short tag, e.g. "Hogs & Dogs", "Studio", "Murda Worth Street Racing"
 //   title        headline
 //   summary      one or two sentences for the card
 //   body         paragraphs shown when someone clicks READ MORE
@@ -33,12 +33,12 @@ export const updates = [
   {
     id: "roll-for-glory-begins",
     date: null,
-    category: "Roll For Glory",
-    title: "Roll For Glory development begins",
+    category: "Murda Worth Street Racing",
+    title: "Murda Worth Street Racing development begins",
     summary:
       "The studio's next project: a street racing and life simulation game built around cars, reputation and risk.",
     body: [
-      "Roll For Glory is in early development. It isn't playable yet and has no release date.",
+      "Murda Worth Street Racing is in early development. It isn't playable yet and has no release date.",
       "This is a placeholder entry. Development updates will appear here as the game takes shape.",
     ],
     placeholder: true,
