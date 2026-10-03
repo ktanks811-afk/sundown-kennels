@@ -10,7 +10,7 @@ studio/
   js/main.js            renders the data below and runs the interactions
   js/data/games.js      ← the games (add a game here)
   js/data/updates.js    ← dev log posts
-  js/data/site.js       ← social links, founder card, contact form endpoint
+  js/data/site.js       ← social links, team, contact form endpoint
   assets/               logo, favicons, share image, game art
   site.webmanifest
 ```
@@ -22,7 +22,7 @@ studio/
 - **Post a dev log update:** add an entry at the top of `js/data/updates.js`
   with a real `date` and `placeholder: false`. The three entries there now are
   placeholders and are labelled as such on the site.
-- **Socials, founder photo/bio:** `js/data/site.js`. Blank values show as
+- **Socials, team:** `js/data/site.js`. Blank values show as
   "Soon" / a placeholder rather than dead links.
 - **Contact form:** it validates and then says plainly that it isn't connected
   until `contactEndpoint` in `js/data/site.js` is set (a Formspree form URL

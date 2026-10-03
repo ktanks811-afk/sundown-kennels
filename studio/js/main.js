@@ -80,30 +80,25 @@ function renderStats() {
     .join("");
 }
 
-function renderFounder() {
-  const f = site.founder;
-  const photo = f.photo
-    ? `<img class="founder__photo" src="${esc(f.photo)}" alt="${esc(f.name || f.role)}" width="160" height="160" loading="lazy" />`
-    : `<div class="founder__photo founder__photo--empty" aria-hidden="true"><img src="assets/logo-mark.svg" alt="" width="64" height="64" loading="lazy" /></div>`;
-  const socials = site.socials.filter((s) => safeUrl(s.url));
-  $("[data-founder]").innerHTML = `
-    ${photo}
-    <div class="founder__info">
-      <p class="founder__role">${esc(f.role)}</p>
-      ${f.name ? `<h3 class="founder__name">${esc(f.name)}</h3>` : ""}
-      ${
-        f.bio
-          ? `<p>${esc(f.bio)}</p>`
-          : `<p class="founder__placeholder">Photo, bio and links coming soon.</p>`
-      }
-      ${
-        socials.length
-          ? `<p class="founder__links">${socials
-              .map((s) => `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.label)}</a>`)
-              .join("")}</p>`
-          : ""
-      }
-    </div>`;
+function renderTeam() {
+  $("[data-team]").innerHTML = site.team
+    .map((m) => {
+      const photo = m.photo
+        ? `<img class="member__photo" src="${esc(m.photo)}" alt="${esc(m.name)}" width="120" height="120" loading="lazy" />`
+        : `<div class="member__photo member__photo--empty" aria-hidden="true"><span>${esc(
+            m.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join("")
+          )}</span></div>`;
+      return `
+    <article class="panel member reveal">
+      ${photo}
+      <div class="member__info">
+        <p class="member__role">${esc(m.role)}</p>
+        <h3 class="member__name">${esc(m.name)}</h3>
+        ${m.bio ? `<p class="member__bio">${esc(m.bio)}</p>` : ""}
+      </div>
+    </article>`;
+    })
+    .join("");
 }
 
 const fmtDate = (iso) =>
@@ -435,7 +430,7 @@ function initContact() {
 renderTicker();
 renderGames();
 renderStats();
-renderFounder();
+renderTeam();
 renderLog();
 renderSocial();
 

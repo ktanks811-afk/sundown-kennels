@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // SITE SETTINGS
 //
-// Social links, the founder card and the contact form endpoint. Anything left
+// Social links, the team and the contact form endpoint. Anything left
 // empty is shown as "coming soon" rather than as a dead link.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -15,15 +15,23 @@ export const site = {
     { id: "discord", label: "Discord", url: "" },
   ],
 
-  // The founder card in the "Built from the ground up" section. Leave name,
-  // photo and bio blank to keep the placeholder; fill any of them in and the
-  // card picks them up.
-  founder: {
-    role: "Founder & Game Developer",
-    name: "",
-    photo: "", // e.g. "assets/founder.jpg" (square, at least 480×480)
-    bio: "", // a sentence or two in your own words
-  },
+  // The team cards in the "Built from the ground up" section, in the order
+  // shown. Add a person by copying an entry. photo and bio are optional; a
+  // blank one shows the placeholder instead.
+  team: [
+    {
+      name: "Kimari Tanks",
+      role: "Lead Developer",
+      photo: "", // e.g. "assets/team/kimari.jpg" (square, at least 480×480)
+      bio: "", // a sentence or two in their own words
+    },
+    {
+      name: "Lawrence Millender",
+      role: "Idea Junkie",
+      photo: "",
+      bio: "",
+    },
+  ],
 
   // ── Contact form ──────────────────────────────────────────────────────────
   // There is no backend yet, so the form validates input and then tells the
