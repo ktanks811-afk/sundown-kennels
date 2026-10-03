@@ -226,7 +226,7 @@ ${windmill}
 `;
 }
 
-// ─── Roll For Glory ─────────────────────────────────────────────────────────
+// ─── Murda Worth Street Racing ─────────────────────────────────────────────────────
 function rollForGlory() {
   const r = rng(42);
   const HZ = 540;
@@ -321,7 +321,7 @@ function rollForGlory() {
   }
   const needleA = Math.PI * (0.8 + 0.86 * 1.4);
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Roll For Glory key art illustration">
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Murda Worth Street Racing key art illustration">
 <defs>
   <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
     <stop offset="0" stop-color="#04030a"/>

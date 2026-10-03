@@ -55,7 +55,7 @@ export const games = [
   },
   {
     id: "roll-for-glory",
-    title: "Roll For Glory",
+    title: "Murda Worth Street Racing",
     category: ["Racing", "Street", "Life Simulation"],
     description:
       "Build your car, build your reputation, and race your way through a world where every run can change everything.",
